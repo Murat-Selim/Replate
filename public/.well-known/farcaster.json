@@ -1,0 +1,19 @@
+{
+    "accountAssociation": {
+        "header": "eyJmaWQiOiA4ODg4ODgsICJ0eXBlIjogImN1c3RvZHkiLCAia2V5IjogIjB4MDAwLi4uIn0",
+        "payload": "ZXlKaGJHY2lPaUpTVXpJMU5pSXNJblI1Y0NJNklrcHhXRE0yTmk0eE16SXNJbXRsZUNJNklpSnpkV0k0T0RnNE9Ea3NJbk4xWW1OcmFXWmxJanA3SW5acFpDSN6SjBKRE5UazNOMFpCTWpVelIwRTRRVUV6TVRNNFJqWXhORU16TWpRelJWTXhNVEUyUVRZMU5EUTRNVFE0Tnpjek16UXpkR1EzT0RNNFFUUTNOREU0TlRVelF6WTFNRFEwTXpVelFUQTNOVEF5TXpRM09EZ3laRGxpTVRFeU16RTFjekV6TlRVelFUQXpORGN6TXpSek5Ea3pSek0xTXpNMk1ERTNORGczTXpSek5ERTNOREEzTVRNNFJqWTBNRFExTlRNek1ETXhOREUxTmpJeU1ERTNNekV3TmpRMk1ERTFORFE0Tnpjek16UVzaM0owSWpvaU9YQTBNQ0lzSW10bGVDSjkt",
+        "signature": "MHhiOTI1Zjk1ZGNmZmY5YmIyMGYyYmI3ODU4YmIyMDljOTEwZmZkZGYzMTU0YjVkYmYyMjdmM2FlM2Q5ZDUwYTc0MzdmMzc1YmJhNzRjNTA0NWIyZmYyMjZkYmIyMDljOTEwZmZkZGYzMTU0YjVkYmYyMjdmM2FlM2Q5ZDUwYTc0"
+    },
+    "frame": {
+        "version": "1",
+        "name": "Replate",
+        "description": "Shop just enough. Waste nothing. Earn NFTs for every verified zero-waste grocery run.",
+        "iconUrl": "https://replate.app/icon.png",
+        "homeUrl": "https://replate.app",
+        "imageUrl": "https://replate.app/og.png",
+        "buttonTitle": "Shop Smart",
+        "splashImageUrl": "https://replate.app/splash.png",
+        "splashBackgroundColor": "#2d6a4f",
+        "webhookUrl": "https://replate.app/api/webhook"
+    }
+}
