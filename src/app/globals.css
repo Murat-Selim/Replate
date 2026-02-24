@@ -1,96 +1,48 @@
 @import "tailwindcss";
 
-@layer base {
-  :root {
-    --primary: #1b4332;
-    --primary-light: #2d6a4f;
-    --accent: #52b788;
-    --background: #f7fdfa;
-    /* Fixed background color */
-    --foreground: #1b4332;
-    --text-muted: #52796f;
-    --button-bg: #1b4332;
-    --button-text: #ffffff;
-  }
-
-  body {
-    background: radial-gradient(circle at center, #f7fdfa 0%, #e8f5ed 100%);
-    color: var(--foreground);
-    min-height: 100vh;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    margin: 0;
-    padding: 0;
-  }
+@theme {
+  --color-brand-primary: #1a3e2f;
+  --color-brand-secondary: #2d5a4c;
+  --color-brand-accent: #eef3f1;
+  --color-brand-surface: #ffffff;
+  --color-brand-background: #f8faf9;
+  --color-brand-text: #1a3e2f;
+  --color-brand-text-muted: #6b7280;
+  
+  --font-heading: "Outfit", sans-serif;
+  --font-body: "Inter", sans-serif;
 }
 
-@theme inline {
-  --color-primary: var(--primary);
-  --color-accent: var(--accent);
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+:root {
+  --background: #f8faf9;
+  --foreground: #1a3e2f;
+  --brand-primary: #1a3e2f;
 }
 
-/* Minimalist Components */
-.btn-primary {
-  background-color: var(--button-bg);
-  color: var(--button-text);
-  padding: 1.25rem 2.5rem;
-  border-radius: 9999px;
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
   font-weight: 700;
-  font-size: 1.125rem;
-  transition: all 0.2s ease;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }
 
-.btn-primary:active {
-  transform: scale(0.98);
-  opacity: 0.9;
-}
-
-.glass-panel {
-  background: rgba(255, 255, 255, 0.5);
+.glass-card {
+  background: rgba(255, 255, 255, 0.8);
   backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
   border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 24px;
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
 }
 
-.plate-card {
-  background: white;
-  border-radius: 50%;
-  aspect-ratio: 1/1;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+.nav-item-active {
+  color: var(--brand-primary);
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.animate-fadeIn {
-  animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.custom-scrollbar::-webkit-scrollbar {
-  width: 4px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: var(--accent);
-  border-radius: 10px;
+.nav-item-inactive {
+  color: #9ca3af;
 }
