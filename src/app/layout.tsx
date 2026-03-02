@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Outfit } from "next/font/google";
 import "./globals.css";
+import MiniAppReady from "@/components/MiniAppReady";
 
 const inter = Inter({
   variable: "--font-body",
@@ -27,6 +28,7 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${outfit.variable} antialiased selection:bg-brand-primary selection:text-white`}
       >
+        <MiniAppReady />
         {children}
       </body>
     </html>

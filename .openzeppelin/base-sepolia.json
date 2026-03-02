@@ -1,0 +1,533 @@
+{
+  "manifestVersion": "3.2",
+  "proxies": [
+    {
+      "address": "0xb9b7BD63E098ABd55605312933899fC4f3EF59F8",
+      "txHash": "0xd745bdd03f767341ba8fa9b7b3d1bb4d107d31e9fcd6eb4c5ee5f59b6642c1b0",
+      "kind": "uups"
+    }
+  ],
+  "impls": {
+    "66d5e347d9b124b61b608a946c143cbd37fabd08b8492fff7a7666f22d47a5a5": {
+      "address": "0xb3c819bfe5383cc24555022566243267b6f9DdAf",
+      "txHash": "0x7fb911f45070ccd08f4c985182b4f74862284c2bb84b86d42407f9be5b826cc0",
+      "layout": {
+        "solcVersion": "0.8.22",
+        "storage": [
+          {
+            "label": "currentPhase",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_enum(Phase)4462",
+            "contract": "ReplateQuest",
+            "src": "contracts\\ReplateQuest.sol:25"
+          },
+          {
+            "label": "validator",
+            "offset": 1,
+            "slot": "0",
+            "type": "t_address",
+            "contract": "ReplateQuest",
+            "src": "contracts\\ReplateQuest.sol:55"
+          },
+          {
+            "label": "pendingValidator",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_address",
+            "contract": "ReplateQuest",
+            "src": "contracts\\ReplateQuest.sol:56"
+          },
+          {
+            "label": "devWallet",
+            "offset": 0,
+            "slot": "2",
+            "type": "t_address",
+            "contract": "ReplateQuest",
+            "src": "contracts\\ReplateQuest.sol:58"
+          },
+          {
+            "label": "pendingDevWallet",
+            "offset": 0,
+            "slot": "3",
+            "type": "t_address",
+            "contract": "ReplateQuest",
+            "src": "contracts\\ReplateQuest.sol:58"
+          },
+          {
+            "label": "usdc",
+            "offset": 0,
+            "slot": "4",
+            "type": "t_contract(IERC20)2488",
+            "contract": "ReplateQuest",
+            "src": "contracts\\ReplateQuest.sol:58"
+          },
+          {
+            "label": "nextTokenId",
+            "offset": 0,
+            "slot": "5",
+            "type": "t_uint256",
+            "contract": "ReplateQuest",
+            "src": "contracts\\ReplateQuest.sol:59"
+          },
+          {
+            "label": "weeklyPool",
+            "offset": 0,
+            "slot": "6",
+            "type": "t_uint256",
+            "contract": "ReplateQuest",
+            "src": "contracts\\ReplateQuest.sol:63"
+          },
+          {
+            "label": "devFund",
+            "offset": 0,
+            "slot": "7",
+            "type": "t_uint256",
+            "contract": "ReplateQuest",
+            "src": "contracts\\ReplateQuest.sol:64"
+          },
+          {
+            "label": "receipts",
+            "offset": 0,
+            "slot": "8",
+            "type": "t_mapping(t_address,t_array(t_struct(Receipt)4486_storage)dyn_storage)",
+            "contract": "ReplateQuest",
+            "src": "contracts\\ReplateQuest.sol:76"
+          },
+          {
+            "label": "totalPoints",
+            "offset": 0,
+            "slot": "9",
+            "type": "t_mapping(t_address,t_uint256)",
+            "contract": "ReplateQuest",
+            "src": "contracts\\ReplateQuest.sol:78"
+          },
+          {
+            "label": "streak",
+            "offset": 0,
+            "slot": "10",
+            "type": "t_mapping(t_address,t_uint256)",
+            "contract": "ReplateQuest",
+            "src": "contracts\\ReplateQuest.sol:79"
+          },
+          {
+            "label": "hasBadge",
+            "offset": 0,
+            "slot": "11",
+            "type": "t_mapping(t_address,t_bool)",
+            "contract": "ReplateQuest",
+            "src": "contracts\\ReplateQuest.sol:80"
+          },
+          {
+            "label": "weeklyReports",
+            "offset": 0,
+            "slot": "12",
+            "type": "t_mapping(t_address,t_mapping(t_uint256,t_struct(WeeklyReport)4495_storage))",
+            "contract": "ReplateQuest",
+            "src": "contracts\\ReplateQuest.sol:81"
+          },
+          {
+            "label": "weekDistributed",
+            "offset": 0,
+            "slot": "13",
+            "type": "t_mapping(t_uint256,t_bool)",
+            "contract": "ReplateQuest",
+            "src": "contracts\\ReplateQuest.sol:87"
+          },
+          {
+            "label": "weekFinalized",
+            "offset": 0,
+            "slot": "14",
+            "type": "t_mapping(t_address,t_mapping(t_uint256,t_bool))",
+            "contract": "ReplateQuest",
+            "src": "contracts\\ReplateQuest.sol:90"
+          },
+          {
+            "label": "lastReceiptDay",
+            "offset": 0,
+            "slot": "15",
+            "type": "t_mapping(t_address,t_uint256)",
+            "contract": "ReplateQuest",
+            "src": "contracts\\ReplateQuest.sol:92"
+          },
+          {
+            "label": "lastCheckInDay",
+            "offset": 0,
+            "slot": "16",
+            "type": "t_mapping(t_address,t_uint256)",
+            "contract": "ReplateQuest",
+            "src": "contracts\\ReplateQuest.sol:95"
+          },
+          {
+            "label": "checkInStreak",
+            "offset": 0,
+            "slot": "17",
+            "type": "t_mapping(t_address,t_uint256)",
+            "contract": "ReplateQuest",
+            "src": "contracts\\ReplateQuest.sol:96"
+          },
+          {
+            "label": "totalCheckIns",
+            "offset": 0,
+            "slot": "18",
+            "type": "t_mapping(t_address,t_uint256)",
+            "contract": "ReplateQuest",
+            "src": "contracts\\ReplateQuest.sol:97"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_mapping(t_address,t_bool)": {
+            "label": "mapping(address => bool)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_mapping(t_address,t_bool))": {
+            "label": "mapping(address => mapping(address => bool))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_uint256)": {
+            "label": "mapping(address => uint256)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_address)": {
+            "label": "mapping(uint256 => address)",
+            "numberOfBytes": "32"
+          },
+          "t_string_storage": {
+            "label": "string",
+            "numberOfBytes": "32"
+          },
+          "t_struct(ERC721Storage)169_storage": {
+            "label": "struct ERC721Upgradeable.ERC721Storage",
+            "members": [
+              {
+                "label": "_name",
+                "type": "t_string_storage",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "_symbol",
+                "type": "t_string_storage",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "_owners",
+                "type": "t_mapping(t_uint256,t_address)",
+                "offset": 0,
+                "slot": "2"
+              },
+              {
+                "label": "_balances",
+                "type": "t_mapping(t_address,t_uint256)",
+                "offset": 0,
+                "slot": "3"
+              },
+              {
+                "label": "_tokenApprovals",
+                "type": "t_mapping(t_uint256,t_address)",
+                "offset": 0,
+                "slot": "4"
+              },
+              {
+                "label": "_operatorApprovals",
+                "type": "t_mapping(t_address,t_mapping(t_address,t_bool))",
+                "offset": 0,
+                "slot": "5"
+              }
+            ],
+            "numberOfBytes": "192"
+          },
+          "t_struct(InitializableStorage)7_storage": {
+            "label": "struct Initializable.InitializableStorage",
+            "members": [
+              {
+                "label": "_initialized",
+                "type": "t_uint64",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "_initializing",
+                "type": "t_bool",
+                "offset": 8,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(PausableStorage)495_storage": {
+            "label": "struct PausableUpgradeable.PausableStorage",
+            "members": [
+              {
+                "label": "_paused",
+                "type": "t_bool",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(ReentrancyGuardStorage)559_storage": {
+            "label": "struct ReentrancyGuardUpgradeable.ReentrancyGuardStorage",
+            "members": [
+              {
+                "label": "_status",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_uint64": {
+            "label": "uint64",
+            "numberOfBytes": "8"
+          },
+          "t_array(t_struct(Receipt)4486_storage)dyn_storage": {
+            "label": "struct ReplateQuest.Receipt[]",
+            "numberOfBytes": "32"
+          },
+          "t_contract(IERC20)2488": {
+            "label": "contract IERC20",
+            "numberOfBytes": "20"
+          },
+          "t_enum(Phase)4462": {
+            "label": "enum ReplateQuest.Phase",
+            "members": [
+              "FREE",
+              "PAID"
+            ],
+            "numberOfBytes": "1"
+          },
+          "t_mapping(t_address,t_array(t_struct(Receipt)4486_storage)dyn_storage)": {
+            "label": "mapping(address => struct ReplateQuest.Receipt[])",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_mapping(t_uint256,t_bool))": {
+            "label": "mapping(address => mapping(uint256 => bool))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_mapping(t_uint256,t_struct(WeeklyReport)4495_storage))": {
+            "label": "mapping(address => mapping(uint256 => struct ReplateQuest.WeeklyReport))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_bool)": {
+            "label": "mapping(uint256 => bool)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_struct(WeeklyReport)4495_storage)": {
+            "label": "mapping(uint256 => struct ReplateQuest.WeeklyReport)",
+            "numberOfBytes": "32"
+          },
+          "t_struct(Receipt)4486_storage": {
+            "label": "struct ReplateQuest.Receipt",
+            "members": [
+              {
+                "label": "timestamp",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "healthScore",
+                "type": "t_uint8",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "nutritionScore",
+                "type": "t_uint8",
+                "offset": 1,
+                "slot": "1"
+              },
+              {
+                "label": "totalItems",
+                "type": "t_uint8",
+                "offset": 2,
+                "slot": "1"
+              },
+              {
+                "label": "healthyItems",
+                "type": "t_uint8",
+                "offset": 3,
+                "slot": "1"
+              },
+              {
+                "label": "unhealthyItems",
+                "type": "t_uint8",
+                "offset": 4,
+                "slot": "1"
+              },
+              {
+                "label": "fruitVegGrams",
+                "type": "t_uint16",
+                "offset": 5,
+                "slot": "1"
+              },
+              {
+                "label": "householdSize",
+                "type": "t_uint8",
+                "offset": 7,
+                "slot": "1"
+              },
+              {
+                "label": "daysCovered",
+                "type": "t_uint8",
+                "offset": 8,
+                "slot": "1"
+              },
+              {
+                "label": "pointsEarned",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "2"
+              }
+            ],
+            "numberOfBytes": "96"
+          },
+          "t_struct(WeeklyReport)4495_storage": {
+            "label": "struct ReplateQuest.WeeklyReport",
+            "members": [
+              {
+                "label": "totalPoints",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "receiptCount",
+                "type": "t_uint8",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "avgHealthScore",
+                "type": "t_uint8",
+                "offset": 1,
+                "slot": "1"
+              },
+              {
+                "label": "avgNutritionScore",
+                "type": "t_uint8",
+                "offset": 2,
+                "slot": "1"
+              }
+            ],
+            "numberOfBytes": "64"
+          },
+          "t_uint16": {
+            "label": "uint16",
+            "numberOfBytes": "2"
+          },
+          "t_uint8": {
+            "label": "uint8",
+            "numberOfBytes": "1"
+          }
+        },
+        "namespaces": {
+          "erc7201:openzeppelin.storage.ReentrancyGuard": [
+            {
+              "contract": "ReentrancyGuardUpgradeable",
+              "label": "_status",
+              "type": "t_uint256",
+              "src": "@openzeppelin\\contracts-upgradeable\\utils\\ReentrancyGuardUpgradeable.sol:40",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Pausable": [
+            {
+              "contract": "PausableUpgradeable",
+              "label": "_paused",
+              "type": "t_bool",
+              "src": "@openzeppelin\\contracts-upgradeable\\utils\\PausableUpgradeable.sol:21",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.ERC721": [
+            {
+              "contract": "ERC721Upgradeable",
+              "label": "_name",
+              "type": "t_string_storage",
+              "src": "@openzeppelin\\contracts-upgradeable\\token\\ERC721\\ERC721Upgradeable.sol:27",
+              "offset": 0,
+              "slot": "0"
+            },
+            {
+              "contract": "ERC721Upgradeable",
+              "label": "_symbol",
+              "type": "t_string_storage",
+              "src": "@openzeppelin\\contracts-upgradeable\\token\\ERC721\\ERC721Upgradeable.sol:30",
+              "offset": 0,
+              "slot": "1"
+            },
+            {
+              "contract": "ERC721Upgradeable",
+              "label": "_owners",
+              "type": "t_mapping(t_uint256,t_address)",
+              "src": "@openzeppelin\\contracts-upgradeable\\token\\ERC721\\ERC721Upgradeable.sol:32",
+              "offset": 0,
+              "slot": "2"
+            },
+            {
+              "contract": "ERC721Upgradeable",
+              "label": "_balances",
+              "type": "t_mapping(t_address,t_uint256)",
+              "src": "@openzeppelin\\contracts-upgradeable\\token\\ERC721\\ERC721Upgradeable.sol:34",
+              "offset": 0,
+              "slot": "3"
+            },
+            {
+              "contract": "ERC721Upgradeable",
+              "label": "_tokenApprovals",
+              "type": "t_mapping(t_uint256,t_address)",
+              "src": "@openzeppelin\\contracts-upgradeable\\token\\ERC721\\ERC721Upgradeable.sol:36",
+              "offset": 0,
+              "slot": "4"
+            },
+            {
+              "contract": "ERC721Upgradeable",
+              "label": "_operatorApprovals",
+              "type": "t_mapping(t_address,t_mapping(t_address,t_bool))",
+              "src": "@openzeppelin\\contracts-upgradeable\\token\\ERC721\\ERC721Upgradeable.sol:38",
+              "offset": 0,
+              "slot": "5"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Initializable": [
+            {
+              "contract": "Initializable",
+              "label": "_initialized",
+              "type": "t_uint64",
+              "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:69",
+              "offset": 0,
+              "slot": "0"
+            },
+            {
+              "contract": "Initializable",
+              "label": "_initializing",
+              "type": "t_bool",
+              "src": "@openzeppelin\\contracts-upgradeable\\proxy\\utils\\Initializable.sol:73",
+              "offset": 8,
+              "slot": "0"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,21 @@
+{
+    "compilerOptions": {
+        "target": "ES2020",
+        "module": "commonjs",
+        "moduleResolution": "node",
+        "esModuleInterop": true,
+        "resolveJsonModule": true,
+        "strict": true,
+        "skipLibCheck": true,
+        "forceConsistentCasingInFileNames": true
+    },
+    "include": [
+        "hardhat.config.cts",
+        "hardhat.config.d.ts",
+        "scripts/**/*.ts",
+        "scripts/**/*.cts",
+        "test/**/*.ts",
+        "test/**/*.cts",
+        "contracts/**/*.sol"
+    ]
+}

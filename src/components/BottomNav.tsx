@@ -8,7 +8,6 @@ import { LayoutGrid, Circle, Diamond, BarChart3, User } from "lucide-react";
 const navItems = [
     { icon: LayoutGrid, href: "/", label: "Home" },
     { icon: Circle, href: "/shop", label: "Shop" },
-    { icon: Diamond, href: "/verify", label: "Verify" },
     { icon: BarChart3, href: "/leaderboard", label: "Ranks" },
     { icon: User, href: "/impact", label: "Profile" },
 ];
