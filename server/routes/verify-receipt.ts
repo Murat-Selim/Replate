@@ -15,6 +15,7 @@ interface VerifyReceiptRequest {
 interface VerifyReceiptResponse {
   success: boolean;
   data?: {
+    txHash: string;
     healthScore: number;
     nutritionScore: number;
     totalItems: number;
@@ -23,6 +24,7 @@ interface VerifyReceiptResponse {
     fruitVegGrams: number;
     daysCovered: number;
     pointsEarned: number;
+    badgeMinted: boolean;
     products: ClassificationResult[];
   };
   error?: string;
@@ -70,6 +72,7 @@ router.post("/", async (req: Request, res: Response) => {
     const response: VerifyReceiptResponse = {
       success: true,
       data: {
+        txHash: contractResult.txHash,
         healthScore: contractResult.healthScore,
         nutritionScore: contractResult.nutritionScore,
         totalItems: classification.totalItems,
@@ -78,6 +81,7 @@ router.post("/", async (req: Request, res: Response) => {
         fruitVegGrams: classification.fruitVegGrams,
         daysCovered: contractResult.daysCovered,
         pointsEarned: contractResult.pointsEarned,
+        badgeMinted: contractResult.badgeMinted,
         products: classification.products,
       },
     };

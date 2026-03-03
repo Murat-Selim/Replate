@@ -21,6 +21,8 @@ interface ContractResult {
   nutritionScore: number;
   pointsEarned: number;
   daysCovered: number;
+  txHash: string;
+  badgeMinted: boolean;
 }
 
 function getContract(): Contract {
@@ -44,9 +46,12 @@ function getContract(): Contract {
  * Submit a verified receipt to the smart contract
  */
 export async function submitReceiptToContract(data: ReceiptSubmission): Promise<ContractResult> {
-  // Check if contract is deployed
-  if (CONTRACT_ADDRESS === "0x0000000000000000000000000000000000000000") {
-    console.log("⚠️ Contract not deployed, using mock response");
+  // Check if we have valid RPC URL and private key
+  const rpcUrl = process.env.RPC_URL || process.env.BASE_SEPOLIA_RPC_URL;
+  const privateKey = process.env.VALIDATOR_PRIVATE_KEY;
+  
+  if (!rpcUrl || !privateKey) {
+    console.log("⚠️ Contract not configured, using mock response");
     return mockContractResponse(data);
   }
 
@@ -71,21 +76,27 @@ export async function submitReceiptToContract(data: ReceiptSubmission): Promise<
     console.log(`✅ Transaction confirmed in block ${receipt.blockNumber}`);
 
     // Parse events to get the result
-    const event = receipt.logs.find((log: { topics: string[] }) => 
+    const receiptEvent = receipt.logs.find((log: { topics: string[] }) => 
       log.topics[0] === ethers.id("ReceiptSubmitted(address,uint8,uint8,uint256,uint16,uint16)")
     );
 
-    if (event) {
+    const badgeMinted = !!receipt.logs.find((log: { topics: string[] }) => 
+      log.topics[0] === ethers.id("BadgeMinted(address,uint256)")
+    );
+    
+    if (receiptEvent) {
       const decoded = ethers.AbiCoder.defaultAbiCoder().decode(
         ["uint8", "uint8", "uint256", "uint16", "uint16"],
-        event.data
+        receiptEvent.data
       );
 
       return {
         healthScore: decoded[0],
         nutritionScore: decoded[1],
-        pointsEarned: decoded[2],
+        pointsEarned: Number(decoded[2]),
         daysCovered: data.daysCovered,
+        txHash: tx.hash,
+        badgeMinted,
       };
     }
 
@@ -101,7 +112,10 @@ export async function submitReceiptToContract(data: ReceiptSubmission): Promise<
  * Submit daily check-in for a user
  */
 export async function submitCheckIn(userAddress: string): Promise<{ success: boolean; pointsEarned: number }> {
-  if (CONTRACT_ADDRESS === "0x0000000000000000000000000000000000000000") {
+  const rpcUrl = process.env.RPC_URL || process.env.BASE_SEPOLIA_RPC_URL;
+  const privateKey = process.env.VALIDATOR_PRIVATE_KEY;
+  
+  if (!rpcUrl || !privateKey) {
     return { success: true, pointsEarned: 10 };
   }
 
@@ -121,7 +135,10 @@ export async function submitCheckIn(userAddress: string): Promise<{ success: boo
  * Finalize a user's weekly streak
  */
 export async function finalizeUserWeek(userAddress: string): Promise<{ success: boolean; newStreak: number }> {
-  if (CONTRACT_ADDRESS === "0x0000000000000000000000000000000000000000") {
+  const rpcUrl = process.env.RPC_URL || process.env.BASE_SEPOLIA_RPC_URL;
+  const privateKey = process.env.VALIDATOR_PRIVATE_KEY;
+  
+  if (!rpcUrl || !privateKey) {
     return { success: true, newStreak: 1 };
   }
 
@@ -157,7 +174,10 @@ export async function distributeWeeklyRewards(
   topUsers: string[],
   shares: bigint[]
 ): Promise<{ success: boolean; totalDistributed: bigint }> {
-  if (CONTRACT_ADDRESS === "0x0000000000000000000000000000000000000000") {
+  const rpcUrl = process.env.RPC_URL || process.env.BASE_SEPOLIA_RPC_URL;
+  const privateKey = process.env.VALIDATOR_PRIVATE_KEY;
+  
+  if (!rpcUrl || !privateKey) {
     return { success: true, totalDistributed: BigInt(0) };
   }
 
@@ -177,7 +197,10 @@ export async function distributeWeeklyRewards(
  * Get user summary from contract
  */
 export async function getUserSummary(userAddress: string) {
-  if (CONTRACT_ADDRESS === "0x0000000000000000000000000000000000000000") {
+  const rpcUrl = process.env.RPC_URL || process.env.BASE_SEPOLIA_RPC_URL;
+  const privateKey = process.env.VALIDATOR_PRIVATE_KEY;
+  
+  if (!rpcUrl || !privateKey) {
     return {
       totalPoints: 0,
       level: 0,
@@ -240,10 +263,203 @@ function calculateScores(data: ReceiptSubmission): ContractResult {
     nutritionScore,
     pointsEarned: points,
     daysCovered: data.daysCovered,
+    txHash: "",
+    badgeMinted: false,
   };
 }
 
 // Mock response for development
 function mockContractResponse(data: ReceiptSubmission): ContractResult {
-  return calculateScores(data);
+  const result = calculateScores(data);
+  return {
+    ...result,
+    txHash: "0x0000000000000000000000000000000000000000000000000000000000000000",
+    badgeMinted: false,
+  };
+}
+
+export interface LeaderboardEntry {
+  address: string;
+  totalPoints: number;
+  level: number;
+  streak: number;
+  hasBadge: boolean;
+}
+
+/**
+ * Get leaderboard from contract events
+ * Queries ReceiptSubmitted events to build the leaderboard
+ */
+export async function getLeaderboard(limit: number = 100): Promise<LeaderboardEntry[]> {
+  const rpcUrl = process.env.RPC_URL || process.env.BASE_SEPOLIA_RPC_URL;
+  
+  if (!rpcUrl) {
+    return getMockLeaderboard(limit);
+  }
+
+  try {
+    const provider = new ethers.JsonRpcProvider(rpcUrl);
+    
+    // Get all ReceiptSubmitted events
+    const contract = new Contract(CONTRACT_ADDRESS, REPLATE_QUEST_ABI, provider);
+    
+    // Query events - get from block 0 to latest
+    const filter = contract.filters.ReceiptSubmitted();
+    const events = await contract.queryFilter(filter, 0, 'latest');
+    
+    // Aggregate points by user
+    const userPoints = new Map<string, { points: bigint; hasBadge: boolean }>();
+    
+    for (const event of events) {
+      if (!('args' in event)) continue;
+      const eventArgs = event.args as unknown as [string, number, number, bigint, number, number] | undefined;
+      const user = eventArgs?.[0];
+      const points = eventArgs?.[3];
+      
+      if (user && points) {
+        const existing = userPoints.get(user) || { points: BigInt(0), hasBadge: false };
+        existing.points += points;
+        userPoints.set(user, existing);
+      }
+    }
+    
+    // Get badge status for each user
+    for (const [user] of userPoints) {
+      try {
+        const hasBadge = await contract.hasBadge(user);
+        const existing = userPoints.get(user)!;
+        existing.hasBadge = hasBadge;
+      } catch {
+        // Continue without badge info
+      }
+    }
+    
+    // Convert to array and sort
+    const leaderboard: LeaderboardEntry[] = Array.from(userPoints.entries())
+      .map(([address, data]) => ({
+        address,
+        totalPoints: Number(data.points),
+        level: Math.floor(Number(data.points) / 500),
+        streak: 0, // Would need to query streak separately
+        hasBadge: data.hasBadge,
+      }))
+      .sort((a, b) => b.totalPoints - a.totalPoints)
+      .slice(0, limit);
+    
+    return leaderboard;
+  } catch (error) {
+    console.error("❌ Failed to get leaderboard from contract:", error);
+    return getMockLeaderboard(limit);
+  }
+}
+
+/**
+ * Get user's rank from contract
+ */
+export async function getUserRank(userAddress: string): Promise<LeaderboardEntry | null> {
+  const rpcUrl = process.env.RPC_URL || process.env.BASE_SEPOLIA_RPC_URL;
+  
+  if (!rpcUrl) {
+    return null;
+  }
+
+  try {
+    const provider = new ethers.JsonRpcProvider(rpcUrl);
+    const contract = new Contract(CONTRACT_ADDRESS, REPLATE_QUEST_ABI, provider);
+    
+    const summary = await contract.getUserSummary(userAddress);
+    
+    return {
+      address: userAddress,
+      totalPoints: Number(summary._totalPoints),
+      level: Number(summary._level),
+      streak: Number(summary._receiptStreak),
+      hasBadge: summary._hasBadge,
+    };
+  } catch (error) {
+    console.error("❌ Failed to get user rank:", error);
+    return null;
+  }
+}
+
+/**
+ * Get current week report for a user
+ */
+export async function getUserWeekReport(userAddress: string) {
+  const rpcUrl = process.env.RPC_URL || process.env.BASE_SEPOLIA_RPC_URL;
+  
+  if (!rpcUrl) {
+    return {
+      weekPoints: 0,
+      receiptCount: 0,
+      avgHealthScore: 0,
+      avgNutritionScore: 0,
+    };
+  }
+
+  try {
+    const provider = new ethers.JsonRpcProvider(rpcUrl);
+    const contract = new Contract(CONTRACT_ADDRESS, REPLATE_QUEST_ABI, provider);
+    
+    const report = await contract.getCurrentWeekReport(userAddress);
+    
+    return {
+      weekPoints: Number(report.weekPoints),
+      receiptCount: Number(report.receiptCount),
+      avgHealthScore: Number(report.avgHealthScore),
+      avgNutritionScore: Number(report.avgNutritionScore),
+    };
+  } catch (error) {
+    console.error("❌ Failed to get week report:", error);
+    return {
+      weekPoints: 0,
+      receiptCount: 0,
+      avgHealthScore: 0,
+      avgNutritionScore: 0,
+    };
+  }
+}
+
+function getMockLeaderboard(limit: number): LeaderboardEntry[] {
+  const mock: LeaderboardEntry[] = [
+    { address: "0x1234567890abcdef1234567890abcdef12345678", totalPoints: 12500, level: 25, streak: 8, hasBadge: true },
+    { address: "0x2345678901abcdef2345678901abcdef23456789", totalPoints: 10200, level: 20, streak: 5, hasBadge: true },
+    { address: "0x3456789012abcdef3456789012abcdef34567890", totalPoints: 8500, level: 17, streak: 3, hasBadge: true },
+    { address: "0x4567890123abcdef4567890123abcdef45678901", totalPoints: 7200, level: 14, streak: 2, hasBadge: false },
+    { address: "0x5678901234abcdef5678901234abcdef56789012", totalPoints: 6500, level: 13, streak: 1, hasBadge: false },
+  ];
+  return mock.slice(0, limit);
+}
+
+export interface PoolStatus {
+  weeklyPool: number;
+  devFund: number;
+  currentPhase: number;
+}
+
+/**
+ * Get pool status from contract
+ */
+export async function getPoolStatus(): Promise<PoolStatus> {
+  const rpcUrl = process.env.RPC_URL || process.env.BASE_SEPOLIA_RPC_URL;
+  
+  if (!rpcUrl) {
+    return { weeklyPool: 0, devFund: 0, currentPhase: 0 };
+  }
+
+  try {
+    const provider = new ethers.JsonRpcProvider(rpcUrl);
+    const contract = new Contract(CONTRACT_ADDRESS, REPLATE_QUEST_ABI, provider);
+    
+    const status = await contract.getPoolStatus();
+    
+    return {
+      weeklyPool: Number(status._weeklyPool),
+      devFund: Number(status._devFund),
+      currentPhase: Number(status._currentPhase),
+    };
+  } catch (error) {
+    console.error("❌ Failed to get pool status:", error);
+    return { weeklyPool: 0, devFund: 0, currentPhase: 0 };
+  }
 }

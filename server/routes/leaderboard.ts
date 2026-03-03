@@ -1,45 +1,43 @@
 import { Router, Request, Response } from "express";
-import { ethers } from "ethers";
-import { REPLATE_QUEST_ABI, CONTRACT_ADDRESS } from "../../src/lib/contract";
+import { getLeaderboard, getUserRank, getPoolStatus, LeaderboardEntry } from "../services/contract.js";
 
 const router = Router();
 
-interface LeaderboardEntry {
-  rank: number;
-  address: string;
-  totalPoints: number;
-  level: number;
-  streak: number;
-  hasBadge: boolean;
-}
+type LeaderboardEntryWithRank = LeaderboardEntry & { rank: number };
 
-// In-memory cache with TTL
-let cachedLeaderboard: LeaderboardEntry[] | null = null;
-let cacheTimestamp = 0;
+// In-memory cache with TTL - exported for cache invalidation
+export let cachedLeaderboard: LeaderboardEntryWithRank[] | null = null;
+export let cacheTimestamp = 0;
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+// Add rank to leaderboard entries
+function addRanks(entries: LeaderboardEntry[]): LeaderboardEntryWithRank[] {
+  return entries.map((entry, index) => ({
+    ...entry,
+    rank: index + 1,
+  }));
+}
 
 router.get("/", async (req: Request, res: Response) => {
   try {
     // Check cache
     if (cachedLeaderboard && Date.now() - cacheTimestamp < CACHE_TTL) {
-      res.json({ success: true, data: cachedLeaderboard, cached: true });
+      const poolStatus = await getPoolStatus();
+      res.json({ success: true, data: cachedLeaderboard, poolStatus, cached: true });
       return;
     }
 
-    // For now, return mock data until contract is deployed
-    // In production, this would query the contract events or a subgraph
-    const mockLeaderboard: LeaderboardEntry[] = [
-      { rank: 1, address: "0x1234...5678", totalPoints: 12500, level: 25, streak: 8, hasBadge: true },
-      { rank: 2, address: "0x2345...6789", totalPoints: 10200, level: 20, streak: 5, hasBadge: true },
-      { rank: 3, address: "0x3456...7890", totalPoints: 8500, level: 17, streak: 3, hasBadge: true },
-      { rank: 4, address: "0x4567...8901", totalPoints: 7200, level: 14, streak: 2, hasBadge: false },
-      { rank: 5, address: "0x5678...9012", totalPoints: 6500, level: 13, streak: 1, hasBadge: false },
-    ];
+    // Query contract for leaderboard
+    const leaderboard = await getLeaderboard(100);
+    const leaderboardWithRanks = addRanks(leaderboard);
 
-    cachedLeaderboard = mockLeaderboard;
+    cachedLeaderboard = leaderboardWithRanks;
     cacheTimestamp = Date.now();
 
-    res.json({ success: true, data: mockLeaderboard, cached: false });
+    // Also get pool status
+    const poolStatus = await getPoolStatus();
+
+    res.json({ success: true, data: leaderboardWithRanks, poolStatus, cached: false });
   } catch (error) {
     console.error("❌ Leaderboard fetch failed:", error);
     res.status(500).json({
@@ -59,16 +57,39 @@ router.get("/rank/:address", async (req: Request, res: Response) => {
       return;
     }
 
-    // Mock response - in production, query contract
+    // Get user's data from contract
+    const userData = await getUserRank(address);
+    
+    if (!userData) {
+      res.json({
+        success: true,
+        data: {
+          address,
+          rank: 0,
+          totalPoints: 0,
+          level: 0,
+          streak: 0,
+          hasBadge: false,
+        },
+      });
+      return;
+    }
+
+    // Calculate rank by comparing with leaderboard
+    const leaderboard = await getLeaderboard(1000);
+    const rank = leaderboard.findIndex(entry => 
+      entry.address.toLowerCase() === address.toLowerCase()
+    ) + 1;
+
     res.json({
       success: true,
       data: {
-        address,
-        rank: 42,
-        totalPoints: 3500,
-        level: 7,
-        streak: 2,
-        hasBadge: false,
+        address: userData.address,
+        rank,
+        totalPoints: userData.totalPoints,
+        level: userData.level,
+        streak: userData.streak,
+        hasBadge: userData.hasBadge,
       },
     });
   } catch (error) {

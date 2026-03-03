@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { getUserSummary, submitCheckIn } from "../services/contract.js";
+import { getUserSummary, submitCheckIn, getUserWeekReport } from "../services/contract.js";
 
 const router = Router();
 
@@ -14,10 +14,14 @@ router.get("/:address", async (req: Request, res: Response) => {
     }
 
     const summary = await getUserSummary(address);
+    const weekReport = await getUserWeekReport(address);
 
     res.json({
       success: true,
-      data: summary,
+      data: {
+        ...summary,
+        weekReport,
+      },
     });
   } catch (error) {
     console.error("❌ User summary fetch failed:", error);
@@ -38,15 +42,11 @@ router.get("/:address/week", async (req: Request, res: Response) => {
       return;
     }
 
-    // For now, return mock data since getCurrentWeekReport not implemented
+    const report = await getUserWeekReport(address);
+
     res.json({
       success: true,
-      data: {
-        weekPoints: 0,
-        receiptCount: 0,
-        avgHealthScore: 0,
-        avgNutritionScore: 0,
-      },
+      data: report,
     });
   } catch (error) {
     console.error("❌ Week report fetch failed:", error);

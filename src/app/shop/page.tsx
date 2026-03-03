@@ -6,6 +6,7 @@ import { Minus, Plus, Sparkles, Camera, Check, Loader2, X, Leaf, Star, Trophy } 
 import { sdk } from "@farcaster/miniapp-sdk";
 
 interface VerificationResult {
+    txHash: string;
     healthScore: number;
     nutritionScore: number;
     totalItems: number;
@@ -14,6 +15,7 @@ interface VerificationResult {
     fruitVegGrams: number;
     daysCovered: number;
     pointsEarned: number;
+    badgeMinted: boolean;
 }
 
 interface UserContext {
@@ -122,6 +124,7 @@ export default function SmartShop() {
 ⭐ Earned ${result.pointsEarned} XP
 
 Join me in reducing food waste!`,
+                embeds: ["https://replate.app"],
             });
         } catch (err) {
             console.log("Share cancelled or failed");
@@ -308,6 +311,17 @@ Join me in reducing food waste!`,
                                         <p className="text-2xl font-black text-brand-primary">{result.fruitVegGrams}g</p>
                                         <p className="text-[10px] font-bold text-brand-text/50 uppercase">Fruits & Veg</p>
                                     </div>
+                                </div>
+
+                                {result.badgeMinted && (
+                                    <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-4 text-center">
+                                        <p className="text-lg font-black text-yellow-600">🏆 Badge Earned!</p>
+                                        <p className="text-xs text-yellow-600/70">You've unlocked the Healthy Shopper badge</p>
+                                    </div>
+                                )}
+
+                                <div className="text-xs text-brand-text/40 text-center break-all">
+                                    TX: {result.txHash.slice(0, 10)}...{result.txHash.slice(-8)}
                                 </div>
 
                                 <div className="flex gap-2 pt-2">

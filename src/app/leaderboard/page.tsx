@@ -5,6 +5,12 @@ import Shell from "@/components/Shell";
 import { Trophy, Medal, Award, Loader2 } from "lucide-react";
 import { sdk } from "@farcaster/miniapp-sdk";
 
+interface PoolStatus {
+    weeklyPool: number;
+    devFund: number;
+    currentPhase: number;
+}
+
 interface LeaderboardEntry {
     rank: number;
     address: string;
@@ -16,6 +22,7 @@ interface LeaderboardEntry {
 
 export default function Leaderboard() {
     const [leaders, setLeaders] = useState<LeaderboardEntry[]>([]);
+    const [poolStatus, setPoolStatus] = useState<PoolStatus | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [userAddress, setUserAddress] = useState<string | null>(null);
 
@@ -45,6 +52,7 @@ export default function Leaderboard() {
 
                 if (data.success) {
                     setLeaders(data.data);
+                    setPoolStatus(data.poolStatus);
                 }
             } catch (err) {
                 console.error("Failed to fetch leaderboard:", err);
@@ -83,6 +91,19 @@ export default function Leaderboard() {
                     <h1 className="text-3xl font-bold text-brand-primary">Leaderboard</h1>
                     <p className="text-brand-text/60">Top waste-preventers on Base</p>
                 </div>
+
+                {poolStatus && (
+                    <div className="bg-gradient-to-r from-brand-primary to-brand-secondary rounded-3xl p-6 text-white space-y-2">
+                        <div className="flex justify-between items-center">
+                            <span className="text-white/70 text-sm font-medium">Weekly Prize Pool</span>
+                            <span className="text-2xl font-black">${(poolStatus.weeklyPool / 1e6).toFixed(2)} USDC</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                            <span className="text-white/70 text-sm font-medium">Phase</span>
+                            <span className="font-bold">{poolStatus.currentPhase === 0 ? "FREE" : "PAID"}</span>
+                        </div>
+                    </div>
+                )}
 
                 {isLoading ? (
                     <div className="flex items-center justify-center py-20">

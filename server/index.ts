@@ -9,6 +9,7 @@ import leaderboardRouter from "./routes/leaderboard.js";
 import userRouter from "./routes/user.js";
 import checkInRouter from "./routes/check-in.js";
 import { runWeeklyFinalization } from "./cron/weekly.js";
+import { setupEventListeners, invalidateLeaderboardCache } from "./services/events.js";
 
 dotenv.config();
 
@@ -49,6 +50,9 @@ cron.schedule("0 0 * * 0", async () => {
 app.listen(PORT, () => {
   console.log(`🚀 Replate API server running on port ${PORT}`);
   console.log(`📋 Health check: http://localhost:${PORT}/health`);
+  
+  // Set up event listeners for real-time updates
+  setupEventListeners();
 });
 
 export default app;

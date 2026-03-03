@@ -605,6 +605,39 @@ base = 50
 
 ---
 
+## Current Implementation Status ✅
+
+### Smart Contract - Deployed on Base Sepolia (Testnet)
+| Property | Value |
+|----------|-------|
+| Proxy Contract | [0xb9b7BD63E098ABd55605312933899fC4f3EF59F8](https://sepolia.basescan.org/address/0xb9b7BD63E098ABd55605312933899fC4f3EF59F8) |
+| Implementation | [0xb3c819bfe5383cc24555022566243267b6f9DdAf](https://sepolia.basescan.org/address/0xb3c819bfe5383cc24555022566243267b6f9DdAf) |
+| USDC (Testnet) | 0x036CbD53842c5426634e7929541eC2318f3dCF7e |
+| Network | Base Sepolia (chainId: 84532) |
+| Validator | 0x4A6370Dc13a9a5E63bd4edaA15bbfbf3438f82A5 |
+
+### Backend API - Implemented
+| Endpoint | Method | Status |
+|----------|--------|--------|
+| `/api/verify-receipt` | POST | ✅ Implemented |
+| `/api/leaderboard` | GET | ✅ Implemented |
+| `/api/user` | GET | ✅ Implemented |
+| `/api/check-in` | POST | ✅ Implemented |
+| `/health` | GET | ✅ Implemented |
+
+### Backend Services
+- `server/services/ocr.ts` - Google Cloud Vision OCR ✅
+- `server/services/classifier.ts` - Open Food Facts Classification ✅
+- `server/services/contract.ts` - ethers.js contract interaction ✅
+- `server/cron/weekly.ts` - Weekly finalization cron job ✅
+
+### Frontend Integration
+- Contract address updated in `src/lib/contract.ts` ✅
+- All API endpoints wired ✅
+- Add to Mini App button via `sdk.actions.addMiniApp()` ✅
+
+---
+
 ## Backend API
 
 ### POST /api/verify-receipt
@@ -923,11 +956,19 @@ Deploy to Vercel, then go to `base.dev/preview`, paste your URL to validate mani
 ## Environment Variables
 
 ```env
-# Blockchain
+# Blockchain - Base Sepolia Testnet
 PRIVATE_KEY=0x...                          # Validator wallet private key
-RPC_URL=https://mainnet.base.org           # Base mainnet RPC
-CONTRACT_ADDRESS=0x...                     # Deployed ReplateQuest address
-USDC_ADDRESS=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
+BASE_SEPOLIA_RPC_URL=https://sepolia.base.org
+CONTRACT_ADDRESS=0xb9b7BD63E098ABd55605312933899fC4f3EF59F8
+USDC_ADDRESS=0x036CbD53842c5426634e7929541eC2318f3dCF7e
+
+# For Mainnet later:
+# RPC_URL=https://mainnet.base.org
+# USDC_ADDRESS=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
+
+# Backend Server
+PORT=3001
+FRONTEND_URL=http://localhost:3000
 
 # Google Cloud Vision
 GOOGLE_APPLICATION_CREDENTIALS=./gcloud-key.json
@@ -936,17 +977,12 @@ GOOGLE_APPLICATION_CREDENTIALS=./gcloud-key.json
 NEXT_PUBLIC_MINIKIT_PROJECT_ID=...         # From Coinbase Developer Platform
 NEXT_PUBLIC_URL=https://your-app.vercel.app
 
-# Farcaster Manifest
-NEXT_PUBLIC_FARCASTER_HEADER=...
-NEXT_PUBLIC_FARCASTER_PAYLOAD=...
-NEXT_PUBLIC_FARCASTER_SIGNATURE=...
+# Database (optional - for leaderboard persistence)
+MONGODB_URI=mongodb://...
 
 # Notifications (optional)
 REDIS_URL=...
 REDIS_TOKEN=...
-
-# App
-PORT=3000
 ```
 
 ---

@@ -5,7 +5,6 @@ import Shell from "@/components/Shell";
 import { Flame, Star, Leaf, Share2, Loader2 } from "lucide-react";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { ethers } from "ethers";
-import { CONTRACT_ADDRESS, REPLATE_QUEST_ABI } from "@/lib/contract";
 
 interface UserSummary {
     totalPoints: number;
@@ -15,6 +14,13 @@ interface UserSummary {
     totalCheckIns: number;
     receiptCount: number;
     hasBadge: boolean;
+}
+
+interface WeekReport {
+    weekPoints: number;
+    receiptCount: number;
+    avgHealthScore: number;
+    avgNutritionScore: number;
 }
 
 export default function YourImpact() {
@@ -29,6 +35,12 @@ export default function YourImpact() {
         totalCheckIns: 0,
         receiptCount: 0,
         hasBadge: false,
+    });
+    const [weekReport, setWeekReport] = useState<WeekReport>({
+        weekPoints: 0,
+        receiptCount: 0,
+        avgHealthScore: 0,
+        avgNutritionScore: 0,
     });
     const [error, setError] = useState<string | null>(null);
 
@@ -58,30 +70,29 @@ export default function YourImpact() {
             }
 
             try {
-                const ethProvider = await sdk.wallet.getEthereumProvider();
-                if (!ethProvider) {
-                    throw new Error("No wallet provider");
-                }
-
-                const provider = new ethers.BrowserProvider(ethProvider);
-                const contract = new ethers.Contract(
-                    CONTRACT_ADDRESS,
-                    REPLATE_QUEST_ABI,
-                    provider
+                const response = await fetch(
+                    `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/user/${address}`
                 );
+                const data = await response.json();
 
-                const summary = await contract.getUserSummary(address);
-                setUserData({
-                    totalPoints: Number(summary[0]),
-                    level: Number(summary[1]),
-                    receiptStreak: Number(summary[2]),
-                    checkInStreak: Number(summary[3]),
-                    totalCheckIns: Number(summary[4]),
-                    receiptCount: Number(summary[5]),
-                    hasBadge: summary[6],
-                });
+                if (data.success) {
+                    setUserData({
+                        totalPoints: data.data.totalPoints,
+                        level: data.data.level,
+                        receiptStreak: data.data.receiptStreak,
+                        checkInStreak: data.data.checkInStreak,
+                        totalCheckIns: data.data.totalCheckIns,
+                        receiptCount: data.data.receiptCount,
+                        hasBadge: data.data.hasBadge,
+                    });
+                    if (data.data.weekReport) {
+                        setWeekReport(data.data.weekReport);
+                    }
+                } else {
+                    throw new Error(data.error || "Failed to fetch");
+                }
             } catch (err) {
-                console.log("Contract not available, using demo data");
+                console.log("API not available, using demo data");
                 setUserData({
                     totalPoints: 450,
                     level: 0,
@@ -90,6 +101,12 @@ export default function YourImpact() {
                     totalCheckIns: 12,
                     receiptCount: 8,
                     hasBadge: true,
+                });
+                setWeekReport({
+                    weekPoints: 150,
+                    receiptCount: 3,
+                    avgHealthScore: 75,
+                    avgNutritionScore: 80,
                 });
             } finally {
                 setIsLoading(false);
@@ -143,6 +160,7 @@ export default function YourImpact() {
 🛒 Receipts verified: ${userData.receiptCount}
 
 Join me in reducing food waste!`,
+                embeds: ["https://replate.app"],
             });
         } catch (err) {
             console.log("Share cancelled");
@@ -233,6 +251,23 @@ Join me in reducing food waste!`,
                                 </div>
                             </div>
                         </div>
+
+                        {/* Weekly Report */}
+                        {weekReport.receiptCount > 0 && (
+                            <div className="bg-gradient-to-r from-brand-accent/30 to-brand-primary/10 rounded-3xl p-6 space-y-4">
+                                <h3 className="text-lg font-black text-brand-primary">This Week</h3>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="text-center">
+                                        <p className="text-3xl font-black text-brand-primary">{weekReport.weekPoints}</p>
+                                        <p className="text-xs font-bold text-brand-text/50 uppercase">Week XP</p>
+                                    </div>
+                                    <div className="text-center">
+                                        <p className="text-3xl font-black text-brand-primary">{weekReport.avgHealthScore}</p>
+                                        <p className="text-xs font-bold text-brand-text/50 uppercase">Avg Health</p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
                         {error && (
                             <div className="bg-red-50 border border-red-200 text-red-600 p-4 rounded-2xl text-sm font-medium">

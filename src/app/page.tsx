@@ -1,6 +1,7 @@
+"use client";
+
 import Link from "next/link";
 import Shell from "@/components/Shell";
-import { ShoppingBag, Heart, Coins, Sprout } from "lucide-react";
 
 export default function Home() {
   return (
