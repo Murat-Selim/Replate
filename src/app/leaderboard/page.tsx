@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Shell from "@/components/Shell";
 import { Trophy, Medal, Award, Loader2 } from "lucide-react";
-import { sdk } from "@farcaster/miniapp-sdk";
+import { useBaseAccount } from "@/hooks/useBaseAccount";
 
 interface PoolStatus {
     weeklyPool: number;
@@ -24,25 +24,8 @@ export default function Leaderboard() {
     const [leaders, setLeaders] = useState<LeaderboardEntry[]>([]);
     const [poolStatus, setPoolStatus] = useState<PoolStatus | null>(null);
     const [isLoading, setIsLoading] = useState(true);
-    const [userAddress, setUserAddress] = useState<string | null>(null);
-
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const context = await sdk.context;
-                if (context?.user) {
-                    const ethProvider = await sdk.wallet.getEthereumProvider();
-                    if (ethProvider) {
-                        const accounts = await ethProvider.request({ method: "eth_requestAccounts" });
-                        setUserAddress(accounts?.[0]?.toLowerCase() || null);
-                    }
-                }
-            } catch (err) {
-                console.log("Not in MiniApp context");
-            }
-        };
-        fetchData();
-    }, []);
+    const { address } = useBaseAccount();
+    const userAddress = address?.toLowerCase() || null;
 
     useEffect(() => {
         const fetchLeaderboard = async () => {

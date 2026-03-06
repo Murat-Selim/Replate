@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Outfit } from "next/font/google";
 import "./globals.css";
 import MiniAppReady from "@/components/MiniAppReady";
+import BaseAccountProvider from "@/components/BaseAccountProvider";
 
 const inter = Inter({
   variable: "--font-body",
@@ -13,10 +14,26 @@ const outfit = Outfit({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "Replate - Shop Smart, Save the Planet",
-  description: "AI-powered zero-waste shopping assistant on Base.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+    return {
+        other: {
+        'fc:miniapp': JSON.stringify({
+            version: 'next',
+            imageUrl: 'https://replate61.vercel.app/replate-logo.jpg',
+            button: {
+                title: `Launch Replate`,
+                action: {
+                    type: 'launch_miniapp',
+                    name: 'Replate',
+                    url: 'https://replate61.vercel.app',
+                    splashImageUrl: 'https://replate61.vercel.app/replate-logo.jpg',
+                    splashBackgroundColor: '#000000',
+                },
+            },
+        }),
+        },
+    };
+    }
 
 export default function RootLayout({
   children,
@@ -28,8 +45,10 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${outfit.variable} antialiased selection:bg-brand-primary selection:text-white`}
       >
-        <MiniAppReady />
-        {children}
+        <BaseAccountProvider>
+          <MiniAppReady />
+          {children}
+        </BaseAccountProvider>
       </body>
     </html>
   );

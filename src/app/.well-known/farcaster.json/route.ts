@@ -15,25 +15,25 @@ export async function GET() {
         "miniapp": {
             "version": "1",
             "name": "Replate",
-            "homeUrl": "https://replate.vercel.app",
-            "iconUrl": "https://replate.vercel.app/i.png",
-            "splashImageUrl": "https://replate.vercel.app/l.png",
+            "homeUrl": "https://replate61.vercel.app",
+            "iconUrl": "https://replate61.vercel.app/replate-logo.jpg",
+            "splashImageUrl": "https://replate61.vercel.app/replate-logo.jpg",
             "splashBackgroundColor": "#000000",
-            "webhookUrl": "https://replate.vercel.app/api/webhook",
+            "webhookUrl": "https://replate61.vercel.app/api/webhook",
             "subtitle": "Fast, fun, social",
             "description": "A fast, fun way to challenge friends in real time.",
             "screenshotUrls": [
-                "https://replate.vercel.app/s1.png",
-                "https://replate.vercel.app/s2.png",
-                "https://replate.vercel.app/s3.png"
+                "https://replate61.vercel.app/replate-logo.jpg",
+                "https://replate61.vercel.app/replate-logo.jpg",
+                "https://replate61.vercel.app/replate-logo.jpg"
             ],
             "primaryCategory": "social",
             "tags": ["replate", "miniapp", "baseapp"],
-            "heroImageUrl": "https://replate.vercel.app/og.png",
+            "heroImageUrl": "https://replate61.vercel.app/replate-logo.jpg",
             "tagline": "Play instantly",
             "ogTitle": "Replate",
             "ogDescription": "Challenge friends in real time.",
-            "ogImageUrl": "https://replate.vercel.app/og.png",
+            "ogImageUrl": "https://replate61.vercel.app/replate-logo.jpg",
             "noindex": true
         }
     }); // see the next step for the manifest_json_object

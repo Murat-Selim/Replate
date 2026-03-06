@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from "react";
 import Shell from "@/components/Shell";
 import { Minus, Plus, Sparkles, Camera, Check, Loader2, X, Leaf, Star, Trophy } from "lucide-react";
 import { sdk } from "@farcaster/miniapp-sdk";
+import { useBaseAccount } from "@/hooks/useBaseAccount";
 
 interface VerificationResult {
     txHash: string;
@@ -25,6 +26,7 @@ interface UserContext {
 }
 
 export default function SmartShop() {
+    const { address } = useBaseAccount();
     const [userContext, setUserContext] = useState<UserContext>({});
     const [householdSize, setHouseholdSize] = useState(2);
     const [duration, setDuration] = useState(7);
@@ -39,13 +41,6 @@ export default function SmartShop() {
             try {
                 const context = await sdk.context;
                 if (context?.user) {
-                    const ethProvider = await sdk.wallet.getEthereumProvider();
-                    let address: string | undefined;
-                    if (ethProvider) {
-                        const accounts = await ethProvider.request({ method: "eth_requestAccounts" });
-                        address = accounts?.[0];
-                    }
-                    
                     setUserContext({
                         address,
                         fid: context.user.fid,
@@ -57,7 +52,7 @@ export default function SmartShop() {
             }
         };
         fetchContext();
-    }, []);
+    }, [address]);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];

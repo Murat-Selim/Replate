@@ -16,6 +16,9 @@
     "export-abi": "cross-env TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat run scripts/export-abi.cts"
   },
   "dependencies": {
+    "@farcaster/miniapp-wagmi-connector": "latest",
+    "@tanstack/react-query": "latest",
+    "@wagmi/core": "latest",
     "@farcaster/miniapp-sdk": "^0.2.3",
     "@google-cloud/vision": "^5.3.4",
     "axios": "^1.13.6",
@@ -28,7 +31,9 @@
     "next": "16.1.6",
     "node-cron": "^3.0.3",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "viem": "latest",
+    "wagmi": "latest"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",

@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import Shell from "@/components/Shell";
 import { Flame, Star, Leaf, Share2, Loader2 } from "lucide-react";
 import { sdk } from "@farcaster/miniapp-sdk";
-import { ethers } from "ethers";
+import { useBaseAccount } from "@/hooks/useBaseAccount";
 
 interface UserSummary {
     totalPoints: number;
@@ -24,7 +24,7 @@ interface WeekReport {
 }
 
 export default function YourImpact() {
-    const [address, setAddress] = useState<string | null>(null);
+    const { address } = useBaseAccount();
     const [isLoading, setIsLoading] = useState(true);
     const [isCheckingIn, setIsCheckingIn] = useState(false);
     const [userData, setUserData] = useState<UserSummary>({
@@ -45,26 +45,8 @@ export default function YourImpact() {
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        const fetchAddress = async () => {
-            try {
-                const context = await sdk.context;
-                if (context?.user) {
-                    const ethProvider = await sdk.wallet.getEthereumProvider();
-                    if (ethProvider) {
-                        const accounts = await ethProvider.request({ method: "eth_requestAccounts" });
-                        setAddress(accounts?.[0] || null);
-                    }
-                }
-            } catch (err) {
-                console.log("Not in MiniApp context");
-            }
-        };
-        fetchAddress();
-    }, []);
-
-    useEffect(() => {
         const fetchUserData = async () => {
-            if (!address || address === ethers.ZeroAddress) {
+            if (!address || address === "0x0000000000000000000000000000000000000000") {
                 setIsLoading(false);
                 return;
             }

@@ -138,7 +138,7 @@ MONGODB_URI=mongodb://...
 
 #### Frontend (.env.local)
 ```env
-NEXT_PUBLIC_URL=http://localhost:3000
+NEXT_PUBLIC_URL=https://replate-kappa.vercel.app
 NEXT_PUBLIC_API_URL=http://localhost:3001
 
 # MiniKit / Coinbase Developer Platform
@@ -172,11 +172,11 @@ NEXT_PUBLIC_USDC_ADDRESS=0x036CbD53842c5426634e7929541eC2318f3dCF7e
 
 ### ✅ Completed Deployments
 - Smart Contract: Base Sepolia (Testnet)
-- Frontend: Ready for deployment
+- Frontend: **https://replate-kappa.vercel.app** (Production)
 - Backend: Ready for deployment
 
 ### ⏳ Pending
-- Vercel deployment (frontend + API routes)
+- ~~Vercel deployment (frontend + API routes)~~ ✅ COMPLETED
 - Mainnet deployment (after testing)
 - Production manifest configuration
 
