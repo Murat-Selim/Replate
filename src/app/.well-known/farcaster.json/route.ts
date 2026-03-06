@@ -20,19 +20,19 @@ export async function GET() {
             "splashImageUrl": "https://replate61.vercel.app/replate-logo.png",
             "splashBackgroundColor": "#000000",
             "webhookUrl": "https://replate61.vercel.app/api/webhook",
-            "subtitle": "Fast, fun, social",
-            "description": "A fast, fun way to challenge friends in real time.",
+            "subtitle": "Shop smart. Nourish well. Earn onchain.",
+            "description": "Verify your grocery receipts on Base. Earn XP for healthy shopping, build streaks, and compete on the leaderboard.",
             "screenshotUrls": [
                 "https://replate61.vercel.app/replate-logo.png",
                 "https://replate61.vercel.app/replate-logo.png",
                 "https://replate61.vercel.app/replate-logo.png"
             ],
-            "primaryCategory": "social",
-            "tags": ["replate", "miniapp", "baseapp"],
+            "primaryCategory": "health",
+            "tags": ["replate", "health", "food", "sustainability", "baseapp", "miniapp"],
             "heroImageUrl": "https://replate61.vercel.app/replate-logo.png",
-            "tagline": "Play instantly",
-            "ogTitle": "Replate",
-            "ogDescription": "Challenge friends in real time.",
+            "tagline": "Shop smart. Nourish well. Earn onchain.",
+            "ogTitle": "Replate — Earn onchain for healthy shopping",
+            "ogDescription": "Verify your grocery receipts on Base. Earn XP, build streaks, and win weekly rewards.",
             "ogImageUrl": "https://replate61.vercel.app/replate-logo.png",
             "noindex": true
         }
