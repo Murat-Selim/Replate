@@ -19,14 +19,14 @@ export async function generateMetadata(): Promise<Metadata> {
         other: {
         'fc:miniapp': JSON.stringify({
             version: 'next',
-            imageUrl: 'https://replate61.vercel.app/replate-logo.jpg',
+            imageUrl: 'https://replate61.vercel.app/replate-logo.png',
             button: {
                 title: `Launch Replate`,
                 action: {
                     type: 'launch_miniapp',
                     name: 'Replate',
                     url: 'https://replate61.vercel.app',
-                    splashImageUrl: 'https://replate61.vercel.app/replate-logo.jpg',
+                    splashImageUrl: 'https://replate61.vercel.app/replate-logo.png',
                     splashBackgroundColor: '#000000',
                 },
             },
