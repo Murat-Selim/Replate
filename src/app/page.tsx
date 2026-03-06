@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import Shell from "@/components/Shell";
 
 export default function Home() {
@@ -8,22 +9,21 @@ export default function Home() {
     <Shell>
       <div className="flex flex-col items-center justify-center min-h-[70vh] text-center space-y-12 animate-in fade-in slide-in-from-bottom-6 duration-1000">
 
-        {/* Exact Replica of the Shield-Plate Icon */}
+        {/* Logo Image */}
         <div className="relative w-64 h-64 flex items-center justify-center">
           {/* Subtle Outer Glow */}
           <div className="absolute inset-0 bg-brand-primary/10 rounded-full blur-[60px]"></div>
 
-          {/* The Circular Gradient Container */}
-          <div className="relative w-56 h-56 rounded-full bg-gradient-to-br from-[#2a6850] via-[#1e4d3a] to-[#0d261c] flex items-center justify-center shadow-2xl overflow-hidden">
-            {/* The Specific Shield-Plate SVG Path */}
-            <div className="relative text-[#0a1f16] opacity-90">
-              <svg viewBox="0 0 100 100" className="w-32 h-32">
-                <path
-                  d="M50 25 C50 25 55 35 72 42 C72 55 65 75 50 75 C35 75 28 55 28 42 C45 35 50 25 50 25 Z"
-                  fill="currentColor"
-                />
-              </svg>
-            </div>
+          {/* The Logo Image */}
+          <div className="relative w-56 h-56 flex items-center justify-center overflow-hidden">
+            <Image
+              src="/replate-logo.jpg"
+              alt="Replate Logo"
+              width={224}
+              height={224}
+              className="object-contain"
+              priority
+            />
           </div>
         </div>
 
