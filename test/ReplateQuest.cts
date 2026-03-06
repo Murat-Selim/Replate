@@ -1,29 +1,59 @@
 import { expect } from "chai";
-import { ethers, upgrades } from "hardhat";
+import { ethers } from "hardhat";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
-import { ReplateQuest } from "../typechain-types";
+import { Contract } from "ethers";
+import "@nomicfoundation/hardhat-chai-matchers";
+
+declare global {
+  var upgrades: {
+    deployProxy: (factory: any, args?: any[], options?: any) => Promise<any>;
+    upgradeProxy: (proxy: any, factory: any, options?: any) => Promise<any>;
+    prepareUpgrade: (proxy: any, factory: any, options?: any) => Promise<any>;
+  };
+}
+
+const USDC_ADDRESS = "0x036CbD53842c5426634e7929541eC2318f3dCF7e";
+
+type ReplateQuestContract = Contract & {
+  submitReceipt: (user: string, totalItems: number, healthyItems: number, unhealthyItems: number, fruitVegGrams: number, householdSize: number, daysCovered: number) => Promise<any>;
+  acceptValidator: () => Promise<any>;
+  checkIn: (user: string) => Promise<any>;
+  finalizeWeek: (user: string) => Promise<any>;
+  pause: () => Promise<any>;
+  unpause: () => Promise<any>;
+  setPhase: (phase: number) => Promise<any>;
+  transferValidator: (newValidator: string) => Promise<any>;
+  connect: (signer: HardhatEthersSigner) => ReplateQuestContract;
+  validator: () => Promise<string>;
+  devWallet: () => Promise<string>;
+  currentPhase: () => Promise<number>;
+  paused: () => Promise<boolean>;
+  pendingValidator: () => Promise<string>;
+  hasBadge: (user: string) => Promise<boolean>;
+  getUserSummary: (user: string) => Promise<any>;
+  getCurrentWeekReport: (user: string) => Promise<any>;
+  getPoolStatus: () => Promise<any>;
+};
 
 describe("ReplateQuest", function () {
-  let replate: ReplateQuest;
+  let replate: ReplateQuestContract;
   let owner: HardhatEthersSigner;
   let user1: HardhatEthersSigner;
   let user2: HardhatEthersSigner;
   let devWallet: HardhatEthersSigner;
-
-  const USDC_ADDRESS = "0x036CbD53842c5426634e7929541eC2318f3dCF7e"; // Mock USDC for tests
 
   beforeEach(async function () {
     [owner, user1, user2, devWallet] = await ethers.getSigners();
 
     const ReplateQuestFactory = await ethers.getContractFactory("ReplateQuest");
     
-    replate = (await upgrades.deployProxy(
+    const proxy = await upgrades.deployProxy(
       ReplateQuestFactory,
       [USDC_ADDRESS, devWallet.address],
       { kind: "uups" }
-    )) as ReplateQuest;
+    );
 
-    await replate.waitForDeployment();
+    replate = proxy as unknown as ReplateQuestContract;
   });
 
   describe("Initialization", function () {
@@ -36,7 +66,7 @@ describe("ReplateQuest", function () {
     });
 
     it("should start in FREE phase", async function () {
-      expect(await replate.currentPhase()).to.equal(0); // Phase.FREE = 0
+      expect(await replate.currentPhase()).to.equal(0);
     });
   });
 
@@ -44,12 +74,12 @@ describe("ReplateQuest", function () {
     it("should submit a receipt and calculate correct scores", async function () {
       await replate.submitReceipt(
         user1.address,
-        10, // totalItems
-        6,  // healthyItems
-        2,  // unhealthyItems
-        600, // fruitVegGrams
-        2,   // householdSize
-        1    // daysCovered
+        10,
+        6,
+        2,
+        600,
+        2,
+        1
       );
 
       const summary = await replate.getUserSummary(user1.address);
@@ -74,15 +104,14 @@ describe("ReplateQuest", function () {
     });
 
     it("should mint badge when health and nutrition scores are high enough", async function () {
-      // High healthy ratio + good fruit/veg grams
       await replate.submitReceipt(
         user1.address,
-        10,  // totalItems
-        8,   // healthyItems (80%)
-        1,   // unhealthyItems
-        600, // fruitVegGrams (matches expected for 2 people, 1 day)
-        2,   // householdSize
-        1    // daysCovered
+        10,
+        8,
+        1,
+        600,
+        2,
+        1
       );
 
       expect(await replate.hasBadge(user1.address)).to.be.true;
@@ -109,7 +138,6 @@ describe("ReplateQuest", function () {
     it("should increment streak on consecutive days", async function () {
       await replate.checkIn(user1.address);
       
-      // Simulate next day
       await ethers.provider.send("evm_increaseTime", [86400]);
       await ethers.provider.send("evm_mine", []);
 
@@ -122,16 +150,13 @@ describe("ReplateQuest", function () {
 
   describe("finalizeWeek", function () {
     it("should increment streak for healthy week", async function () {
-      // Submit multiple receipts to build a healthy week
       for (let i = 0; i < 3; i++) {
         await replate.submitReceipt(user1.address, 10, 8, 1, 600, 2, 1);
         
-        // Advance 1 day
         await ethers.provider.send("evm_increaseTime", [86400]);
         await ethers.provider.send("evm_mine", []);
       }
 
-      // Advance to next week
       await ethers.provider.send("evm_increaseTime", [7 * 86400]);
       await ethers.provider.send("evm_mine", []);
 
@@ -155,7 +180,7 @@ describe("ReplateQuest", function () {
     });
 
     it("should allow validator to change phase", async function () {
-      await replate.setPhase(1); // Phase.PAID = 1
+      await replate.setPhase(1);
       expect(await replate.currentPhase()).to.equal(1);
     });
 
