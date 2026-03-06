@@ -19,6 +19,13 @@ export const Phase = {
   PAID: 1,
 } as const;
 
-// Run `npm run compile` to regenerate artifacts
-import ReplateQuestArtifact from "../../artifacts/contracts/ReplateQuest.sol/ReplateQuest.json";
+// Artifact yoksa build patlamasın diye try/catch ile import
+let ReplateQuestArtifact: { abi: any[] } = { abi: [] };
+
+try {
+  ReplateQuestArtifact = require("../../artifacts/contracts/ReplateQuest.sol/ReplateQuest.json");
+} catch {
+  console.warn("Contract artifact not found. Run `npm run compile`.");
+}
+
 export const REPLATE_QUEST_ABI = ReplateQuestArtifact.abi;
