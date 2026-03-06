@@ -37,7 +37,8 @@
     "**/*.cts",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
-    "**/*.mts"
+    "**/*.mts",
+    "artifacts/**/*.json"
   ],
   "exclude": [
     "node_modules"
