@@ -19,7 +19,6 @@ export const Phase = {
   PAID: 1,
 } as const;
 
-// ABI is imported from Hardhat artifacts
 // Run `npm run compile` to regenerate artifacts
 import ReplateQuestArtifact from "../../artifacts/contracts/ReplateQuest.sol/ReplateQuest.json";
 export const REPLATE_QUEST_ABI = ReplateQuestArtifact.abi;
