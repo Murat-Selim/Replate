@@ -5,7 +5,7 @@ import * as dotenv from "dotenv";
 
 dotenv.config();
 
-const PRIVATE_KEY = process.env.PRIVATE_KEY || "0xf5a06b910e1d2512447f22ac840f7b90fb8959f9b19b3925dd8b85d7396ec6f6";
+const PRIVATE_KEY = process.env.PRIVATE_KEY || "";
 const BASE_RPC_URL = process.env.BASE_RPC_URL || "https://mainnet.base.org";
 const BASE_SEPOLIA_RPC_URL = process.env.BASE_SEPOLIA_RPC_URL || "https://sepolia.base.org";
 const BASESCAN_API_KEY = process.env.BASESCAN_API_KEY || "PT3Q4P64K3CS5S13I26V9V4R9KD3XB7JCF";
