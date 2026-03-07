@@ -7,7 +7,7 @@ import Shell from "@/components/Shell";
 export default function Home() {
   return (
     <Shell>
-      <div className="flex flex-col items-center justify-center min-h-[70vh] text-center space-y-12 animate-in fade-in slide-in-from-bottom-6 duration-1000">
+      <div className="flex flex-col items-center justify-center min-h-[70vh] text-center space-y-6 animate-in fade-in slide-in-from-bottom-6 duration-1000">
 
         {/* Logo Image */}
         <div className="relative w-64 h-64 flex items-center justify-center">
