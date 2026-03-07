@@ -70,7 +70,9 @@ export default function SmartShop() {
     };
 
     const handleVerify = async () => {
-        if (!imagePreview || !userContext.address) {
+        const targetAddress = address || userContext.address;
+
+        if (!imagePreview || !targetAddress) {
             setError("Please upload a receipt and ensure you're connected");
             return;
         }
@@ -81,13 +83,13 @@ export default function SmartShop() {
 
         try {
             const base64Data = imagePreview.split(",")[1] || imagePreview;
-            
+
             const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/verify-receipt`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     imageBase64: base64Data,
-                    userAddress: userContext.address,
+                    userAddress: targetAddress,
                     householdSize,
                     fid: userContext.fid,
                 }),
@@ -244,7 +246,7 @@ Join me in reducing food waste!`,
                     </div>
 
                     <div className="space-y-4">
-                        <button 
+                        <button
                             onClick={handleVerify}
                             disabled={isLoading || !imagePreview}
                             className="w-full bg-brand-primary text-white py-5 px-8 rounded-3xl font-black text-xl shadow-xl shadow-brand-primary/20 hover:bg-brand-secondary transition-all active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -276,7 +278,7 @@ Join me in reducing food waste!`,
                                         <X size={20} className="text-brand-text/50" />
                                     </button>
                                 </div>
-                                
+
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="bg-brand-accent/30 p-4 rounded-2xl text-center">
                                         <div className="flex items-center justify-center gap-1 text-green-600 mb-1">
@@ -320,13 +322,13 @@ Join me in reducing food waste!`,
                                 </div>
 
                                 <div className="flex gap-2 pt-2">
-                                    <button 
+                                    <button
                                         onClick={handleShare}
                                         className="flex-1 bg-[#1DA1F2] text-white py-3 px-4 rounded-2xl font-bold text-sm hover:bg-[#1a9ed8] transition-all flex items-center justify-center gap-2"
                                     >
                                         Share Result
                                     </button>
-                                    <button 
+                                    <button
                                         onClick={resetForm}
                                         className="flex-1 bg-brand-accent text-brand-primary py-3 px-4 rounded-2xl font-bold text-sm hover:bg-brand-accent/80 transition-all"
                                     >
@@ -338,7 +340,7 @@ Join me in reducing food waste!`,
 
                         <div className="bg-brand-accent/40 p-5 rounded-[24px] border border-brand-accent/50 text-center">
                             <p className="text-sm text-brand-text/50 italic font-medium">
-                                "Planning for {duration} days will save approximately {(duration * householdSize * 0.17).toFixed(1)}kg of food waste."
+                                "Eat healthier and more balanced with a {duration} day plan."
                             </p>
                         </div>
                     </div>

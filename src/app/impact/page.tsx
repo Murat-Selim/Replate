@@ -74,21 +74,21 @@ export default function YourImpact() {
                     throw new Error(data.error || "Failed to fetch");
                 }
             } catch (err) {
-                console.log("API not available, using demo data");
+                console.log("API not available, starting from 0");
                 setUserData({
-                    totalPoints: 450,
+                    totalPoints: 0,
                     level: 0,
-                    receiptStreak: 3,
-                    checkInStreak: 5,
-                    totalCheckIns: 12,
-                    receiptCount: 8,
-                    hasBadge: true,
+                    receiptStreak: 0,
+                    checkInStreak: 0,
+                    totalCheckIns: 0,
+                    receiptCount: 0,
+                    hasBadge: false,
                 });
                 setWeekReport({
-                    weekPoints: 150,
-                    receiptCount: 3,
-                    avgHealthScore: 75,
-                    avgNutritionScore: 80,
+                    weekPoints: 0,
+                    receiptCount: 0,
+                    avgHealthScore: 0,
+                    avgNutritionScore: 0,
                 });
             } finally {
                 setIsLoading(false);
@@ -149,7 +149,7 @@ Join me in reducing food waste!`,
         }
     };
 
-    const nutritionScore = userData.receiptCount > 0 
+    const nutritionScore = userData.receiptCount > 0
         ? Math.min(100, 60 + (userData.totalPoints / userData.receiptCount))
         : 0;
 
@@ -276,7 +276,7 @@ Join me in reducing food waste!`,
                                 )}
                             </button>
 
-                            <button 
+                            <button
                                 onClick={handleShare}
                                 className="w-full bg-brand-accent text-brand-primary py-4 px-8 rounded-2xl font-bold border-2 border-brand-primary/5 hover:bg-brand-accent/80 transition-all active:scale-95 flex items-center justify-center gap-2"
                             >
