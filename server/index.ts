@@ -17,10 +17,9 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Middleware
-app.use(helmet());
+app.use(helmet({ crossOriginResourcePolicy: false }));
 app.use(cors({
-  origin: process.env.FRONTEND_URL || "http://localhost:3000",
-  credentials: true,
+  origin: "*", // Allows any origin from the UI so you don't get CORS 'Failed to Fetch'
 }));
 app.use(express.json({ limit: "10mb" })); // For base64 image uploads
 
@@ -50,7 +49,7 @@ cron.schedule("0 0 * * 0", async () => {
 app.listen(PORT, () => {
   console.log(`🚀 Replate API server running on port ${PORT}`);
   console.log(`📋 Health check: http://localhost:${PORT}/health`);
-  
+
   // Set up event listeners for real-time updates
   setupEventListeners();
 });
