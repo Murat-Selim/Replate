@@ -9,6 +9,7 @@ import { usePathname } from "next/navigation";
 export default function Header() {
     const [isMenuOpen, setIsMenuOpen] = React.useState(false);
     const [username, setUsername] = React.useState<string>("");
+    const [pfpUrl, setPfpUrl] = React.useState<string>("");
     const [isLoading, setIsLoading] = React.useState(true);
     const [isBaseApp, setIsBaseApp] = React.useState(false);
     const [isAdded, setIsAdded] = React.useState(false);
@@ -26,6 +27,7 @@ export default function Header() {
                         user.displayName ||
                         (typeof user.fid === "number" ? `fid:${user.fid}` : "");
                     setUsername(resolvedName);
+                    if (user.pfpUrl) setPfpUrl(user.pfpUrl);
                 }
                 // Detect if running in Base App (clientFid === 309857)
                 if (context?.client?.clientFid === 309857) {
@@ -61,13 +63,19 @@ export default function Header() {
         <>
             <header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-6 bg-brand-background/80 backdrop-blur-md">
                 <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-brand-primary flex items-center justify-center text-white font-bold text-base shadow-sm">
-                        {isLoading ? (
-                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        ) : (
-                            initial
-                        )}
-                    </div>
+                    {pfpUrl ? (
+                        <div className="w-10 h-10 rounded-full overflow-hidden shadow-sm border border-brand-accent/20">
+                            <img src={pfpUrl} alt={username} className="w-full h-full object-cover" />
+                        </div>
+                    ) : (
+                        <div className="w-10 h-10 rounded-full bg-brand-primary flex items-center justify-center text-white font-bold text-base shadow-sm">
+                            {isLoading ? (
+                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            ) : (
+                                initial
+                            )}
+                        </div>
+                    )}
                     <div className="flex flex-col">
                         <span className="font-bold text-brand-primary text-xs uppercase tracking-wider">
                             {isLoading ? "@..." : username ? `${showAtPrefix ? "@" : ""}${username}` : "@guest"}
@@ -90,9 +98,9 @@ export default function Header() {
                     )}
                     <button
                         onClick={() => setIsMenuOpen(true)}
-                        className="p-2 text-brand-primary hover:bg-brand-accent/50 rounded-full transition-colors"
+                        className="w-10 h-10 flex items-center justify-center text-brand-primary hover:bg-brand-accent/50 rounded-full transition-colors"
                     >
-                        <Menu size={24} />
+                        <Menu size={28} />
                     </button>
                 </div>
             </header>
