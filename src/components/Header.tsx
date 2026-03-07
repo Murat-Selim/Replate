@@ -50,10 +50,10 @@ export default function Header() {
     const handleAddMiniApp = async () => {
         try {
             setIsAdding(true);
-            await sdk.actions.addMiniApp();
+            await sdk.actions.addFrame();
             setIsAdded(true);
         } catch (err) {
-            console.log("Add app cancelled or failed:", err);
+            console.error("Add app cancelled or failed:", err);
         } finally {
             setIsAdding(false);
         }
