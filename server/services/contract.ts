@@ -49,7 +49,7 @@ export async function submitReceiptToContract(data: ReceiptSubmission): Promise<
   // Check if we have valid RPC URL and private key
   const rpcUrl = process.env.RPC_URL || process.env.BASE_SEPOLIA_RPC_URL;
   const privateKey = process.env.VALIDATOR_PRIVATE_KEY;
-  
+
   if (!rpcUrl || !privateKey) {
     console.log("⚠️ Contract not configured, using mock response");
     return mockContractResponse(data);
@@ -76,14 +76,14 @@ export async function submitReceiptToContract(data: ReceiptSubmission): Promise<
     console.log(`✅ Transaction confirmed in block ${receipt.blockNumber}`);
 
     // Parse events to get the result
-    const receiptEvent = receipt.logs.find((log: { topics: string[] }) => 
+    const receiptEvent = receipt.logs.find((log: { topics: string[] }) =>
       log.topics[0] === ethers.id("ReceiptSubmitted(address,uint8,uint8,uint256,uint16,uint16)")
     );
 
-    const badgeMinted = !!receipt.logs.find((log: { topics: string[] }) => 
+    const badgeMinted = !!receipt.logs.find((log: { topics: string[] }) =>
       log.topics[0] === ethers.id("BadgeMinted(address,uint256)")
     );
-    
+
     if (receiptEvent) {
       const decoded = ethers.AbiCoder.defaultAbiCoder().decode(
         ["uint8", "uint8", "uint256", "uint16", "uint16"],
@@ -114,19 +114,25 @@ export async function submitReceiptToContract(data: ReceiptSubmission): Promise<
 export async function submitCheckIn(userAddress: string): Promise<{ success: boolean; pointsEarned: number }> {
   const rpcUrl = process.env.RPC_URL || process.env.BASE_SEPOLIA_RPC_URL;
   const privateKey = process.env.VALIDATOR_PRIVATE_KEY;
-  
+
   if (!rpcUrl || !privateKey) {
     return { success: true, pointsEarned: 10 };
   }
 
   try {
     const c = getContract();
+    console.log(`🔗 Initiating contract check-in for ${userAddress}...`);
+
     const tx = await c.checkIn(userAddress);
+    console.log(`📤 Check-in transaction sent: ${tx.hash}`);
+
+    console.log("⏳ Waiting for transaction confirmation...");
     await tx.wait();
+    console.log(`✅ Check-in transaction confirmed for ${userAddress}`);
 
     return { success: true, pointsEarned: 10 };
   } catch (error) {
-    console.error("❌ Check-in failed:", error);
+    console.error("❌ Check-in failed in contract service:", error);
     throw error;
   }
 }
@@ -137,7 +143,7 @@ export async function submitCheckIn(userAddress: string): Promise<{ success: boo
 export async function finalizeUserWeek(userAddress: string): Promise<{ success: boolean; newStreak: number }> {
   const rpcUrl = process.env.RPC_URL || process.env.BASE_SEPOLIA_RPC_URL;
   const privateKey = process.env.VALIDATOR_PRIVATE_KEY;
-  
+
   if (!rpcUrl || !privateKey) {
     return { success: true, newStreak: 1 };
   }
@@ -176,7 +182,7 @@ export async function distributeWeeklyRewards(
 ): Promise<{ success: boolean; totalDistributed: bigint }> {
   const rpcUrl = process.env.RPC_URL || process.env.BASE_SEPOLIA_RPC_URL;
   const privateKey = process.env.VALIDATOR_PRIVATE_KEY;
-  
+
   if (!rpcUrl || !privateKey) {
     return { success: true, totalDistributed: BigInt(0) };
   }
@@ -199,7 +205,7 @@ export async function distributeWeeklyRewards(
 export async function getUserSummary(userAddress: string) {
   const rpcUrl = process.env.RPC_URL || process.env.BASE_SEPOLIA_RPC_URL;
   const privateKey = process.env.VALIDATOR_PRIVATE_KEY;
-  
+
   if (!rpcUrl || !privateKey) {
     return {
       totalPoints: 0,
@@ -292,37 +298,37 @@ export interface LeaderboardEntry {
  */
 export async function getLeaderboard(limit: number = 100): Promise<LeaderboardEntry[]> {
   const rpcUrl = process.env.RPC_URL || process.env.BASE_SEPOLIA_RPC_URL;
-  
+
   if (!rpcUrl) {
     return getMockLeaderboard(limit);
   }
 
   try {
     const provider = new ethers.JsonRpcProvider(rpcUrl);
-    
+
     // Get all ReceiptSubmitted events
     const contract = new Contract(CONTRACT_ADDRESS, REPLATE_QUEST_ABI, provider);
-    
+
     // Query events - get from block 0 to latest
     const filter = contract.filters.ReceiptSubmitted();
     const events = await contract.queryFilter(filter, 0, 'latest');
-    
+
     // Aggregate points by user
     const userPoints = new Map<string, { points: bigint; hasBadge: boolean }>();
-    
+
     for (const event of events) {
       if (!('args' in event)) continue;
       const eventArgs = event.args as unknown as [string, number, number, bigint, number, number] | undefined;
       const user = eventArgs?.[0];
       const points = eventArgs?.[3];
-      
+
       if (user && points) {
         const existing = userPoints.get(user) || { points: BigInt(0), hasBadge: false };
         existing.points += points;
         userPoints.set(user, existing);
       }
     }
-    
+
     // Get badge status for each user
     for (const [user] of userPoints) {
       try {
@@ -333,7 +339,7 @@ export async function getLeaderboard(limit: number = 100): Promise<LeaderboardEn
         // Continue without badge info
       }
     }
-    
+
     // Convert to array and sort
     const leaderboard: LeaderboardEntry[] = Array.from(userPoints.entries())
       .map(([address, data]) => ({
@@ -345,7 +351,7 @@ export async function getLeaderboard(limit: number = 100): Promise<LeaderboardEn
       }))
       .sort((a, b) => b.totalPoints - a.totalPoints)
       .slice(0, limit);
-    
+
     return leaderboard;
   } catch (error) {
     console.error("❌ Failed to get leaderboard from contract:", error);
@@ -358,7 +364,7 @@ export async function getLeaderboard(limit: number = 100): Promise<LeaderboardEn
  */
 export async function getUserRank(userAddress: string): Promise<LeaderboardEntry | null> {
   const rpcUrl = process.env.RPC_URL || process.env.BASE_SEPOLIA_RPC_URL;
-  
+
   if (!rpcUrl) {
     return null;
   }
@@ -366,9 +372,9 @@ export async function getUserRank(userAddress: string): Promise<LeaderboardEntry
   try {
     const provider = new ethers.JsonRpcProvider(rpcUrl);
     const contract = new Contract(CONTRACT_ADDRESS, REPLATE_QUEST_ABI, provider);
-    
+
     const summary = await contract.getUserSummary(userAddress);
-    
+
     return {
       address: userAddress,
       totalPoints: Number(summary._totalPoints),
@@ -387,7 +393,7 @@ export async function getUserRank(userAddress: string): Promise<LeaderboardEntry
  */
 export async function getUserWeekReport(userAddress: string) {
   const rpcUrl = process.env.RPC_URL || process.env.BASE_SEPOLIA_RPC_URL;
-  
+
   if (!rpcUrl) {
     return {
       weekPoints: 0,
@@ -400,9 +406,9 @@ export async function getUserWeekReport(userAddress: string) {
   try {
     const provider = new ethers.JsonRpcProvider(rpcUrl);
     const contract = new Contract(CONTRACT_ADDRESS, REPLATE_QUEST_ABI, provider);
-    
+
     const report = await contract.getCurrentWeekReport(userAddress);
-    
+
     return {
       weekPoints: Number(report.weekPoints),
       receiptCount: Number(report.receiptCount),
@@ -442,7 +448,7 @@ export interface PoolStatus {
  */
 export async function getPoolStatus(): Promise<PoolStatus> {
   const rpcUrl = process.env.RPC_URL || process.env.BASE_SEPOLIA_RPC_URL;
-  
+
   if (!rpcUrl) {
     return { weeklyPool: 0, devFund: 0, currentPhase: 0 };
   }
@@ -450,9 +456,9 @@ export async function getPoolStatus(): Promise<PoolStatus> {
   try {
     const provider = new ethers.JsonRpcProvider(rpcUrl);
     const contract = new Contract(CONTRACT_ADDRESS, REPLATE_QUEST_ABI, provider);
-    
+
     const status = await contract.getPoolStatus();
-    
+
     return {
       weeklyPool: Number(status._weeklyPool),
       devFund: Number(status._devFund),

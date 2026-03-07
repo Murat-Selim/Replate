@@ -21,6 +21,13 @@ app.use(helmet({ crossOriginResourcePolicy: false }));
 app.use(cors({
   origin: "*", // Allows any origin from the UI so you don't get CORS 'Failed to Fetch'
 }));
+
+// Request Logger
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  next();
+});
+
 app.use(express.json({ limit: "10mb" })); // For base64 image uploads
 
 // Health check

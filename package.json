@@ -13,7 +13,7 @@
     "deploy": "cross-env TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat run scripts/deploy.ts",
     "test:contracts": "cross-env TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat test",
     "verify": "cross-env TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat verify",
-    "export-abi": "cross-env TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat run scripts/export-abi.cts"
+    "export-abi": "cross-env TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat run scripts/export-abi.ts"
   },
   "dependencies": {
     "@farcaster/miniapp-wagmi-connector": "latest",
@@ -58,6 +58,5 @@
     "ts-node-dev": "^2.0.0",
     "tsx": "^4.21.0",
     "typescript": "^5"
-  },
-  "type": "module"
+  }
 }
