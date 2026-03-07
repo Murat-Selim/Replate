@@ -7,7 +7,7 @@ import { farcasterMiniApp } from "@farcaster/miniapp-wagmi-connector";
 
 const appName = "Replate";
 const appLogoUrl =
-  process.env.NEXT_PUBLIC_APP_LOGO_URL || "https://replate.app/icon.png";
+  process.env.NEXT_PUBLIC_APP_LOGO_URL || "https://replate61.vercelapp/replate-logo.png";
 
 export const wagmiConfig = createConfig({
   chains: [base, optimism],

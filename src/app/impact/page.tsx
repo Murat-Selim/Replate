@@ -108,12 +108,16 @@ export default function YourImpact() {
         setError(null);
 
         try {
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/check-in`, {
+            const apiUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3001'}/api/check-in`;
+            console.log("🚀 Sending check-in to:", apiUrl);
+
+            const response = await fetch(apiUrl, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ userAddress: address }),
             });
 
+            console.log("📡 Response status:", response.status);
             const data = await response.json();
 
             if (data.success) {
@@ -127,6 +131,7 @@ export default function YourImpact() {
                 throw new Error(data.error || "Check-in failed");
             }
         } catch (err) {
+            console.error("❌ Fetch Error Detail:", err);
             setError(err instanceof Error ? err.message : "Check-in failed");
         } finally {
             setIsCheckingIn(false);
