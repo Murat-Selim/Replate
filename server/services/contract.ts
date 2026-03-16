@@ -216,6 +216,7 @@ export async function getUserSummary(userAddress: string) {
   const privateKey = process.env.VALIDATOR_PRIVATE_KEY || process.env.PRIVATE_KEY;
 
   if (!rpcUrl || !privateKey) {
+    console.log("⚠️ RPC_URL or private key missing, returning empty summary");
     return {
       totalPoints: 0,
       level: 0,
@@ -230,28 +231,35 @@ export async function getUserSummary(userAddress: string) {
 
   try {
     const c = getContract();
-    const summary = await c.getUserSummary(userAddress);
-    
+    const currentAddress = await c.getAddress();
+    console.log(`📡 Calling contract at: ${currentAddress} for user: ${userAddress}`);
+
+    let summary: any = { _totalPoints: 0, _level: 0, _receiptStreak: 0, _checkInStreak: 0, _totalCheckIns: 0, _receiptCount: 0, _hasBadge: false };
+    try {
+      summary = await c.getUserSummary(userAddress);
+    } catch (e) {
+      console.error("❌ Failed to call getUserSummary:", e);
+    }
+
     let lastCheckInDay = 0;
     try {
       lastCheckInDay = Number(await c.lastCheckInDay(userAddress));
     } catch (e) {
-      console.warn("⚠️ Could not fetch lastCheckInDay from contract:", e);
+      console.warn("⚠️ Failed to call lastCheckInDay:", e);
     }
 
     return {
-      totalPoints: Number(summary._totalPoints),
-      level: Number(summary._level),
-      receiptStreak: Number(summary._receiptStreak),
-      checkInStreak: Number(summary._checkInStreak),
-      totalCheckIns: Number(summary._totalCheckIns),
-      receiptCount: Number(summary._receiptCount),
-      hasBadge: summary._hasBadge,
+      totalPoints: Number(summary._totalPoints || 0),
+      level: Number(summary._level || 0),
+      receiptStreak: Number(summary._receiptStreak || 0),
+      checkInStreak: Number(summary._checkInStreak || 0),
+      totalCheckIns: Number(summary._totalCheckIns || 0),
+      receiptCount: Number(summary._receiptCount || 0),
+      hasBadge: summary._hasBadge || false,
       lastCheckInDay: lastCheckInDay,
     };
   } catch (error) {
-    console.error("❌ Failed to get user summary:", error);
-    // Return empty but valid object instead of throwing
+    console.error("❌ Critical failure in getUserSummary:", error);
     return {
       totalPoints: 0,
       level: 0,
