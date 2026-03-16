@@ -1,7 +1,7 @@
 // Auto-generated from ReplateQuest.sol
 // Run: npm run export-abi to regenerate
 
-export const CONTRACT_ADDRESS = "0x617E7f100A8DBF41e58BF0e8B21afC5549b0a27c" as const;
+export const CONTRACT_ADDRESS = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512" as const;
 
 export const REPLATE_QUEST_ABI = [
   {
