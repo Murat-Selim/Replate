@@ -191,7 +191,7 @@ Join me in reducing food waste!`,
                                     <Flame size={48} fill="#f97316" className="text-orange-500 animate-bounce" />
                                 </div>
                                 <p className="font-bold text-brand-primary/60">
-                                    Verified Shop Streak
+                                    Verified Streak
                                 </p>
                             </div>
                         </div>
