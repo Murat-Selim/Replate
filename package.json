@@ -11,10 +11,10 @@
     "start": "next start",
     "lint": "eslint",
     "compile": "cross-env TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat compile",
-    "deploy": "cross-env TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat run scripts/deploy.ts",
+    "deploy": "cross-env TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat run scripts/deploy.cts",
     "test:contracts": "cross-env TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat test",
     "verify": "cross-env TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat verify",
-    "export-abi": "cross-env TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat run scripts/export-abi.ts"
+    "export-abi": "cross-env TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat run scripts/export-abi.cts"
   },
   "dependencies": {
     "@farcaster/miniapp-wagmi-connector": "latest",
