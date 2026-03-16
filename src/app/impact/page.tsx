@@ -53,7 +53,7 @@ export default function YourImpact() {
 
             try {
                 const response = await fetch(
-                    `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/user/${address}`
+                    `/api/user/${address}`
                 );
                 const data = await response.json();
 
@@ -108,7 +108,7 @@ export default function YourImpact() {
         setError(null);
 
         try {
-            const apiUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3001'}/api/check-in`;
+            const apiUrl = `/api/check-in`;
             console.log("🚀 Sending check-in to:", apiUrl);
 
             const response = await fetch(apiUrl, {

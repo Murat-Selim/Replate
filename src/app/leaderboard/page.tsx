@@ -30,7 +30,7 @@ export default function Leaderboard() {
     useEffect(() => {
         const fetchLeaderboard = async () => {
             try {
-                const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/leaderboard`);
+                const response = await fetch(`/api/leaderboard`);
                 const data = await response.json();
 
                 if (data.success) {

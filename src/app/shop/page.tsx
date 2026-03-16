@@ -84,7 +84,7 @@ export default function SmartShop() {
         try {
             const base64Data = imagePreview.split(",")[1] || imagePreview;
 
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/verify-receipt`, {
+            const response = await fetch(`/api/verify-receipt`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({

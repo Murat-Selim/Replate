@@ -28,7 +28,7 @@ interface ContractResult {
 function getContract(): Contract {
   if (!contract) {
     const rpcUrl = process.env.RPC_URL || process.env.BASE_SEPOLIA_RPC_URL;
-    const privateKey = process.env.VALIDATOR_PRIVATE_KEY;
+    const privateKey = process.env.VALIDATOR_PRIVATE_KEY || process.env.PRIVATE_KEY;
 
     if (!rpcUrl || !privateKey) {
       throw new Error("Missing RPC_URL or VALIDATOR_PRIVATE_KEY in environment");
@@ -36,7 +36,7 @@ function getContract(): Contract {
 
     provider = new ethers.JsonRpcProvider(rpcUrl);
     wallet = new Wallet(privateKey, provider);
-    contract = new Contract(CONTRACT_ADDRESS, REPLATE_QUEST_ABI, wallet);
+    contract = new Contract(process.env.CONTRACT_ADDRESS || CONTRACT_ADDRESS, REPLATE_QUEST_ABI, wallet);
   }
 
   return contract;
@@ -48,7 +48,7 @@ function getContract(): Contract {
 export async function submitReceiptToContract(data: ReceiptSubmission): Promise<ContractResult> {
   // Check if we have valid RPC URL and private key
   const rpcUrl = process.env.RPC_URL || process.env.BASE_SEPOLIA_RPC_URL;
-  const privateKey = process.env.VALIDATOR_PRIVATE_KEY;
+  const privateKey = process.env.VALIDATOR_PRIVATE_KEY || process.env.PRIVATE_KEY;
 
   if (!rpcUrl || !privateKey) {
     console.log("⚠️ Contract not configured, using mock response");
@@ -113,7 +113,7 @@ export async function submitReceiptToContract(data: ReceiptSubmission): Promise<
  */
 export async function submitCheckIn(userAddress: string): Promise<{ success: boolean; pointsEarned: number }> {
   const rpcUrl = process.env.RPC_URL || process.env.BASE_SEPOLIA_RPC_URL;
-  const privateKey = process.env.VALIDATOR_PRIVATE_KEY;
+  const privateKey = process.env.VALIDATOR_PRIVATE_KEY || process.env.PRIVATE_KEY;
 
   if (!rpcUrl || !privateKey) {
     return { success: true, pointsEarned: 10 };
@@ -142,7 +142,7 @@ export async function submitCheckIn(userAddress: string): Promise<{ success: boo
  */
 export async function finalizeUserWeek(userAddress: string): Promise<{ success: boolean; newStreak: number }> {
   const rpcUrl = process.env.RPC_URL || process.env.BASE_SEPOLIA_RPC_URL;
-  const privateKey = process.env.VALIDATOR_PRIVATE_KEY;
+  const privateKey = process.env.VALIDATOR_PRIVATE_KEY || process.env.PRIVATE_KEY;
 
   if (!rpcUrl || !privateKey) {
     return { success: true, newStreak: 1 };
@@ -181,7 +181,7 @@ export async function distributeWeeklyRewards(
   shares: bigint[]
 ): Promise<{ success: boolean; totalDistributed: bigint }> {
   const rpcUrl = process.env.RPC_URL || process.env.BASE_SEPOLIA_RPC_URL;
-  const privateKey = process.env.VALIDATOR_PRIVATE_KEY;
+  const privateKey = process.env.VALIDATOR_PRIVATE_KEY || process.env.PRIVATE_KEY;
 
   if (!rpcUrl || !privateKey) {
     return { success: true, totalDistributed: BigInt(0) };
@@ -204,7 +204,7 @@ export async function distributeWeeklyRewards(
  */
 export async function getUserSummary(userAddress: string) {
   const rpcUrl = process.env.RPC_URL || process.env.BASE_SEPOLIA_RPC_URL;
-  const privateKey = process.env.VALIDATOR_PRIVATE_KEY;
+  const privateKey = process.env.VALIDATOR_PRIVATE_KEY || process.env.PRIVATE_KEY;
 
   if (!rpcUrl || !privateKey) {
     return {
