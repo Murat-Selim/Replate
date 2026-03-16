@@ -31,7 +31,7 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: "10mb" })); // For base64 image uploads
 
 // Health check
-app.get("/health", (req, res) => {
+app.get("/api/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
