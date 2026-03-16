@@ -123,10 +123,16 @@ export async function submitCheckIn(userAddress: string): Promise<{ success: boo
     const c = getContract();
     
     // Check if user already checked in today before sending transaction
+    let lastDay = 0;
+    try {
+        const lastDayVal = await c.lastCheckInDay(userAddress);
+        lastDay = Number(lastDayVal || 0);
+    } catch (e) {
+        console.warn("⚠️ Could not fetch lastCheckInDay in submitCheckIn, proceeding anyway");
+    }
+
     const today = Math.floor(Date.now() / 1000 / 86400);
-    const lastDay = await c.lastCheckInDay(userAddress);
-    
-    if (Number(lastDay) >= today) {
+    if (lastDay >= today) {
       throw new Error("Already checked in today");
     }
 
@@ -140,9 +146,12 @@ export async function submitCheckIn(userAddress: string): Promise<{ success: boo
     return { success: true, pointsEarned: 10 };
   } catch (error: any) {
     console.error("❌ Check-in failed in contract service:", error);
-    // Extract reason from contract revert if possible
-    const reason = error?.reason || error?.message || "Check-in failed";
-    throw new Error(reason);
+    // Sanitize the error message to avoid technical ethers dump on screen
+    let message = error?.message || "Check-in failed";
+    if (message.includes("BAD_DATA") || message.includes("decode")) {
+        message = "Blockchain connection issue. Please try again later.";
+    }
+    throw new Error(message);
   }
 }
 
@@ -231,35 +240,36 @@ export async function getUserSummary(userAddress: string) {
 
   try {
     const c = getContract();
-    const currentAddress = await c.getAddress();
-    console.log(`📡 Calling contract at: ${currentAddress} for user: ${userAddress}`);
+    console.log(`📡 Calling contract at: ${c.target} for user: ${userAddress}`);
 
     let summary: any = { _totalPoints: 0, _level: 0, _receiptStreak: 0, _checkInStreak: 0, _totalCheckIns: 0, _receiptCount: 0, _hasBadge: false };
     try {
+      // Use raw call or wrap in a way that catches BAD_DATA
       summary = await c.getUserSummary(userAddress);
-    } catch (e) {
-      console.error("❌ Failed to call getUserSummary:", e);
+    } catch (e: any) {
+      console.error("❌ Failed to call getUserSummary:", e.message || e);
     }
 
     let lastCheckInDay = 0;
     try {
-      lastCheckInDay = Number(await c.lastCheckInDay(userAddress));
-    } catch (e) {
-      console.warn("⚠️ Failed to call lastCheckInDay:", e);
+      const lastDayVal = await c.lastCheckInDay(userAddress);
+      lastCheckInDay = Number(lastDayVal || 0);
+    } catch (e: any) {
+      console.warn("⚠️ Failed to call lastCheckInDay:", e.message || e);
     }
 
     return {
-      totalPoints: Number(summary._totalPoints || 0),
-      level: Number(summary._level || 0),
-      receiptStreak: Number(summary._receiptStreak || 0),
-      checkInStreak: Number(summary._checkInStreak || 0),
-      totalCheckIns: Number(summary._totalCheckIns || 0),
-      receiptCount: Number(summary._receiptCount || 0),
-      hasBadge: summary._hasBadge || false,
+      totalPoints: Number(summary?._totalPoints || 0),
+      level: Number(summary?._level || 0),
+      receiptStreak: Number(summary?._receiptStreak || 0),
+      checkInStreak: Number(summary?._checkInStreak || 0),
+      totalCheckIns: Number(summary?._totalCheckIns || 0),
+      receiptCount: Number(summary?._receiptCount || 0),
+      hasBadge: !!summary?._hasBadge,
       lastCheckInDay: lastCheckInDay,
     };
-  } catch (error) {
-    console.error("❌ Critical failure in getUserSummary:", error);
+  } catch (error: any) {
+    console.error("❌ Critical failure in getUserSummary:", error.message || error);
     return {
       totalPoints: 0,
       level: 0,
@@ -399,27 +409,19 @@ export async function getLeaderboard(limit: number = 100): Promise<LeaderboardEn
  * Get user's rank from contract
  */
 export async function getUserRank(userAddress: string): Promise<LeaderboardEntry | null> {
-  const rpcUrl = process.env.RPC_URL || process.env.BASE_SEPOLIA_RPC_URL;
-
-  if (!rpcUrl) {
-    return null;
-  }
-
   try {
-    const provider = new ethers.JsonRpcProvider(rpcUrl);
-    const contract = new Contract(CONTRACT_ADDRESS, REPLATE_QUEST_ABI, provider);
-
-    const summary = await contract.getUserSummary(userAddress);
+    const c = getContract();
+    const summary = await c.getUserSummary(userAddress);
 
     return {
       address: userAddress,
-      totalPoints: Number(summary._totalPoints),
-      level: Number(summary._level),
-      streak: Number(summary._receiptStreak),
-      hasBadge: summary._hasBadge,
+      totalPoints: Number(summary?._totalPoints || 0),
+      level: Number(summary?._level || 0),
+      streak: Number(summary?._receiptStreak || 0),
+      hasBadge: !!summary?._hasBadge,
     };
   } catch (error) {
-    console.error("❌ Failed to get user rank:", error);
+    console.warn("⚠️ Failed to get user rank:", error);
     return null;
   }
 }
@@ -428,31 +430,18 @@ export async function getUserRank(userAddress: string): Promise<LeaderboardEntry
  * Get current week report for a user
  */
 export async function getUserWeekReport(userAddress: string) {
-  const rpcUrl = process.env.RPC_URL || process.env.BASE_SEPOLIA_RPC_URL;
-
-  if (!rpcUrl) {
-    return {
-      weekPoints: 0,
-      receiptCount: 0,
-      avgHealthScore: 0,
-      avgNutritionScore: 0,
-    };
-  }
-
   try {
-    const provider = new ethers.JsonRpcProvider(rpcUrl);
-    const contract = new Contract(CONTRACT_ADDRESS, REPLATE_QUEST_ABI, provider);
-
-    const report = await contract.getCurrentWeekReport(userAddress);
+    const c = getContract();
+    const report = await c.getCurrentWeekReport(userAddress);
 
     return {
-      weekPoints: Number(report.weekPoints),
-      receiptCount: Number(report.receiptCount),
-      avgHealthScore: Number(report.avgHealthScore),
-      avgNutritionScore: Number(report.avgNutritionScore),
+      weekPoints: Number(report?.[0] || 0),
+      receiptCount: Number(report?.[1] || 0),
+      avgHealthScore: Number(report?.[2] || 0),
+      avgNutritionScore: Number(report?.[3] || 0),
     };
   } catch (error) {
-    console.error("❌ Failed to get week report:", error);
+    console.warn("⚠️ Failed to get week report:", error);
     return {
       weekPoints: 0,
       receiptCount: 0,
@@ -483,25 +472,17 @@ export interface PoolStatus {
  * Get pool status from contract
  */
 export async function getPoolStatus(): Promise<PoolStatus> {
-  const rpcUrl = process.env.RPC_URL || process.env.BASE_SEPOLIA_RPC_URL;
-
-  if (!rpcUrl) {
-    return { weeklyPool: 0, devFund: 0, currentPhase: 0 };
-  }
-
   try {
-    const provider = new ethers.JsonRpcProvider(rpcUrl);
-    const contract = new Contract(CONTRACT_ADDRESS, REPLATE_QUEST_ABI, provider);
-
-    const status = await contract.getPoolStatus();
+    const c = getContract();
+    const status = await c.getPoolStatus();
 
     return {
-      weeklyPool: Number(status._weeklyPool),
-      devFund: Number(status._devFund),
-      currentPhase: Number(status._currentPhase),
+      weeklyPool: Number(status?.[0] || 0),
+      devFund: Number(status?.[1] || 0),
+      currentPhase: Number(status?.[2] || 0),
     };
   } catch (error) {
-    console.error("❌ Failed to get pool status:", error);
+    console.warn("⚠️ Failed to get pool status:", error);
     return { weeklyPool: 0, devFund: 0, currentPhase: 0 };
   }
 }
