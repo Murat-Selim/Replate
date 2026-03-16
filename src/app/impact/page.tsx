@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Shell from "@/components/Shell";
-import { Flame, Star, Leaf, Share2, Loader2 } from "lucide-react";
+import { Flame, Star, Leaf, Share2, Loader2, Check } from "lucide-react";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { useBaseAccount } from "@/hooks/useBaseAccount";
 
@@ -14,6 +14,7 @@ interface UserSummary {
     totalCheckIns: number;
     receiptCount: number;
     hasBadge: boolean;
+    lastCheckInDay: number;
 }
 
 interface WeekReport {
@@ -35,6 +36,7 @@ export default function YourImpact() {
         totalCheckIns: 0,
         receiptCount: 0,
         hasBadge: false,
+        lastCheckInDay: 0,
     });
     const [weekReport, setWeekReport] = useState<WeekReport>({
         weekPoints: 0,
@@ -66,6 +68,7 @@ export default function YourImpact() {
                         totalCheckIns: data.data.totalCheckIns,
                         receiptCount: data.data.receiptCount,
                         hasBadge: data.data.hasBadge,
+                        lastCheckInDay: data.data.lastCheckInDay,
                     });
                     if (data.data.weekReport) {
                         setWeekReport(data.data.weekReport);
@@ -83,6 +86,7 @@ export default function YourImpact() {
                     totalCheckIns: 0,
                     receiptCount: 0,
                     hasBadge: false,
+                    lastCheckInDay: 0,
                 });
                 setWeekReport({
                     weekPoints: 0,
@@ -126,6 +130,7 @@ export default function YourImpact() {
                     checkInStreak: data.data.newStreak,
                     totalCheckIns: prev.totalCheckIns + 1,
                     totalPoints: prev.totalPoints + data.data.pointsEarned,
+                    lastCheckInDay: Math.floor(Date.now() / 1000 / 86400),
                 }));
             } else {
                 throw new Error(data.error || "Check-in failed");
@@ -265,13 +270,18 @@ Join me in reducing food waste!`,
                         <div className="space-y-3">
                             <button
                                 onClick={handleCheckIn}
-                                disabled={isCheckingIn}
+                                disabled={isCheckingIn || userData.lastCheckInDay >= Math.floor(Date.now() / 1000 / 86400)}
                                 className="w-full bg-brand-primary text-white py-5 px-8 rounded-3xl font-black text-xl shadow-xl shadow-brand-primary/20 hover:bg-brand-secondary transition-all active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50"
                             >
                                 {isCheckingIn ? (
                                     <>
                                         <Loader2 size={24} className="animate-spin" />
                                         Checking in...
+                                    </>
+                                ) : userData.lastCheckInDay >= Math.floor(Date.now() / 1000 / 86400) ? (
+                                    <>
+                                        <Check size={24} className="text-green-400" />
+                                        Checked In Today
                                     </>
                                 ) : (
                                     <>

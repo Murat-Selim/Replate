@@ -121,19 +121,28 @@ export async function submitCheckIn(userAddress: string): Promise<{ success: boo
 
   try {
     const c = getContract();
-    console.log(`🔗 Initiating contract check-in for ${userAddress}...`);
+    
+    // Check if user already checked in today before sending transaction
+    const today = Math.floor(Date.now() / 1000 / 86400);
+    const lastDay = await c.lastCheckInDay(userAddress);
+    
+    if (Number(lastDay) >= today) {
+      throw new Error("Already checked in today");
+    }
 
+    console.log(`🔗 Initiating contract check-in for ${userAddress}...`);
     const tx = await c.checkIn(userAddress);
     console.log(`📤 Check-in transaction sent: ${tx.hash}`);
 
-    console.log("⏳ Waiting for transaction confirmation...");
     await tx.wait();
     console.log(`✅ Check-in transaction confirmed for ${userAddress}`);
 
     return { success: true, pointsEarned: 10 };
-  } catch (error) {
+  } catch (error: any) {
     console.error("❌ Check-in failed in contract service:", error);
-    throw error;
+    // Extract reason from contract revert if possible
+    const reason = error?.reason || error?.message || "Check-in failed";
+    throw new Error(reason);
   }
 }
 
@@ -215,6 +224,7 @@ export async function getUserSummary(userAddress: string) {
       totalCheckIns: 0,
       receiptCount: 0,
       hasBadge: false,
+      lastCheckInDay: 0,
     };
   }
 
@@ -230,6 +240,7 @@ export async function getUserSummary(userAddress: string) {
       totalCheckIns: Number(summary._totalCheckIns),
       receiptCount: Number(summary._receiptCount),
       hasBadge: summary._hasBadge,
+      lastCheckInDay: Number(await c.lastCheckInDay(userAddress)),
     };
   } catch (error) {
     console.error("❌ Failed to get user summary:", error);
