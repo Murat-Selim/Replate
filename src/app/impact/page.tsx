@@ -136,8 +136,13 @@ export default function YourImpact() {
                 throw new Error(data.error || "Check-in failed");
             }
         } catch (err) {
-            console.error("❌ Fetch Error Detail:", err);
-            setError(err instanceof Error ? err.message : "Check-in failed");
+            console.error("❌ Check-in Detail:", err);
+            const message = err instanceof Error ? err.message : "Check-in failed";
+            if (message.includes("Already checked in today")) {
+                setError("You've already checked in today! See you tomorrow! ✨");
+            } else {
+                setError(message);
+            }
         } finally {
             setIsCheckingIn(false);
         }
