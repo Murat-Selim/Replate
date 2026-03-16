@@ -231,6 +231,13 @@ export async function getUserSummary(userAddress: string) {
   try {
     const c = getContract();
     const summary = await c.getUserSummary(userAddress);
+    
+    let lastCheckInDay = 0;
+    try {
+      lastCheckInDay = Number(await c.lastCheckInDay(userAddress));
+    } catch (e) {
+      console.warn("⚠️ Could not fetch lastCheckInDay from contract:", e);
+    }
 
     return {
       totalPoints: Number(summary._totalPoints),
@@ -240,11 +247,21 @@ export async function getUserSummary(userAddress: string) {
       totalCheckIns: Number(summary._totalCheckIns),
       receiptCount: Number(summary._receiptCount),
       hasBadge: summary._hasBadge,
-      lastCheckInDay: Number(await c.lastCheckInDay(userAddress)),
+      lastCheckInDay: lastCheckInDay,
     };
   } catch (error) {
     console.error("❌ Failed to get user summary:", error);
-    throw error;
+    // Return empty but valid object instead of throwing
+    return {
+      totalPoints: 0,
+      level: 0,
+      receiptStreak: 0,
+      checkInStreak: 0,
+      totalCheckIns: 0,
+      receiptCount: 0,
+      hasBadge: false,
+      lastCheckInDay: 0,
+    };
   }
 }
 

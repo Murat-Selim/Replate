@@ -60,15 +60,19 @@ export default function YourImpact() {
                 const data = await response.json();
 
                 if (data.success) {
+                    // Safety check for lastCheckInDay
+                    const today = Math.floor(Date.now() / 1000 / 86400);
+                    const lastDay = data.data.lastCheckInDay || 0;
+                    
                     setUserData({
-                        totalPoints: data.data.totalPoints,
-                        level: data.data.level,
-                        receiptStreak: data.data.receiptStreak,
-                        checkInStreak: data.data.checkInStreak,
-                        totalCheckIns: data.data.totalCheckIns,
-                        receiptCount: data.data.receiptCount,
-                        hasBadge: data.data.hasBadge,
-                        lastCheckInDay: data.data.lastCheckInDay,
+                        totalPoints: data.data.totalPoints || 0,
+                        level: data.data.level || 0,
+                        receiptStreak: data.data.receiptStreak || 0,
+                        checkInStreak: data.data.checkInStreak || 0,
+                        totalCheckIns: data.data.totalCheckIns || 0,
+                        receiptCount: data.data.receiptCount || 0,
+                        hasBadge: data.data.hasBadge || false,
+                        lastCheckInDay: lastDay,
                     });
                     if (data.data.weekReport) {
                         setWeekReport(data.data.weekReport);
