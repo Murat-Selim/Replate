@@ -1,0 +1,86 @@
+import { Router } from "express";
+import { getLeaderboard, getUserRank, getPoolStatus } from "../services/contract.js";
+const router = Router();
+// In-memory cache with TTL - exported for cache invalidation
+export let cachedLeaderboard = null;
+export let cacheTimestamp = 0;
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+// Add rank to leaderboard entries
+function addRanks(entries) {
+    return entries.map((entry, index) => ({
+        ...entry,
+        rank: index + 1,
+    }));
+}
+router.get("/", async (req, res) => {
+    try {
+        // Check cache
+        if (cachedLeaderboard && Date.now() - cacheTimestamp < CACHE_TTL) {
+            const poolStatus = await getPoolStatus();
+            res.json({ success: true, data: cachedLeaderboard, poolStatus, cached: true });
+            return;
+        }
+        // Query contract for leaderboard
+        const leaderboard = await getLeaderboard(100);
+        const leaderboardWithRanks = addRanks(leaderboard);
+        cachedLeaderboard = leaderboardWithRanks;
+        cacheTimestamp = Date.now();
+        // Also get pool status
+        const poolStatus = await getPoolStatus();
+        res.json({ success: true, data: leaderboardWithRanks, poolStatus, cached: false });
+    }
+    catch (error) {
+        console.error("❌ Leaderboard fetch failed:", error);
+        res.status(500).json({
+            success: false,
+            error: error instanceof Error ? error.message : "Internal server error",
+        });
+    }
+});
+// Get user's rank
+router.get("/rank/:address", async (req, res) => {
+    try {
+        const address = req.params.address;
+        if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
+            res.status(400).json({ success: false, error: "Invalid address" });
+            return;
+        }
+        // Get user's data from contract
+        const userData = await getUserRank(address);
+        if (!userData) {
+            res.json({
+                success: true,
+                data: {
+                    address,
+                    rank: 0,
+                    totalPoints: 0,
+                    level: 0,
+                    streak: 0,
+                    hasBadge: false,
+                },
+            });
+            return;
+        }
+        // Calculate rank by comparing with leaderboard
+        const leaderboard = await getLeaderboard(1000);
+        const rank = leaderboard.findIndex(entry => entry.address.toLowerCase() === address.toLowerCase()) + 1;
+        res.json({
+            success: true,
+            data: {
+                address: userData.address,
+                rank,
+                totalPoints: userData.totalPoints,
+                level: userData.level,
+                streak: userData.streak,
+                hasBadge: userData.hasBadge,
+            },
+        });
+    }
+    catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error instanceof Error ? error.message : "Internal server error",
+        });
+    }
+});
+export default router;

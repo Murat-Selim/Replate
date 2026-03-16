@@ -6,7 +6,19 @@ let visionClient: ImageAnnotatorClient | null = null;
 
 function getVisionClient(): ImageAnnotatorClient {
   if (!visionClient) {
-    visionClient = new ImageAnnotatorClient();
+    // If GOOGLE_CREDENTIALS_JSON is provided, use it directly
+    if (process.env.GOOGLE_CREDENTIALS_JSON) {
+      try {
+        const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS_JSON);
+        visionClient = new ImageAnnotatorClient({ credentials });
+      } catch (error) {
+        console.error("❌ Failed to parse GOOGLE_CREDENTIALS_JSON:", error);
+        visionClient = new ImageAnnotatorClient();
+      }
+    } else {
+      // Fallback to default (uses GOOGLE_APPLICATION_CREDENTIALS path)
+      visionClient = new ImageAnnotatorClient();
+    }
   }
   return visionClient;
 }

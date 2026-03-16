@@ -41,6 +41,23 @@ app.use("/api/leaderboard", leaderboardRouter);
 app.use("/api/user", userRouter);
 app.use("/api/check-in", checkInRouter);
 
+// Cron endpoint for Vercel
+app.get("/api/cron/weekly", async (req, res) => {
+  // Check for Vercel Cron Secret (optional but recommended)
+  // if (req.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`) {
+  //   return res.status(401).json({ error: "Unauthorized" });
+  // }
+  
+  console.log("🕐 Running weekly finalization via API call...");
+  try {
+    await runWeeklyFinalization();
+    res.json({ success: true, message: "Weekly finalization complete" });
+  } catch (error) {
+    console.error("❌ Weekly finalization failed:", error);
+    res.status(500).json({ success: false, error: "Weekly finalization failed" });
+  }
+});
+
 // Weekly cron job - runs every Sunday at 00:00 UTC
 cron.schedule("0 0 * * 0", async () => {
   console.log("🕐 Running weekly finalization cron job...");
@@ -52,13 +69,17 @@ cron.schedule("0 0 * * 0", async () => {
   }
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`🚀 Replate API server running on port ${PORT}`);
-  console.log(`📋 Health check: http://localhost:${PORT}/health`);
+// Start server - only if not running on Vercel
+if (process.env.NODE_ENV !== "production" || !process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`🚀 Replate API server running on port ${PORT}`);
+    console.log(`📋 Health check: http://localhost:${PORT}/health`);
 
-  // Set up event listeners for real-time updates
-  setupEventListeners();
-});
+    // Set up event listeners for real-time updates
+    if (!process.env.VERCEL) {
+      setupEventListeners();
+    }
+  });
+}
 
 export default app;
