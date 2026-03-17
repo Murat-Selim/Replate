@@ -377,9 +377,9 @@ export async function getLeaderboard(limit: number = 100): Promise<LeaderboardEn
     // Most free RPCs like Base Sepolia have a 50k block range limit.
     const latestBlock = await provider.getBlockNumber();
     const startBlock = Math.max(0, latestBlock - 48000);
-    
+
     console.log(`🔎 Querying blocks ${startBlock} to latest...`);
-    
+
     const [receiptEvents, badgeEvents] = await Promise.all([
       c.queryFilter(c.filters.ReceiptSubmitted(), startBlock, 'latest'),
       c.queryFilter(c.filters.BadgeMinted(), startBlock, 'latest')
