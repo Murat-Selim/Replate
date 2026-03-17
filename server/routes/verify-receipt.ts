@@ -9,6 +9,7 @@ interface VerifyReceiptRequest {
   imageBase64: string;
   userAddress: string;
   householdSize: number;
+  daysCovered?: number;
   fid?: number; // Farcaster ID
 }
 
@@ -32,7 +33,7 @@ interface VerifyReceiptResponse {
 
 router.post("/", async (req: Request, res: Response) => {
   try {
-    const { imageBase64, userAddress, householdSize, fid } = req.body as VerifyReceiptRequest;
+    const { imageBase64, userAddress, householdSize, daysCovered, fid } = req.body as VerifyReceiptRequest;
 
     // Validation
     if (!imageBase64) {
@@ -66,7 +67,7 @@ router.post("/", async (req: Request, res: Response) => {
       unhealthyItems: classification.unhealthyItems,
       fruitVegGrams: classification.fruitVegGrams,
       householdSize,
-      daysCovered: estimateDaysCovered(classification.totalItems, householdSize),
+      daysCovered: daysCovered || estimateDaysCovered(classification.totalItems, householdSize),
     });
 
     const response: VerifyReceiptResponse = {

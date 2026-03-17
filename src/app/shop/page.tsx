@@ -91,6 +91,7 @@ export default function SmartShop() {
                     imageBase64: base64Data,
                     userAddress: targetAddress,
                     householdSize,
+                    daysCovered: duration,
                     fid: userContext.fid,
                 }),
             });
