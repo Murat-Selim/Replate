@@ -374,12 +374,11 @@ export async function getLeaderboard(limit: number = 100): Promise<LeaderboardEn
 
     console.log(`📡 Fetching live leaderboard from ${contractAddr}...`);
 
-    // Get current block height to avoid "exceed maximum block range" error
-    // Some RPCs have tight limits (e.g. 10k-50k). 20k is very safe for most.
+    // Base Sepolia public RPC has a 10,000 block search limit.
     const latestBlock = await provider.getBlockNumber();
-    const startBlock = Math.max(0, latestBlock - 20000);
+    const startBlock = Math.max(0, latestBlock - 9000); // Using 9k to be safe
     
-    console.log(`🔎 Querying ${contractAddr} for logs from block ${startBlock} to ${latestBlock}...`);
+    console.log(`🔎 Querying ${contractAddr} (Sepolia) for logs from ${startBlock} to ${latestBlock}...`);
     
     const [receiptEvents, badgeEvents] = await Promise.all([
       c.queryFilter(c.filters.ReceiptSubmitted(), startBlock, 'latest'),
