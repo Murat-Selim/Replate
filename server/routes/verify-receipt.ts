@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import { processOCR } from "../services/ocr.js";
 import { classifyFoods, ClassificationResult } from "../services/classifier.js";
 import { submitReceiptToContract } from "../services/contract.js";
+import { clearLeaderboardCache } from "./leaderboard.js";
 
 const router = Router();
 
@@ -69,6 +70,9 @@ router.post("/", async (req: Request, res: Response) => {
       householdSize,
       daysCovered: daysCovered || estimateDaysCovered(classification.totalItems, householdSize),
     });
+
+    // Clear leaderboard cache to reflect new points immediately
+    clearLeaderboardCache();
 
     const response: VerifyReceiptResponse = {
       success: true,

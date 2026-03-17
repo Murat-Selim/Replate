@@ -104,7 +104,7 @@ export async function submitReceiptToContract(data: ReceiptSubmission): Promise<
     return calculateScores(data);
   } catch (error: any) {
     console.error("❌ Contract submission failed:", error);
-    
+
     // Extract the revert reason if available
     let message = "Failed to submit receipt to blockchain";
     if (error?.revert?.args?.[0]) {
@@ -119,7 +119,7 @@ export async function submitReceiptToContract(data: ReceiptSubmission): Promise<
         message = error.message;
       }
     }
-    
+
     throw new Error(message);
   }
 }
@@ -137,14 +137,14 @@ export async function submitCheckIn(userAddress: string): Promise<{ success: boo
 
   try {
     const c = getContract();
-    
+
     // Check if user already checked in today before sending transaction
     let lastDay = 0;
     try {
-        const lastDayVal = await c.lastCheckInDay(userAddress);
-        lastDay = Number(lastDayVal || 0);
+      const lastDayVal = await c.lastCheckInDay(userAddress);
+      lastDay = Number(lastDayVal || 0);
     } catch (e) {
-        console.warn("⚠️ Could not fetch lastCheckInDay in submitCheckIn, proceeding anyway");
+      console.warn("⚠️ Could not fetch lastCheckInDay in submitCheckIn, proceeding anyway");
     }
 
     const today = Math.floor(Date.now() / 1000 / 86400);
@@ -165,7 +165,7 @@ export async function submitCheckIn(userAddress: string): Promise<{ success: boo
     // Sanitize the error message to avoid technical ethers dump on screen
     let message = error?.message || "Check-in failed";
     if (message.includes("BAD_DATA") || message.includes("decode")) {
-        message = "Blockchain connection issue. Please try again later.";
+      message = "Blockchain connection issue. Please try again later.";
     }
     throw new Error(message);
   }
@@ -359,56 +359,54 @@ export interface LeaderboardEntry {
  * Queries ReceiptSubmitted events to build the leaderboard
  */
 export async function getLeaderboard(limit: number = 100): Promise<LeaderboardEntry[]> {
-  const rpcUrl = process.env.RPC_URL || process.env.BASE_SEPOLIA_RPC_URL;
+  const rpcUrl = process.env.BASE_RPC_URL || process.env.BASE_SEPOLIA_RPC_URL;
 
   if (!rpcUrl) {
+    console.log("⚠️ No RPC_URL, returning mock leaderboard");
     return getMockLeaderboard(limit);
   }
 
   try {
     const provider = new ethers.JsonRpcProvider(rpcUrl);
+    const contractAddr = process.env.CONTRACT_ADDRESS || CONTRACT_ADDRESS;
+    const c = new Contract(contractAddr, REPLATE_QUEST_ABI, provider);
 
-    // Get all ReceiptSubmitted events
-    const contract = new Contract(CONTRACT_ADDRESS, REPLATE_QUEST_ABI, provider);
+    // Fetch both ReceiptSubmitted and BadgeMinted events
+    const [receiptEvents, badgeEvents] = await Promise.all([
+      c.queryFilter(c.filters.ReceiptSubmitted(), 15000000, 'latest'),
+      c.queryFilter(c.filters.BadgeMinted(), 15000000, 'latest')
+    ]);
 
-    // Query events - get from block 0 to latest
-    const filter = contract.filters.ReceiptSubmitted();
-    const events = await contract.queryFilter(filter, 0, 'latest');
+    const userStats = new Map<string, { points: number; hasBadge: boolean }>();
 
-    // Aggregate points by user
-    const userPoints = new Map<string, { points: bigint; hasBadge: boolean }>();
-
-    for (const event of events) {
+    // Process points
+    for (const event of receiptEvents) {
       if (!('args' in event)) continue;
-      const eventArgs = event.args as unknown as [string, number, number, bigint, number, number] | undefined;
-      const user = eventArgs?.[0];
-      const points = eventArgs?.[3];
+      const user = (event.args[0] as string).toLowerCase();
+      const points = Number(event.args[3] || 0);
 
-      if (user && points) {
-        const existing = userPoints.get(user) || { points: BigInt(0), hasBadge: false };
-        existing.points += points;
-        userPoints.set(user, existing);
+      const existing = userStats.get(user) || { points: 0, hasBadge: false };
+      existing.points += points;
+      userStats.set(user, existing);
+    }
+
+    // Process badges
+    for (const event of badgeEvents) {
+      if (!('args' in event)) continue;
+      const user = (event.args[0] as string).toLowerCase();
+      if (userStats.has(user)) {
+        userStats.get(user)!.hasBadge = true;
+      } else {
+        userStats.set(user, { points: 0, hasBadge: true });
       }
     }
 
-    // Get badge status for each user
-    for (const [user] of userPoints) {
-      try {
-        const hasBadge = await contract.hasBadge(user);
-        const existing = userPoints.get(user)!;
-        existing.hasBadge = hasBadge;
-      } catch {
-        // Continue without badge info
-      }
-    }
-
-    // Convert to array and sort
-    const leaderboard: LeaderboardEntry[] = Array.from(userPoints.entries())
+    const leaderboard: LeaderboardEntry[] = Array.from(userStats.entries())
       .map(([address, data]) => ({
         address,
-        totalPoints: Number(data.points),
-        level: Math.floor(Number(data.points) / 500),
-        streak: 0, // Would need to query streak separately
+        totalPoints: data.points,
+        level: Math.floor(data.points / 500),
+        streak: 0,
         hasBadge: data.hasBadge,
       }))
       .sort((a, b) => b.totalPoints - a.totalPoints)
