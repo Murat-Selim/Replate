@@ -359,7 +359,8 @@ export interface LeaderboardEntry {
  * Queries ReceiptSubmitted events to build the leaderboard
  */
 export async function getLeaderboard(limit: number = 100): Promise<LeaderboardEntry[]> {
-  const rpcUrl = process.env.RPC_URL || process.env.BASE_RPC_URL || process.env.BASE_SEPOLIA_RPC_URL;
+  // Prioritize Sepolia URL for testing/development
+  const rpcUrl = process.env.BASE_SEPOLIA_RPC_URL || process.env.RPC_URL || process.env.BASE_RPC_URL;
 
   if (!rpcUrl) {
     console.log("⚠️ No RPC_URL available, returning mock leaderboard");
