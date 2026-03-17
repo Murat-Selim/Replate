@@ -374,18 +374,18 @@ export async function getLeaderboard(limit: number = 100): Promise<LeaderboardEn
     console.log(`📡 Fetching live leaderboard from ${contractAddr}...`);
 
     // Get current block height to avoid "exceed maximum block range" error
-    // Most free RPCs like Base Sepolia have a 50k block range limit.
+    // Some RPCs have tight limits (e.g. 10k-50k). 20k is very safe for most.
     const latestBlock = await provider.getBlockNumber();
-    const startBlock = Math.max(0, latestBlock - 48000);
-
-    console.log(`🔎 Querying blocks ${startBlock} to latest...`);
-
+    const startBlock = Math.max(0, latestBlock - 20000);
+    
+    console.log(`🔎 Querying ${contractAddr} for logs from block ${startBlock} to ${latestBlock}...`);
+    
     const [receiptEvents, badgeEvents] = await Promise.all([
       c.queryFilter(c.filters.ReceiptSubmitted(), startBlock, 'latest'),
       c.queryFilter(c.filters.BadgeMinted(), startBlock, 'latest')
     ]);
 
-    console.log(`📊 Found ${receiptEvents.length} submissions and ${badgeEvents.length} badges`);
+    console.log(`📊 Result: ${receiptEvents.length} submissions, ${badgeEvents.length} badges found.`);
 
     const userStats = new Map<string, { points: number; hasBadge: boolean }>();
 
@@ -424,8 +424,9 @@ export async function getLeaderboard(limit: number = 100): Promise<LeaderboardEn
 
     return leaderboard;
   } catch (error: any) {
-    console.error("❌ Failed to get leaderboard from blockchain:", error.message || error);
-    return getMockLeaderboard(limit);
+    console.error("❌ Critical: Leaderboard fetch failed:", error.message || error);
+    // Don't return mock data anymore, let the caller handle the failure
+    throw error;
   }
 }
 
