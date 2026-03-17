@@ -5,10 +5,10 @@ const router = Router();
 
 type LeaderboardEntryWithRank = LeaderboardEntry & { rank: number };
 
-// In-memory cache with TTL - SET TO 1S FOR DEBUGGING
+// In-memory cache with TTL - 5 minutes for production performance
 export let cachedLeaderboard: LeaderboardEntryWithRank[] | null = null;
 export let cacheTimestamp = 0;
-const CACHE_TTL = 1000; // 1 second
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 export function clearLeaderboardCache() {
   cachedLeaderboard = null;
@@ -25,8 +25,8 @@ function addRanks(entries: LeaderboardEntry[]): LeaderboardEntryWithRank[] {
 
 router.get("/", async (req: Request, res: Response) => {
   try {
-    // Check cache - DISABLED FOR DEBUGGING
-    if (false && cachedLeaderboard && Date.now() - cacheTimestamp < CACHE_TTL) {
+    // Check cache
+    if (cachedLeaderboard && Date.now() - cacheTimestamp < CACHE_TTL) {
       const poolStatus = await getPoolStatus();
       res.json({ success: true, data: cachedLeaderboard, poolStatus, cached: true });
       return;
