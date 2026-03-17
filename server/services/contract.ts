@@ -359,10 +359,10 @@ export interface LeaderboardEntry {
  * Queries ReceiptSubmitted events to build the leaderboard
  */
 export async function getLeaderboard(limit: number = 100): Promise<LeaderboardEntry[]> {
-  const rpcUrl = process.env.BASE_RPC_URL || process.env.BASE_SEPOLIA_RPC_URL;
+  const rpcUrl = process.env.RPC_URL || process.env.BASE_RPC_URL || process.env.BASE_SEPOLIA_RPC_URL;
 
   if (!rpcUrl) {
-    console.log("⚠️ No RPC_URL, returning mock leaderboard");
+    console.log("⚠️ No RPC_URL available, returning mock leaderboard");
     return getMockLeaderboard(limit);
   }
 
@@ -371,11 +371,18 @@ export async function getLeaderboard(limit: number = 100): Promise<LeaderboardEn
     const contractAddr = process.env.CONTRACT_ADDRESS || CONTRACT_ADDRESS;
     const c = new Contract(contractAddr, REPLATE_QUEST_ABI, provider);
 
-    // Fetch both ReceiptSubmitted and BadgeMinted events
+    console.log(`📡 Fetching live leaderboard from ${contractAddr}...`);
+
+    // Use a more recent block range to avoid RPC timeouts
+    // Base Sepolia is currently ~19M-20M. 18M is safe.
+    const startBlock = 18000000;
+    
     const [receiptEvents, badgeEvents] = await Promise.all([
-      c.queryFilter(c.filters.ReceiptSubmitted(), 15000000, 'latest'),
-      c.queryFilter(c.filters.BadgeMinted(), 15000000, 'latest')
+      c.queryFilter(c.filters.ReceiptSubmitted(), startBlock, 'latest'),
+      c.queryFilter(c.filters.BadgeMinted(), startBlock, 'latest')
     ]);
+
+    console.log(`📊 Found ${receiptEvents.length} submissions and ${badgeEvents.length} badges`);
 
     const userStats = new Map<string, { points: number; hasBadge: boolean }>();
 
@@ -413,8 +420,8 @@ export async function getLeaderboard(limit: number = 100): Promise<LeaderboardEn
       .slice(0, limit);
 
     return leaderboard;
-  } catch (error) {
-    console.error("❌ Failed to get leaderboard from contract:", error);
+  } catch (error: any) {
+    console.error("❌ Failed to get leaderboard from blockchain:", error.message || error);
     return getMockLeaderboard(limit);
   }
 }
