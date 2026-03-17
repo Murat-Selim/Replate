@@ -3,7 +3,7 @@ import "@nomicfoundation/hardhat-toolbox";
 import "@openzeppelin/hardhat-upgrades";
 import * as dotenv from "dotenv";
 
-dotenv.config();
+dotenv.config({ path: ".env.local" });
 
 const PRIVATE_KEY = process.env.VALIDATOR_PRIVATE_KEY || "0x0000000000000000000000000000000000000000000000000000000000000000";
 const BASE_RPC_URL = process.env.BASE_RPC_URL || "https://mainnet.base.org";
@@ -18,6 +18,7 @@ const config: HardhatUserConfig = {
                 enabled: true,
                 runs: 200,
             },
+            evmVersion: "paris"
         },
     },
     networks: {

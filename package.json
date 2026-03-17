@@ -11,7 +11,7 @@
     "start": "next start",
     "lint": "eslint",
     "compile": "cross-env TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat compile",
-    "deploy": "cross-env TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat run scripts/deploy.cts",
+    "deploy": "cross-env TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat run scripts/deploy.cts --network baseSepolia",
     "test:contracts": "cross-env TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat test",
     "verify": "cross-env TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat verify",
     "export-abi": "cross-env TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat run scripts/export-abi.cts"
