@@ -91,8 +91,8 @@ export async function submitReceiptToContract(data: ReceiptSubmission): Promise<
       );
 
       return {
-        healthScore: decoded[0],
-        nutritionScore: decoded[1],
+        healthScore: Number(decoded[0]),
+        nutritionScore: Number(decoded[1]),
         pointsEarned: Number(decoded[2]),
         daysCovered: data.daysCovered,
         txHash: tx.hash,

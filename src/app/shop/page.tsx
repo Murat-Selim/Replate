@@ -140,7 +140,7 @@ Join me in reducing food waste!`,
                 {/* Combined Header Area */}
                 <div className="text-center space-y-2">
                     <h1 className="text-4xl font-black text-brand-primary">Shop & Verify</h1>
-                    <p className="text-brand-text/60">Upload receipt and generate your smart list.</p>
+                    <p className="text-brand-text/60">Upload receipt and earn rewards.</p>
                 </div>
 
                 {/* Section 1: Verify (Top) */}
