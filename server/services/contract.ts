@@ -102,9 +102,25 @@ export async function submitReceiptToContract(data: ReceiptSubmission): Promise<
 
     // Fallback calculation if event not found
     return calculateScores(data);
-  } catch (error) {
+  } catch (error: any) {
     console.error("❌ Contract submission failed:", error);
-    throw new Error("Failed to submit receipt to blockchain");
+    
+    // Extract the revert reason if available
+    let message = "Failed to submit receipt to blockchain";
+    if (error?.revert?.args?.[0]) {
+      message = error.revert.args[0];
+    } else if (error?.reason) {
+      message = error.reason;
+    } else if (error?.message) {
+      // Basic cleaning for common strings
+      if (error.message.includes("Already submitted")) {
+        message = "Already submitted a receipt today";
+      } else {
+        message = error.message;
+      }
+    }
+    
+    throw new Error(message);
   }
 }
 
