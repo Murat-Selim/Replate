@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "convert-farcaster-miniapp-to-app": {
+      "source": "base/skills",
+      "sourceType": "github",
+      "computedHash": "317ec4530f9f6f2bfcd697acd60dce198c96ff29010f8ea9f1e6355053062669"
+    }
+  }
+}
