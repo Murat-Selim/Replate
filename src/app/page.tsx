@@ -17,7 +17,7 @@ export default function Home() {
           {/* The Logo Image */}
           <div className="relative w-56 h-56 flex items-center justify-center overflow-hidden rounded-[48px]">
             <Image
-              src="/replate-logo.png"
+              src="/replate-image.png"
               alt="Replate Logo"
               width={224}
               height={224}
