@@ -92,6 +92,12 @@ export default function Leaderboard() {
                     <div className="flex items-center justify-center py-20">
                         <Loader2 size={40} className="animate-spin text-brand-primary" />
                     </div>
+                ) : leaders.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-20 space-y-3 text-center">
+                        <Trophy size={48} className="text-brand-primary/30" />
+                        <p className="text-brand-text/50 font-medium">No entries yet</p>
+                        <p className="text-brand-text/30 text-sm">Be the first to submit a receipt and claim the top spot!</p>
+                    </div>
                 ) : (
                     <div className="space-y-3">
                         {leaders.map((user) => (

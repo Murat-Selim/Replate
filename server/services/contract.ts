@@ -354,12 +354,43 @@ export interface LeaderboardEntry {
   hasBadge: boolean;
 }
 
+// Contract deployment block on Base Sepolia (never changes)
+const CONTRACT_DEPLOY_BLOCK = 38997383;
+// Max blocks per query for Base Sepolia public RPC
+const MAX_BLOCK_RANGE = 9000;
+
 /**
- * Get leaderboard from contract events
- * Queries ReceiptSubmitted events to build the leaderboard
+ * Fetch all logs for a filter across the full contract history,
+ * chunking into MAX_BLOCK_RANGE windows to respect RPC limits.
+ */
+async function queryFilterAll(
+  c: Contract,
+  filter: ReturnType<Contract['filters'][string]>,
+  fromBlock: number,
+  toBlock: number
+) {
+  const results: any[] = [];
+  let start = fromBlock;
+
+  while (start <= toBlock) {
+    const end = Math.min(start + MAX_BLOCK_RANGE - 1, toBlock);
+    try {
+      const chunk = await c.queryFilter(filter, start, end);
+      results.push(...chunk);
+    } catch (e: any) {
+      console.warn(`⚠️ queryFilter chunk ${start}-${end} failed: ${e.message}`);
+    }
+    start = end + 1;
+  }
+
+  return results;
+}
+
+/**
+ * Get leaderboard by scanning ALL contract events since deploy,
+ * then fetching on-chain getUserSummary for each unique user.
  */
 export async function getLeaderboard(limit: number = 100): Promise<LeaderboardEntry[]> {
-  // Prioritize Sepolia URL for testing/development
   const rpcUrl = process.env.BASE_SEPOLIA_RPC_URL || process.env.RPC_URL || process.env.BASE_RPC_URL;
 
   if (!rpcUrl) {
@@ -374,58 +405,94 @@ export async function getLeaderboard(limit: number = 100): Promise<LeaderboardEn
 
     console.log(`📡 Fetching live leaderboard from ${contractAddr}...`);
 
-    // Base Sepolia public RPC has a 10,000 block search limit.
     const latestBlock = await provider.getBlockNumber();
-    const startBlock = Math.max(0, latestBlock - 9000); // Using 9k to be safe
-    
-    console.log(`🔎 Querying ${contractAddr} (Sepolia) for logs from ${startBlock} to ${latestBlock}...`);
-    
-    const [receiptEvents, badgeEvents] = await Promise.all([
-      c.queryFilter(c.filters.ReceiptSubmitted(), startBlock, 'latest'),
-      c.queryFilter(c.filters.BadgeMinted(), startBlock, 'latest')
+    console.log(`🔎 Scanning blocks ${CONTRACT_DEPLOY_BLOCK} → ${latestBlock}...`);
+
+    // Collect all users from both ReceiptSubmitted and CheckedIn events
+    const [receiptEvents, checkInEvents, badgeEvents] = await Promise.all([
+      queryFilterAll(c, c.filters.ReceiptSubmitted(), CONTRACT_DEPLOY_BLOCK, latestBlock),
+      queryFilterAll(c, c.filters.CheckedIn(), CONTRACT_DEPLOY_BLOCK, latestBlock),
+      queryFilterAll(c, c.filters.BadgeMinted(), CONTRACT_DEPLOY_BLOCK, latestBlock),
     ]);
 
-    console.log(`📊 Result: ${receiptEvents.length} submissions, ${badgeEvents.length} badges found.`);
+    console.log(
+      `📊 Found: ${receiptEvents.length} receipts, ${checkInEvents.length} check-ins, ${badgeEvents.length} badges`
+    );
 
-    const userStats = new Map<string, { points: number; hasBadge: boolean }>();
-
-    // Process points
-    for (const event of receiptEvents) {
-      if (!('args' in event)) continue;
-      const user = (event.args[0] as string).toLowerCase();
-      const points = Number(event.args[3] || 0);
-
-      const existing = userStats.get(user) || { points: 0, hasBadge: false };
-      existing.points += points;
-      userStats.set(user, existing);
-    }
-
-    // Process badges
-    for (const event of badgeEvents) {
-      if (!('args' in event)) continue;
-      const user = (event.args[0] as string).toLowerCase();
-      if (userStats.has(user)) {
-        userStats.get(user)!.hasBadge = true;
-      } else {
-        userStats.set(user, { points: 0, hasBadge: true });
+    // Build set of unique user addresses
+    const userSet = new Set<string>();
+    for (const ev of [...receiptEvents, ...checkInEvents, ...badgeEvents]) {
+      if ('args' in ev && ev.args[0]) {
+        userSet.add((ev.args[0] as string).toLowerCase());
       }
     }
 
-    const leaderboard: LeaderboardEntry[] = Array.from(userStats.entries())
-      .map(([address, data]) => ({
-        address,
-        totalPoints: data.points,
-        level: Math.floor(data.points / 500),
-        streak: 0,
-        hasBadge: data.hasBadge,
-      }))
+    console.log(`👥 Unique users found: ${userSet.size}`);
+
+    if (userSet.size === 0) {
+      return [];
+    }
+
+    // Badge set for quick lookup
+    const badgeSet = new Set<string>();
+    for (const ev of badgeEvents) {
+      if ('args' in ev && ev.args[0]) {
+        badgeSet.add((ev.args[0] as string).toLowerCase());
+      }
+    }
+
+    // Fetch on-chain summary for every user (in parallel, batched)
+    const addresses = Array.from(userSet);
+    const BATCH = 10;
+    const entries: LeaderboardEntry[] = [];
+
+    for (let i = 0; i < addresses.length; i += BATCH) {
+      const batch = addresses.slice(i, i + BATCH);
+      const results = await Promise.allSettled(
+        batch.map(async (addr) => {
+          try {
+            const summary = await c.getUserSummary(addr);
+            return {
+              address: addr,
+              totalPoints: Number(summary?._totalPoints || 0),
+              level: Number(summary?._level || 0),
+              streak: Number(summary?._receiptStreak || summary?._checkInStreak || 0),
+              hasBadge: badgeSet.has(addr),
+            } as LeaderboardEntry;
+          } catch {
+            // Fallback: tally points from events
+            let points = 0;
+            for (const ev of receiptEvents) {
+              if ('args' in ev && (ev.args[0] as string).toLowerCase() === addr) {
+                points += Number(ev.args[3] || 0);
+              }
+            }
+            for (const ev of checkInEvents) {
+              if ('args' in ev && (ev.args[0] as string).toLowerCase() === addr) {
+                points += Number(ev.args[3] || 0); // pointsEarned from CheckedIn
+              }
+            }
+            return {
+              address: addr,
+              totalPoints: points,
+              level: Math.floor(points / 500),
+              streak: 0,
+              hasBadge: badgeSet.has(addr),
+            } as LeaderboardEntry;
+          }
+        })
+      );
+
+      for (const r of results) {
+        if (r.status === "fulfilled") entries.push(r.value);
+      }
+    }
+
+    return entries
       .sort((a, b) => b.totalPoints - a.totalPoints)
       .slice(0, limit);
-
-    return leaderboard;
   } catch (error: any) {
     console.error("❌ Critical: Leaderboard fetch failed:", error.message || error);
-    // Don't return mock data anymore, let the caller handle the failure
     throw error;
   }
 }

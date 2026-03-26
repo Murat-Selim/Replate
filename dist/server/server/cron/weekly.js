@@ -1,72 +1,64 @@
-import { getUserSummary, finalizeUserWeek, distributeWeeklyRewards } from "../services/contract.js";
-// In-memory store for tracking users (in production, use a database)
-// This would be replaced with proper user tracking from events
-const activeUsers = new Set();
+import { getLeaderboard, finalizeUserWeek, distributeWeeklyRewards } from "../services/contract.js";
 /**
- * Register a user for weekly tracking
- */
-export function registerUser(userAddress) {
-    activeUsers.add(userAddress);
-}
-/**
- * Run weekly finalization for all active users
+ * Run weekly finalization for top users
  * Called by cron job every Sunday at 00:00 UTC
  */
 export async function runWeeklyFinalization() {
-    console.log(`🔄 Starting weekly finalization for ${activeUsers.size} users...`);
-    const results = [];
-    // Finalize each user's week
-    for (const user of activeUsers) {
-        try {
-            const result = await finalizeUserWeek(user);
-            results.push({ user, success: result.success, streak: result.newStreak });
-            console.log(`✅ Finalized week for ${user}: streak ${result.newStreak}`);
-        }
-        catch (error) {
-            console.error(`❌ Failed to finalize ${user}:`, error);
-            results.push({ user, success: false, streak: 0 });
-        }
-    }
-    // Calculate top 100 by total points
-    const userPoints = [];
-    for (const user of activeUsers) {
-        try {
-            const summary = await getUserSummary(user);
-            userPoints.push({ user, points: summary.totalPoints });
-        }
-        catch (error) {
-            console.error(`❌ Failed to get summary for ${user}:`, error);
-        }
-    }
-    // Sort by points and take top 100
-    const top100 = userPoints
-        .sort((a, b) => b.points - a.points)
-        .slice(0, 100);
+    console.log(`🔄 Starting weekly finalization and reward distribution...`);
+    // 1. Get top users from the live leaderboard (up to 100)
+    // This replaces the in-memory activeUsers for stateless Vercel operation
+    const top100 = await getLeaderboard(100);
     if (top100.length === 0) {
-        console.log("⚠️ No users to distribute rewards to");
+        console.log("⚠️ No users found in leaderboard to finalize or distribute rewards to");
         return;
     }
-    // Calculate shares (proportional to points)
-    const totalPoints = top100.reduce((sum, u) => sum + u.points, 0);
-    const shares = top100.map(u => BigInt(Math.floor((u.points * 1e18) / totalPoints)));
-    // Distribute rewards
+    console.log(`📈 Processing ${top100.length} top users...`);
+    const results = [];
+    // 2. Finalize each top user's week (calculate streaks, give bonuses)
+    for (const entry of top100) {
+        try {
+            const result = await finalizeUserWeek(entry.address);
+            results.push({ user: entry.address, success: result.success, streak: result.newStreak });
+            console.log(`✅ Finalized week for ${entry.address}: streak ${result.newStreak}`);
+        }
+        catch (error) {
+            console.warn(`⚠️ Failed to finalize week for ${entry.address}:`, error);
+            // Continue to others
+        }
+    }
+    // 3. Calculate shares for USDC distribution (proportional to their total points)
+    const totalPoints = top100.reduce((sum, u) => sum + u.totalPoints, 0);
+    if (totalPoints === 0) {
+        console.log("⚠️ Total points is zero, skipping distribution");
+        return;
+    }
+    // Shares are proportional to their contribution to total points
+    const shares = top100.map(u => BigInt(u.totalPoints));
+    // 4. Call the smart contract to distribute the USDC pool
     try {
-        const result = await distributeWeeklyRewards(top100.map(u => u.user), shares);
-        console.log(`💰 Distributed rewards: ${result.totalDistributed} wei to ${top100.length} users`);
+        console.log(`💰 Distributing weekly pool to ${top100.length} users...`);
+        const result = await distributeWeeklyRewards(top100.map(u => u.address), shares);
+        console.log(`✅ Reward distribution transaction successful!`);
     }
     catch (error) {
-        console.error("❌ Failed to distribute rewards:", error);
+        console.error("❌ Failed to distribute rewards on-chain:", error);
     }
     // Log summary
     console.log(`📊 Weekly summary:
-    - Users finalized: ${results.filter(r => r.success).length}/${results.length}
-    - Top user: ${top100[0]?.user} (${top100[0]?.points} points)
-    - Total points distributed: ${totalPoints}
+    - Users processed: ${top100.length}
+    - Top user: ${top100[0]?.address} (${top100[0]?.totalPoints} XP)
+    - Combined points in pool: ${totalPoints}
   `);
 }
 /**
- * Get list of active users (for testing/debugging)
+ * Register a user for weekly tracking (legacy, kept for compatibility)
+ */
+export function registerUser(userAddress) {
+    // Now handled dynamically by getLeaderboard
+}
+/**
+ * Get list of active users (legacy, kept for compatibility)
  */
 export function getActiveUsers() {
-    return Array.from(activeUsers);
+    return [];
 }

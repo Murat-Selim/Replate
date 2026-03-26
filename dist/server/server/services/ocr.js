@@ -28,9 +28,10 @@ function getVisionClient() {
  * @returns Extracted text lines from the receipt
  */
 export async function processOCR(imageBase64) {
-    // Check for mock mode (no credentials)
-    if (!process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-        console.log("⚠️ No Google Cloud credentials, using mock OCR");
+    // Use mock if specifically requested or if no credentials are provided
+    const hasCredentials = process.env.GOOGLE_APPLICATION_CREDENTIALS || process.env.GOOGLE_CREDENTIALS_JSON;
+    if (process.env.USE_MOCK_OCR === "true" || !hasCredentials) {
+        console.log(`⚠️ ${!hasCredentials ? "No Google Cloud credentials" : "Mock OCR requested"}, using mock OCR`);
         return mockOCR();
     }
     try {

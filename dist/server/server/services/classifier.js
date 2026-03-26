@@ -7,22 +7,29 @@ const HEALTHY_KEYWORDS = [
     "apple", "banana", "orange", "berry", "tomato", "lettuce", "kale",
     "chicken breast", "fish", "salmon", "turkey", "egg", "yogurt", "oat",
     "brown rice", "quinoa", "beans", "lentil", "almond", "walnut", "avocado",
-    "olive oil", "coconut water", "green tea", "water", "milk",
+    "olive oil", "green tea", "water", "milk",
+    // Turkish Keywords
+    "tavuk", "balik", "ton", "sut", "yumurta", "yogurt", "mercimek", "nohut", "fasulye",
+    "bulgur", "yulaf", "zeytinyagi", "su", "meyve", "sebze", "ispanak", "elma", "muz",
+    "domates", "salatalik", "havuc", "marul", "kuruyemis", "ceviz", "findik", "badem",
+    "tam bugday", "siyez", "ekmek", "lor", "peynir", "salata", "pirinc", "bulgur",
 ];
 const UNHEALTHY_KEYWORDS = [
     "soda", "cola", "chips", "cookie", "candy", "chocolate", "cake",
     "donut", "ice cream", "frozen pizza", "hot dog", "bacon", "sausage",
     "fried", "fast food", "burger", "pizza", "energy drink", "alcohol",
-    "beer", "wine", "cigarette", "vape", "sugar", "corn syrup",
+    "sugar", "corn syrup",
+    // Turkish Keywords
+    "seker", "cikolata", "ips", "biskuvi", "kek", "pasta", "borek", "pogaca", "cips",
+    "goofret", "kolat", "gazoz", "enerji icecegi", "salam", "sosis", "sucuk", "pastirma",
+    "ketcap", "mayonez", "recel", "bal", "un", "margarin", "kizartma", "hazir",
 ];
 const FRUIT_VEG_KEYWORDS = {
     "banana": 120, "apple": 180, "orange": 200, "avocado": 150,
     "tomato": 100, "broccoli": 150, "carrot": 60, "spinach": 30,
-    "lettuce": 50, "cucumber": 100, "pepper": 100, "onion": 80,
-    "garlic": 10, "potato": 150, "sweet potato": 130, "berries": 100,
-    "strawberry": 20, "blueberry": 5, "grape": 5, "watermelon": 300,
-    "mango": 200, "pineapple": 200, "lemon": 50, "lime": 40,
-    "peach": 150, "pear": 180, "plum": 60, "kiwi": 70,
+    "muz": 120, "elma": 180, "portakal": 200, "avokado": 150,
+    "domates": 100, "brokoli": 150, "havuc": 60, "ispanak": 30,
+    "salatalik": 100, "biber": 100, "sogan": 80, "patates": 150,
 };
 /**
  * Classify food items from receipt lines
@@ -58,20 +65,26 @@ export async function classifyFoods(lines) {
  */
 function extractProductLines(lines) {
     const products = [];
-    const pricePattern = /\$?\d+\.?\d{0,2}$/;
+    // Price pattern: optional currency symbols, stars, then digits with dot or comma
+    const pricePattern = /[\*]?\d+[\.,]\d{2}$/;
     for (const line of lines) {
-        // Skip header/footer lines
-        if (line.match(/^(TOTAL|SUBTOTAL|TAX|DATE|STORE|CASHIER|CHANGE)/i)) {
+        const trimmed = line.trim();
+        // Skip header/footer lines (Turkish support)
+        if (trimmed.match(/^(TOTAL|SUBTOTAL|TAX|DATE|STORE|CASHIER|CHANGE|TOPLAM|KDV|FIŞ|SAAT|TARIH|ARA)/i)) {
             continue;
         }
         // Skip very short lines
-        if (line.trim().length < 3) {
+        if (trimmed.length < 3) {
             continue;
         }
-        // Remove price from end
-        const cleaned = line.replace(pricePattern, "").trim();
-        // Skip if it looks like a number or date
-        if (cleaned.match(/^[\d\/\-:]+$/)) {
+        // Clean up KDV markers like %01, %08, %18
+        let cleaned = trimmed.replace(/%\d{2}/g, "").trim();
+        // Remove price from end if exists
+        if (pricePattern.test(cleaned)) {
+            cleaned = cleaned.replace(pricePattern, "").trim();
+        }
+        // Skip if it looks like a number, date or weight info (x 8,95)
+        if (cleaned.match(/^[\d\/\-:,x ]+$/)) {
             continue;
         }
         if (cleaned.length > 2) {

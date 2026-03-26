@@ -2,10 +2,11 @@ import { Router } from "express";
 import { processOCR } from "../services/ocr.js";
 import { classifyFoods } from "../services/classifier.js";
 import { submitReceiptToContract } from "../services/contract.js";
+import { clearLeaderboardCache } from "./leaderboard.js";
 const router = Router();
 router.post("/", async (req, res) => {
     try {
-        const { imageBase64, userAddress, householdSize, fid } = req.body;
+        const { imageBase64, userAddress, householdSize, daysCovered, fid } = req.body;
         // Validation
         if (!imageBase64) {
             res.status(400).json({ success: false, error: "Image is required" });
@@ -34,8 +35,10 @@ router.post("/", async (req, res) => {
             unhealthyItems: classification.unhealthyItems,
             fruitVegGrams: classification.fruitVegGrams,
             householdSize,
-            daysCovered: estimateDaysCovered(classification.totalItems, householdSize),
+            daysCovered: daysCovered || estimateDaysCovered(classification.totalItems, householdSize),
         });
+        // Clear leaderboard cache to reflect new points immediately
+        clearLeaderboardCache();
         const response = {
             success: true,
             data: {

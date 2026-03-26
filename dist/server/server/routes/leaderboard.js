@@ -1,10 +1,14 @@
 import { Router } from "express";
 import { getLeaderboard, getUserRank, getPoolStatus } from "../services/contract.js";
 const router = Router();
-// In-memory cache with TTL - exported for cache invalidation
+// In-memory cache with TTL - 5 minutes for production performance
 export let cachedLeaderboard = null;
 export let cacheTimestamp = 0;
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+export function clearLeaderboardCache() {
+    cachedLeaderboard = null;
+    cacheTimestamp = 0;
+}
 // Add rank to leaderboard entries
 function addRanks(entries) {
     return entries.map((entry, index) => ({

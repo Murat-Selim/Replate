@@ -24,7 +24,7 @@ app.use((req, res, next) => {
 });
 app.use(express.json({ limit: "10mb" })); // For base64 image uploads
 // Health check
-app.get("/health", (req, res) => {
+app.get("/api/health", (req, res) => {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 // Routes
@@ -34,10 +34,11 @@ app.use("/api/user", userRouter);
 app.use("/api/check-in", checkInRouter);
 // Cron endpoint for Vercel
 app.get("/api/cron/weekly", async (req, res) => {
-    // Check for Vercel Cron Secret (optional but recommended)
-    // if (req.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`) {
-    //   return res.status(401).json({ error: "Unauthorized" });
-    // }
+    // Check for Vercel Cron Secret (highly recommended for production)
+    const authHeader = req.headers.authorization;
+    if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+        return res.status(401).json({ error: "Unauthorized" });
+    }
     console.log("🕐 Running weekly finalization via API call...");
     try {
         await runWeeklyFinalization();
