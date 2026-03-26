@@ -72,7 +72,7 @@ export default function Leaderboard() {
             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
                 <div className="text-center space-y-2">
                     <h1 className="text-3xl font-bold text-brand-primary">Leaderboard</h1>
-                    <p className="text-brand-text/60">Top waste-preventers on Base</p>
+                    <p className="text-brand-text/60">Top Nutrition Scores on Base</p>
                 </div>
 
                 {poolStatus && (
@@ -103,41 +103,37 @@ export default function Leaderboard() {
                         {leaders.map((user) => (
                             <div
                                 key={user.rank}
-                                className={`flex items-center justify-between p-4 rounded-3xl transition-all ${
-                                    userAddress && user.address.toLowerCase() === userAddress
+                                className={`flex items-center justify-between p-4 rounded-3xl transition-all ${userAddress && user.address.toLowerCase() === userAddress
                                         ? "bg-brand-primary text-white shadow-lg scale-[1.02]"
                                         : "bg-white border border-brand-accent/20"
-                                }`}
+                                    }`}
                             >
                                 <div className="flex items-center gap-4">
                                     <div className="w-8 flex justify-center">
                                         {getRankIcon(user.rank)}
                                     </div>
-                                    <div className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl ${
-                                        userAddress && user.address.toLowerCase() === userAddress
+                                    <div className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl ${userAddress && user.address.toLowerCase() === userAddress
                                             ? "bg-white/20"
                                             : "bg-brand-accent"
-                                    }`}>
+                                        }`}>
                                         {user.hasBadge ? "🏆" : "👤"}
                                     </div>
                                     <div>
                                         <h3 className="font-bold">{formatAddress(user.address)}</h3>
-                                        <p className={`text-xs ${
-                                            userAddress && user.address.toLowerCase() === userAddress
+                                        <p className={`text-xs ${userAddress && user.address.toLowerCase() === userAddress
                                                 ? "text-white/60"
                                                 : "text-brand-text/40"
-                                        }`}>
+                                            }`}>
                                             🔥 {user.streak} day streak
                                         </p>
                                     </div>
                                 </div>
                                 <div className="text-right">
                                     <span className="font-black text-xl">{user.totalPoints.toLocaleString()}</span>
-                                    <p className={`text-[10px] font-bold uppercase tracking-widest ${
-                                        userAddress && user.address.toLowerCase() === userAddress
+                                    <p className={`text-[10px] font-bold uppercase tracking-widest ${userAddress && user.address.toLowerCase() === userAddress
                                             ? "text-white/40"
                                             : "text-brand-text/20"
-                                    }`}>
+                                        }`}>
                                         XP
                                     </p>
                                 </div>
