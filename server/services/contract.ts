@@ -58,6 +58,19 @@ export async function submitReceiptToContract(data: ReceiptSubmission): Promise<
   try {
     const c = getContract();
 
+    // Log what we're sending to the contract for debugging
+    console.log(`📊 Submitting to contract:`, {
+      user: data.user,
+      totalItems: data.totalItems,
+      healthyItems: data.healthyItems,
+      unhealthyItems: data.unhealthyItems,
+      fruitVegGrams: data.fruitVegGrams,
+      householdSize: data.householdSize,
+      daysCovered: data.daysCovered,
+      expectedGrams: data.householdSize * data.daysCovered * 300,
+      ratio: Math.round((data.fruitVegGrams * 100) / (data.householdSize * data.daysCovered * 300)),
+    });
+
     // Call submitReceipt on contract
     const tx = await c.submitReceipt(
       data.user,
