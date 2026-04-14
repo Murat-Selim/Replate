@@ -9,55 +9,50 @@ import { useBaseAccount } from "@/hooks/useBaseAccount";
 
 export default function Header() {
     const [isMenuOpen, setIsMenuOpen] = React.useState(false);
-    const [username, setUsername] = React.useState<string>("");
-    const [pfpUrl, setPfpUrl] = React.useState<string>("");
+    const [sdkUser, setSdkUser] = React.useState<{username?: string, displayName?: string, pfpUrl?: string, fid?: number} | null>(null);
     const [isLoading, setIsLoading] = React.useState(true);
     const [isBaseApp, setIsBaseApp] = React.useState(false);
-    const [isMiniApp, setIsMiniApp] = React.useState(false);
     const [isAdded, setIsAdded] = React.useState(false);
     const [isAdding, setIsAdding] = React.useState(false);
     const pathname = usePathname();
-    const { address } = useBaseAccount();
+    const { address, isConnected } = useBaseAccount();
 
     React.useEffect(() => {
-        const fetchUser = async () => {
+        const fetchContext = async () => {
             try {
                 const context = await sdk.context;
-                if (!context) return;
-                setIsMiniApp(true);
-                const user = context?.user;
-                if (user) {
-                    const resolvedName =
-                        user.username ||
-                        user.displayName ||
-                        (typeof user.fid === "number" ? `fid:${user.fid}` : "");
-                    if (resolvedName) setUsername(resolvedName);
-                    if (user.pfpUrl) setPfpUrl(user.pfpUrl);
+                if (context?.user) {
+                    setSdkUser(context.user);
                 }
-                // Detect if running in Base App (clientFid === 309857)
+                
+                // Base App Detection
                 if (context?.client?.clientFid === 309857) {
                     setIsBaseApp(true);
                 }
+                
                 setIsAdded(Boolean(context?.client?.added));
             } catch (err) {
-                console.log("Not in MiniApp context");
+                console.log("Header: Not in MiniApp context");
             } finally {
                 setIsLoading(false);
             }
         };
-        fetchUser();
+        fetchContext();
     }, []);
 
-    // Fallback: use shortened wallet address if no username from SDK
-    React.useEffect(() => {
-        if (!isLoading && !username && address) {
-            setUsername(`${address.slice(0, 6)}...${address.slice(-4)}`);
-        }
-    }, [isLoading, username, address]);
-
-    const initial = (username.charAt(0) || "?").toUpperCase();
-    const showAtPrefix = !username.startsWith("fid:");
-    const showAddButton = pathname === "/" && !isLoading && isMiniApp && !isAdded;
+    // Identity Logic
+    const username = sdkUser?.username || sdkUser?.displayName || (sdkUser?.fid ? `fid:${sdkUser.fid}` : "");
+    const walletDisplay = address ? `${address.slice(0, 6)}...${address.slice(-4)}` : "";
+    const displayIdentity = username || walletDisplay || "Guest";
+    const pfpUrl = sdkUser?.pfpUrl || "";
+    const initial = (displayIdentity.charAt(0) || "?").toUpperCase();
+    
+    // Constraints for "Add App" button:
+    // 1. Must be on homepage
+    // 2. Must not be loading
+    // 3. Must have a Farcaster FID (proves we are in Farcaster)
+    // 4. Must not be already added
+    const showAddButton = pathname === "/" && !isLoading && Boolean(sdkUser?.fid) && !isAdded;
 
     const handleAddMiniApp = async () => {
         try {
@@ -77,11 +72,11 @@ export default function Header() {
                 <div className="flex items-center gap-2">
                     {pfpUrl ? (
                         <div className="w-8 h-8 rounded-full overflow-hidden shadow-sm border border-brand-accent/20">
-                            <img src={pfpUrl} alt={username} className="w-full h-full object-cover" />
+                            <img src={pfpUrl} alt={displayIdentity} className="w-full h-full object-cover" />
                         </div>
                     ) : (
-                        <div className="w-8 h-8 rounded-full bg-brand-primary flex items-center justify-center text-white font-bold text-sm shadow-sm">
-                            {isLoading ? (
+                        <div className="w-8 h-8 rounded-full bg-brand-primary flex items-center justify-center text-white font-bold text-sm shadow-sm transition-all">
+                            {isLoading && !isConnected ? (
                                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                             ) : (
                                 initial
@@ -90,10 +85,10 @@ export default function Header() {
                     )}
                     <div className="flex flex-col">
                         <span className="font-bold text-brand-primary text-[11px] uppercase tracking-wider">
-                            {isLoading ? "@..." : username ? `${showAtPrefix ? "@" : ""}${username}` : "@guest"}
+                            {isLoading && !isConnected ? "@..." : `@${displayIdentity.toLowerCase()}`}
                         </span>
                         {isBaseApp && (
-                            <span className="text-[9px] text-blue-600 font-medium">Base App</span>
+                            <span className="text-[9px] text-blue-600 font-medium tracking-tight">Base App</span>
                         )}
                     </div>
                 </div>
@@ -102,7 +97,7 @@ export default function Header() {
                         <button
                             onClick={handleAddMiniApp}
                             disabled={isAdding}
-                            className="px-2.5 py-1.5 rounded-full bg-brand-primary text-white text-[10px] font-bold flex items-center gap-1 shadow-sm disabled:opacity-60"
+                            className="px-2.5 py-1.5 rounded-full bg-brand-primary text-white text-[10px] font-bold flex items-center gap-1 shadow-sm disabled:opacity-60 ring-1 ring-white/20 active:scale-95 transition-transform"
                         >
                             <Plus size={12} />
                             {isAdding ? "Adding..." : "Add App"}
@@ -110,7 +105,7 @@ export default function Header() {
                     )}
                     <button
                         onClick={() => setIsMenuOpen(true)}
-                        className="w-8 h-8 flex items-center justify-center text-brand-primary hover:bg-brand-accent/50 rounded-full transition-colors"
+                        className="w-8 h-8 flex items-center justify-center text-brand-primary hover:bg-brand-accent/50 rounded-full transition-colors active:scale-90"
                     >
                         <Menu size={24} />
                     </button>
