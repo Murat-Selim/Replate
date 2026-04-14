@@ -12,6 +12,7 @@ export default function Header() {
     const [pfpUrl, setPfpUrl] = React.useState<string>("");
     const [isLoading, setIsLoading] = React.useState(true);
     const [isBaseApp, setIsBaseApp] = React.useState(false);
+    const [isMiniApp, setIsMiniApp] = React.useState(false);
     const [isAdded, setIsAdded] = React.useState(false);
     const [isAdding, setIsAdding] = React.useState(false);
     const pathname = usePathname();
@@ -20,6 +21,8 @@ export default function Header() {
         const fetchUser = async () => {
             try {
                 const context = await sdk.context;
+                if (!context) return;
+                setIsMiniApp(true);
                 const user = context?.user;
                 if (user) {
                     const resolvedName =
@@ -45,7 +48,7 @@ export default function Header() {
 
     const initial = (username.charAt(0) || "?").toUpperCase();
     const showAtPrefix = !username.startsWith("fid:");
-    const showAddButton = pathname === "/" && !isLoading && !isAdded;
+    const showAddButton = pathname === "/" && !isLoading && isMiniApp && !isAdded;
 
     const handleAddMiniApp = async () => {
         try {
