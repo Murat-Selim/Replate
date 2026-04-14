@@ -71,7 +71,7 @@ export async function submitReceiptToContract(data: ReceiptSubmission): Promise<
       ratio: Math.round((data.fruitVegGrams * 100) / (data.householdSize * data.daysCovered * 300)),
     });
 
-    // Call submitReceipt on contract
+    // Call submitReceipt  contract
     const tx = await c.submitReceipt(
       data.user,
       data.totalItems,
