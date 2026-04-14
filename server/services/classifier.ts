@@ -11,6 +11,11 @@ export interface ClassificationResult {
   confidence: number;
 }
 
+interface ExtractedProduct {
+  name: string;
+  actualWeightGrams: number; // 0 = use estimate
+}
+
 export interface FoodClassification {
   totalItems: number;
   healthyItems: number;
@@ -216,14 +221,16 @@ export async function classifyFoods(lines: string[]): Promise<FoodClassification
   let unhealthyItems = 0;
   let fruitVegGrams = 0;
 
-  // Extract potential product lines
+  // Extract potential product lines with actual weights
   const productLines = extractProductLines(lines);
-  console.log(`🔍 Extracted ${productLines.length} product lines:`, productLines);
+  console.log(`🔍 Extracted ${productLines.length} product lines:`,
+    productLines.map(p => `${p.name}${p.actualWeightGrams ? ` (${p.actualWeightGrams}g)` : ''}`)
+  );
 
-  for (const line of productLines) {
-    const classification = await classifyProduct(line);
+  for (const item of productLines) {
+    const classification = await classifyProduct(item.name, item.actualWeightGrams);
     products.push(classification);
-    console.log(`   → "${line}" => ${classification.category} (${classification.fruitVegGrams}g fruit/veg)`);
+    console.log(`   → "${item.name}" => ${classification.category} (${classification.fruitVegGrams}g fruit/veg${item.actualWeightGrams ? ', actual weight' : ', estimated'})`);
 
     if (classification.category === "healthy") {
       healthyItems++;
@@ -249,12 +256,18 @@ export async function classifyFoods(lines: string[]): Promise<FoodClassification
  * Extract product lines from receipt text.
  * Handles Turkish receipt formats with KDV markers, quantity prefixes,
  * weight/kg indicators, and various price formats.
+ *
+ * KEY FEATURE: Detects per-kg items and pairs them with the weight line
+ * that follows. Turkish receipts typically show:
+ *   DOMATES x119,50 TL/kg  %01  *51,39
+ *   0.430
+ * The "0.430" means 0.430 kg = 430 grams.
  */
-function extractProductLines(lines: string[]): string[] {
-  const products: string[] = [];
+function extractProductLines(lines: string[]): ExtractedProduct[] {
+  const products: ExtractedProduct[] = [];
 
-  for (const line of lines) {
-    const trimmed = line.trim();
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trim();
 
     // Skip via patterns
     if (SKIP_PATTERNS.some(p => p.test(trimmed))) {
@@ -264,6 +277,28 @@ function extractProductLines(lines: string[]): string[] {
     // Skip very short lines
     if (trimmed.length < 3) {
       continue;
+    }
+
+    // Check if this line is a standalone weight (kg) — e.g., "0.430", "1.864", "0.755"
+    // These belong to the PREVIOUS product line, skip them here
+    if (/^\d+[.,]\d{3}$/.test(trimmed)) {
+      continue;
+    }
+
+    // Detect if this is a per-kg/per-unit item (has TL/kg or xNNN,NN TL/kg)
+    const isPerKg = /TL\/kg/i.test(trimmed);
+
+    // Look ahead: if the NEXT line is a standalone decimal (weight in kg)
+    let actualWeightGrams = 0;
+    if (i + 1 < lines.length) {
+      const nextLine = lines[i + 1].trim();
+      const weightMatch = nextLine.match(/^(\d+)[.,](\d{3})$/);
+      if (weightMatch) {
+        // e.g., "0.430" = 0.430 kg = 430g, "1.864" = 1864g
+        const kg = parseInt(weightMatch[1]);
+        const grams = parseInt(weightMatch[2]);
+        actualWeightGrams = kg * 1000 + grams;
+      }
     }
 
     let cleaned = trimmed;
@@ -286,8 +321,21 @@ function extractProductLines(lines: string[]): string[] {
     // Remove leading quantity: "1.864", "0.145", "0.430", "0.920" etc.
     cleaned = cleaned.replace(/^\d+[.,]\d{3}\b\s*/, "").trim();
 
-    // Remove weight info like "2000 G", "384 G", "250 G", "500 G", "18 G", "200 G"
-    // but keep the product name before it
+    // Extract inline weight like "2000 G", "384 G" before removing
+    // (useful for packaged goods where gram count is in the product name)
+    if (!actualWeightGrams) {
+      const inlineWeight = cleaned.match(/(\d+)\s*G\b/i);
+      if (inlineWeight) {
+        const inlineGrams = parseInt(inlineWeight[1]);
+        // Only use if reasonable (10g-5000g) and the product is a fruit/veg
+        if (inlineGrams >= 10 && inlineGrams <= 5000) {
+          // We'll check if it's a fruit/veg later; store tentatively
+          actualWeightGrams = inlineGrams;
+        }
+      }
+    }
+
+    // Remove weight info like "2000 G", "384 G", "250 G"
     cleaned = cleaned.replace(/\b\d+\s*G\b/gi, "").trim();
 
     // Remove "15LI L 63-72" type pack specs (egg carton formats)
@@ -303,8 +351,7 @@ function extractProductLines(lines: string[]): string[] {
     // Remove empty parentheses leftover from bracket cleanup
     cleaned = cleaned.replace(/\(\s*\)/g, "").trim();
 
-    // Remove brand/descriptor suffixes that aren't food: PETEK, COKCA, VERA, BIRSAN, CAYKUR, NIMET
-    // These are brand names commonly on Turkish receipts
+    // Remove brand/descriptor suffixes that aren't food
     cleaned = cleaned.replace(/\b(PETEK|COKCA|VERA|BIRSAN|CAYKUR|NIMET|DEVECI|CARLISTON)\b/gi, "").trim();
 
     // Remove "x number" patterns (quantity on Turkish receipts e.g., "x1,00")
@@ -321,7 +368,7 @@ function extractProductLines(lines: string[]): string[] {
       continue;
     }
 
-    products.push(cleaned);
+    products.push({ name: cleaned, actualWeightGrams });
   }
 
   return products;
@@ -329,8 +376,9 @@ function extractProductLines(lines: string[]): string[] {
 
 /**
  * Classify a single product line.
+ * @param actualWeightGrams - Real weight from receipt (0 = use estimate)
  */
-async function classifyProduct(productName: string): Promise<ClassificationResult> {
+async function classifyProduct(productName: string, actualWeightGrams: number = 0): Promise<ClassificationResult> {
   const normalized = productName.toLowerCase().trim();
 
   // Step 1: Try to resolve Turkish aliases first
@@ -342,13 +390,21 @@ async function classifyProduct(productName: string): Promise<ClassificationResul
     }
   }
 
-  // Step 2: Check fruit/veg grams
-  let fruitVegGrams = 0;
-  for (const [keyword, grams] of Object.entries(FRUIT_VEG_KEYWORDS)) {
+  // Step 2: Check if this is a fruit/veg and calculate grams
+  let isFruitVeg = false;
+  let estimatedGrams = 0;
+  for (const [keyword, defaultGrams] of Object.entries(FRUIT_VEG_KEYWORDS)) {
     if (resolvedName.includes(keyword) || normalized.includes(keyword)) {
-      fruitVegGrams += grams;
-      break; // Only count once per product
+      isFruitVeg = true;
+      estimatedGrams = defaultGrams;
+      break;
     }
+  }
+
+  // Use actual weight from receipt if available, otherwise use estimate
+  let fruitVegGrams = 0;
+  if (isFruitVeg) {
+    fruitVegGrams = actualWeightGrams > 0 ? actualWeightGrams : estimatedGrams;
   }
 
   // Step 3: Keyword classification using both original and resolved names
