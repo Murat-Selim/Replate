@@ -5,6 +5,7 @@ import { Menu, Plus } from "lucide-react";
 import SideMenu from "./SideMenu";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { usePathname } from "next/navigation";
+import { useBaseAccount } from "@/hooks/useBaseAccount";
 
 export default function Header() {
     const [isMenuOpen, setIsMenuOpen] = React.useState(false);
@@ -16,6 +17,7 @@ export default function Header() {
     const [isAdded, setIsAdded] = React.useState(false);
     const [isAdding, setIsAdding] = React.useState(false);
     const pathname = usePathname();
+    const { address } = useBaseAccount();
 
     React.useEffect(() => {
         const fetchUser = async () => {
@@ -29,7 +31,7 @@ export default function Header() {
                         user.username ||
                         user.displayName ||
                         (typeof user.fid === "number" ? `fid:${user.fid}` : "");
-                    setUsername(resolvedName);
+                    if (resolvedName) setUsername(resolvedName);
                     if (user.pfpUrl) setPfpUrl(user.pfpUrl);
                 }
                 // Detect if running in Base App (clientFid === 309857)
@@ -45,6 +47,13 @@ export default function Header() {
         };
         fetchUser();
     }, []);
+
+    // Fallback: use shortened wallet address if no username from SDK
+    React.useEffect(() => {
+        if (!isLoading && !username && address) {
+            setUsername(`${address.slice(0, 6)}...${address.slice(-4)}`);
+        }
+    }, [isLoading, username, address]);
 
     const initial = (username.charAt(0) || "?").toUpperCase();
     const showAtPrefix = !username.startsWith("fid:");
