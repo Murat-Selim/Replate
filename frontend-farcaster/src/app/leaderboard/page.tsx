@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import Shell from "@/components/Shell";
 import { Trophy, Medal, Award, Loader2 } from "lucide-react";
 import { useFarcasterAccount } from "@/hooks/useFarcasterAccount";
+import { getApiUrl } from "@/lib/api";
 
 interface PoolStatus {
     weeklyPool: number;
@@ -30,7 +31,7 @@ export default function Leaderboard() {
     useEffect(() => {
         const fetchLeaderboard = async () => {
             try {
-                const response = await fetch(`/api/leaderboard`);
+                const response = await fetch(getApiUrl("/api/leaderboard"));
                 const data = await response.json();
 
                 if (data.success) {

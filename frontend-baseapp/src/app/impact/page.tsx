@@ -5,6 +5,7 @@ import Shell from "@/components/Shell";
 import { Flame, Star, Leaf, Share2, Loader2, Check, Trophy, Receipt, CalendarCheck } from "lucide-react";
 import { useAccount, useReadContract } from "wagmi";
 import { CONTRACT_ADDRESS, REPLATE_QUEST_ABI } from "@/lib/contract";
+import { getApiUrl } from "@/lib/api";
 
 interface UserSummary {
     totalPoints: number;
@@ -99,8 +100,7 @@ export default function YourImpact() {
         setError(null);
 
         try {
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://your-backend.vercel.app";
-            const response = await fetch(`${apiUrl}/api/check-in`, {
+            const response = await fetch(getApiUrl("/api/check-in"), {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ userAddress: address }),

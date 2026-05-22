@@ -4,6 +4,7 @@ import React, { useState, useRef } from "react";
 import Shell from "@/components/Shell";
 import { Minus, Plus, Sparkles, Camera, Check, Loader2, X, Leaf, Star, Trophy } from "lucide-react";
 import { useAccount } from "wagmi";
+import { getApiUrl } from "@/lib/api";
 
 interface VerificationResult {
     txHash: string;
@@ -55,11 +56,7 @@ export default function SmartShop() {
 
         try {
             const base64Data = imagePreview.split(",")[1] || imagePreview;
-
-            // In production, replace with process.env.NEXT_PUBLIC_API_URL
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://your-backend.vercel.app";
-            
-            const response = await fetch(`${apiUrl}/api/verify-receipt`, {
+            const response = await fetch(getApiUrl("/api/verify-receipt"), {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({

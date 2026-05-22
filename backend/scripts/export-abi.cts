@@ -10,9 +10,8 @@ async function main() {
 
   const artifact = JSON.parse(fs.readFileSync(artifactPath, "utf8"));
 
-  // Create the frontend contract config
+  // Create the contract config
   const contractConfig = {
-    address: process.env.CONTRACT_ADDRESS || "",
     abi: artifact.abi,
   };
 
@@ -27,7 +26,7 @@ async function main() {
   const fileContent = `// Auto-generated from ReplateQuest.sol
 // Run: npm run export-abi to regenerate
 
-export const CONTRACT_ADDRESS = "${contractConfig.address || "0x0000000000000000000000000000000000000000"}" as const;
+export { CONTRACT_ADDRESS } from "./network.js";
 
 export const REPLATE_QUEST_ABI = ${JSON.stringify(contractConfig.abi, null, 2)} as const;
 
@@ -44,7 +43,7 @@ export const CONTRACT_CONSTANTS = {
 
   fs.writeFileSync(outputPath, fileContent);
   console.log("✅ ABI exported to src/lib/contract.ts");
-  console.log(`   Contract address: ${contractConfig.address || "NOT SET (set CONTRACT_ADDRESS in .env)"}`);
+  console.log("   Contract address source: src/lib/network.ts (env + fallback)");
 }
 
 main()

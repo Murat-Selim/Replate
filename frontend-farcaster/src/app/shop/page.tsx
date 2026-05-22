@@ -5,6 +5,7 @@ import Shell from "@/components/Shell";
 import { Minus, Plus, Sparkles, Camera, Check, Loader2, X, Leaf, Star, Trophy } from "lucide-react";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { useFarcasterAccount } from "@/hooks/useFarcasterAccount";
+import { getApiUrl } from "@/lib/api";
 
 interface VerificationResult {
     txHash: string;
@@ -84,7 +85,7 @@ export default function SmartShop() {
         try {
             const base64Data = imagePreview.split(",")[1] || imagePreview;
 
-            const response = await fetch(`/api/verify-receipt`, {
+            const response = await fetch(getApiUrl("/api/verify-receipt"), {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({

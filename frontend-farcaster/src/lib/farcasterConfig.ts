@@ -1,14 +1,13 @@
 "use client";
 
 import { createConfig, http } from "wagmi";
-import { base, optimism } from "wagmi/chains";
 import { farcasterMiniApp } from "@farcaster/miniapp-wagmi-connector";
+import { appChain } from "@/lib/network";
 
 export const wagmiConfig = createConfig({
-  chains: [base, optimism],
+  chains: [appChain],
   transports: {
-    [base.id]: http(),
-    [optimism.id]: http(),
+    [appChain.id]: http(),
   },
   connectors: [
     farcasterMiniApp(),

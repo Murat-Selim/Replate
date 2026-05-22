@@ -5,6 +5,7 @@ import Shell from "@/components/Shell";
 import { Flame, Star, Leaf, Share2, Loader2, Check } from "lucide-react";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { useFarcasterAccount } from "@/hooks/useFarcasterAccount";
+import { getApiUrl } from "@/lib/api";
 
 interface UserSummary {
     totalPoints: number;
@@ -54,9 +55,7 @@ export default function YourImpact() {
             }
 
             try {
-                const response = await fetch(
-                    `/api/user/${address}`
-                );
+                const response = await fetch(getApiUrl(`/api/user/${address}`));
                 const data = await response.json();
 
                 if (data.success) {
@@ -116,7 +115,7 @@ export default function YourImpact() {
         setError(null);
 
         try {
-            const apiUrl = `/api/check-in`;
+            const apiUrl = getApiUrl("/api/check-in");
             console.log("🚀 Sending check-in to:", apiUrl);
 
             const response = await fetch(apiUrl, {

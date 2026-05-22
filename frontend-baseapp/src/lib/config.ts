@@ -1,9 +1,9 @@
 import { http, createConfig, createStorage, cookieStorage } from 'wagmi';
-import { base } from 'wagmi/chains';
 import { baseAccount, injected } from 'wagmi/connectors';
+import { appChain } from "@/lib/network";
 
 export const config = createConfig({
-  chains: [base],
+  chains: [appChain],
   connectors: [
     injected(),
     baseAccount({
@@ -13,6 +13,6 @@ export const config = createConfig({
   storage: createStorage({ storage: cookieStorage }),
   ssr: true,
   transports: {
-    [base.id]: http(),
+    [appChain.id]: http(),
   },
 });

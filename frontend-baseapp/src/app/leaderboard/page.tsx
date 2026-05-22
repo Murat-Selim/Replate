@@ -5,6 +5,7 @@ import Shell from "@/components/Shell";
 import { Trophy, Medal, Award, Loader2, TrendingUp } from "lucide-react";
 import { useAccount, useReadContract } from "wagmi";
 import { CONTRACT_ADDRESS, REPLATE_QUEST_ABI } from "@/lib/contract";
+import { getApiUrl } from "@/lib/api";
 
 interface PoolStatus {
     weeklyPool: number;
@@ -43,8 +44,7 @@ export default function Leaderboard() {
     useEffect(() => {
         const fetchLeaderboard = async () => {
             try {
-                const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://your-backend.vercel.app";
-                const response = await fetch(`${apiUrl}/api/leaderboard`);
+                const response = await fetch(getApiUrl("/api/leaderboard"));
                 const data = await response.json();
 
                 if (data.success) {

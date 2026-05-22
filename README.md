@@ -71,22 +71,59 @@ The core logic resides on-chain to ensure transparency and trust.
     ```
 
 3.  **Environment Setup**:
-    Create a `.env` file in the root and add your credentials (see `.env.example`).
+    Use the example files in each app:
 
-### Running the App
+    - `backend/.env.example` -> copy to `backend/.env`
+    - `frontend-baseapp/.env.example` -> copy to `frontend-baseapp/.env.local`
+    - `frontend-farcaster/.env.example` -> copy to `frontend-farcaster/.env.local`
 
-- **Run Frontend & Backend concurrently**:
+    Frontend apps use `NEXT_PUBLIC_API_URL` to talk to the backend.
+    For local development, set it to `http://localhost:3001`.
+    Default network is `baseSepolia` and default contract is `0xb9b7BD63E098ABd55605312933899fC4f3EF59F8`.
+    If you deploy a new contract or switch to Base mainnet:
+    - update `CONTRACT_ADDRESS` in `backend/.env`
+    - update `NEXT_PUBLIC_CHAIN` and `NEXT_PUBLIC_CONTRACT_ADDRESS` in both frontend apps
+    - copy the refreshed ABI file into each frontend app if the contract interface changed
+
+### Contract Config Strategy
+
+For now, this repo does not use a shared package for contract config.
+
+- `backend/src/lib/contract.ts` stores ABI only
+- `backend/src/lib/network.ts` resolves `CONTRACT_ADDRESS` from env with a default fallback
+- `frontend-baseapp/src/lib/contract.ts` stores ABI and reads address from `src/lib/network.ts`
+- `frontend-farcaster/src/lib/contract.ts` stores ABI and reads address from `src/lib/network.ts`
+
+This keeps deploys simple while still letting each Vercel project manage its own contract address independently.
+
+### Running the Apps
+
+Run each app in its own terminal:
+
+- **Backend**
   ```bash
-  npm run dev:all
-  ```
-- **Run Frontend only**:
-  ```bash
+  cd backend
+  npm install
   npm run dev
   ```
-- **Run Backend only**:
+- **Base frontend**
   ```bash
-  npm run dev:server
+  cd frontend-baseapp
+  npm install
+  npm run dev
   ```
+- **Farcaster frontend**
+  ```bash
+  cd frontend-farcaster
+  npm install
+  npm run dev
+  ```
+
+API resolution works like this in both frontends:
+
+- If `NEXT_PUBLIC_API_URL` is set, requests go there.
+- If it is not set and the app runs on `localhost`, requests go to `http://localhost:3001`.
+- If it is not set in production, requests stay relative (`/api/...`). This is useful for the Farcaster app when backend routes are deployed behind the same Vercel domain.
 
 ---
 
