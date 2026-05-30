@@ -30,7 +30,11 @@ app.use((req, res, next) => {
 
 app.use(express.json({ limit: "10mb" })); // For base64 image uploads
 
-// Health check
+// Health check & Root
+app.get("/", (req, res) => {
+  res.json({ status: "ok", message: "Replate API is running! 🚀" });
+});
+
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });

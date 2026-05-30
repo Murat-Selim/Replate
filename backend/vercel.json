@@ -2,12 +2,8 @@
   "version": 2,
   "rewrites": [
     {
-      "source": "/api/cron/weekly",
-      "destination": "/api/index.ts"
-    },
-    {
-      "source": "/api/(.*)",
-      "destination": "/api/index.ts"
+      "source": "/(.*)",
+      "destination": "/api"
     }
   ],
   "crons": [
