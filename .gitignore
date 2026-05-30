@@ -23,6 +23,7 @@ out/
 # misc
 .DS_Store
 *.pem
+.vscode/
 
 # debug
 npm-debug.log*
@@ -50,3 +51,5 @@ typechain-types/
 PROGRESS.md
 .env*.local
 gcloud-key.json
+.agents/
+skills-lock.json

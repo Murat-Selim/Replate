@@ -1,0 +1,19 @@
+# dependencies
+node_modules/
+
+# env files
+.env*
+
+# hardhat compilation output
+artifacts/
+cache/
+typechain-types/
+
+# vercel
+.vercel
+
+# typescript build info
+*.tsbuildinfo
+
+# google cloud credentials
+gcloud-key.json
