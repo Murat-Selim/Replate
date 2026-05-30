@@ -15,18 +15,19 @@ const outfit = Outfit({
 });
 
 export async function generateMetadata(): Promise<Metadata> {
+    const URL = process.env.NEXT_PUBLIC_URL || process.env.NEXT_PUBLIC_APP_URL || "https://replate-farcaster.vercel.app";
     return {
         other: {
             'fc:miniapp': JSON.stringify({
                 version: 'next',
-                imageUrl: 'https://replate61.vercel.app/replate-logo.png',
+                imageUrl: `${URL}/replate-logo.png`,
                 button: {
                     title: `Launch Replate`,
                     action: {
                         type: 'launch_miniapp',
                         name: 'Replate',
-                        url: 'https://replate61.vercel.app',
-                        splashImageUrl: 'https://replate61.vercel.app/replate-logo.png',
+                        url: URL,
+                        splashImageUrl: `${URL}/replate-logo.png`,
                         splashBackgroundColor: '#000000',
                     },
                 },
