@@ -369,24 +369,57 @@ export interface LeaderboardEntry {
 
 // Contract deployment block on Base Sepolia (never changes)
 const CONTRACT_DEPLOY_BLOCK = 38997383;
-// Max blocks per query for Base Sepolia public RPC
-const MAX_BLOCK_RANGE = 9000;
+function getMaxBlockRange(url: string): number {
+  const lowerUrl = url.toLowerCase();
+  if (lowerUrl.includes("tenderly.co")) {
+    return 0; // 0 means no chunking (full history in one query)
+  }
+  if (lowerUrl.includes("publicnode.com")) {
+    return 45000;
+  }
+  if (lowerUrl.includes("drpc.org")) {
+    return 50000;
+  }
+  return 2000;
+}
 
 /**
  * Fetch all logs for a filter across the full contract history,
- * chunking into MAX_BLOCK_RANGE windows to respect RPC limits.
+ * chunking to respect RPC limits. Fetch sequentially to avoid rate limiting.
  */
 async function queryFilterAll(
   c: Contract,
   filter: ReturnType<Contract['filters'][string]>,
   fromBlock: number,
-  toBlock: number
+  toBlock: number,
+  rpcUrl: string
+) {
+  const maxRange = getMaxBlockRange(rpcUrl);
+
+  if (maxRange === 0) {
+    try {
+      return await c.queryFilter(filter, fromBlock, toBlock);
+    } catch (e: any) {
+      console.warn(`⚠️ queryFilter full range query failed, falling back to chunking: ${e.message}`);
+      return queryFilterWithChunking(c, filter, fromBlock, toBlock, 45000);
+    }
+  }
+
+  return queryFilterWithChunking(c, filter, fromBlock, toBlock, maxRange);
+}
+
+async function queryFilterWithChunking(
+  c: Contract,
+  filter: ReturnType<Contract['filters'][string]>,
+  fromBlock: number,
+  toBlock: number,
+  rangeSize: number
 ) {
   const results: any[] = [];
   let start = fromBlock;
 
   while (start <= toBlock) {
-    const end = Math.min(start + MAX_BLOCK_RANGE - 1, toBlock);
+    const end = Math.min(start + rangeSize - 1, toBlock);
     try {
       const chunk = await c.queryFilter(filter, start, end);
       results.push(...chunk);
@@ -394,6 +427,8 @@ async function queryFilterAll(
       console.warn(`⚠️ queryFilter chunk ${start}-${end} failed: ${e.message}`);
     }
     start = end + 1;
+    // Brief sleep to avoid rate limits
+    await new Promise((resolve) => setTimeout(resolve, 100));
   }
 
   return results;
@@ -421,12 +456,10 @@ export async function getLeaderboard(limit: number = 100): Promise<LeaderboardEn
     const latestBlock = await provider.getBlockNumber();
     console.log(`🔎 Scanning blocks ${CONTRACT_DEPLOY_BLOCK} → ${latestBlock}...`);
 
-    // Collect all users from both ReceiptSubmitted and CheckedIn events
-    const [receiptEvents, checkInEvents, badgeEvents] = await Promise.all([
-      queryFilterAll(c, c.filters.ReceiptSubmitted(), CONTRACT_DEPLOY_BLOCK, latestBlock),
-      queryFilterAll(c, c.filters.CheckedIn(), CONTRACT_DEPLOY_BLOCK, latestBlock),
-      queryFilterAll(c, c.filters.BadgeMinted(), CONTRACT_DEPLOY_BLOCK, latestBlock),
-    ]);
+    // Fetch sequentially to prevent concurrent request rate limits on public RPCs
+    const receiptEvents = await queryFilterAll(c, c.filters.ReceiptSubmitted(), CONTRACT_DEPLOY_BLOCK, latestBlock, rpcUrl);
+    const checkInEvents = await queryFilterAll(c, c.filters.CheckedIn(), CONTRACT_DEPLOY_BLOCK, latestBlock, rpcUrl);
+    const badgeEvents = await queryFilterAll(c, c.filters.BadgeMinted(), CONTRACT_DEPLOY_BLOCK, latestBlock, rpcUrl);
 
     console.log(
       `📊 Found: ${receiptEvents.length} receipts, ${checkInEvents.length} check-ins, ${badgeEvents.length} badges`
