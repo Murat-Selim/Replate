@@ -2,6 +2,7 @@
 
 import { createConfig, http } from "wagmi";
 import { farcasterMiniApp } from "@farcaster/miniapp-wagmi-connector";
+import { injected } from "wagmi/connectors";
 import { appChain } from "@/lib/network";
 
 export const wagmiConfig = createConfig({
@@ -11,5 +12,6 @@ export const wagmiConfig = createConfig({
   },
   connectors: [
     farcasterMiniApp(),
+    injected(),
   ],
 });

@@ -6,6 +6,7 @@ import { Flame, Star, Leaf, Share2, Loader2, Check } from "lucide-react";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { useFarcasterAccount } from "@/hooks/useFarcasterAccount";
 import { getApiUrl } from "@/lib/api";
+import { useConnect } from "wagmi";
 
 interface UserSummary {
     totalPoints: number;
@@ -27,6 +28,7 @@ interface WeekReport {
 
 export default function YourImpact() {
     const { address } = useFarcasterAccount();
+    const { connect, connectors } = useConnect();
     const [isLoading, setIsLoading] = useState(true);
     const [isCheckingIn, setIsCheckingIn] = useState(false);
     const [userData, setUserData] = useState<UserSummary>({
@@ -276,28 +278,41 @@ Join me in reducing food waste!`,
                         )}
 
                         <div className="space-y-3">
-                            <button
-                                onClick={handleCheckIn}
-                                disabled={isCheckingIn || userData.lastCheckInDay >= Math.floor(Date.now() / 1000 / 86400)}
-                                className="w-full bg-brand-primary text-white py-5 px-8 rounded-3xl font-black text-xl shadow-xl shadow-brand-primary/20 hover:bg-brand-secondary transition-all active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50"
-                            >
-                                {isCheckingIn ? (
-                                    <>
-                                        <Loader2 size={24} className="animate-spin" />
-                                        Checking in...
-                                    </>
-                                ) : userData.lastCheckInDay >= Math.floor(Date.now() / 1000 / 86400) ? (
-                                    <>
-                                        <Check size={24} className="text-green-400" />
-                                        Checked In Today
-                                    </>
-                                ) : (
-                                    <>
-                                        <Star size={24} fill="currentColor" className="text-yellow-400" />
-                                        Daily Check-in
-                                    </>
-                                )}
-                            </button>
+                            {!address ? (
+                                <button
+                                    onClick={() => {
+                                        const connector = connectors.find(c => c.id === "farcasterMiniApp") || connectors[0];
+                                        if (connector) connect({ connector });
+                                    }}
+                                    className="w-full bg-brand-primary text-white py-5 px-8 rounded-3xl font-black text-xl shadow-xl shadow-brand-primary/20 hover:bg-brand-secondary transition-all active:scale-95 flex items-center justify-center gap-3"
+                                >
+                                    <Star size={24} fill="currentColor" className="text-yellow-400" />
+                                    Connect Wallet to Check-in
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={handleCheckIn}
+                                    disabled={isCheckingIn || userData.lastCheckInDay >= Math.floor(Date.now() / 1000 / 86400)}
+                                    className="w-full bg-brand-primary text-white py-5 px-8 rounded-3xl font-black text-xl shadow-xl shadow-brand-primary/20 hover:bg-brand-secondary transition-all active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50"
+                                >
+                                    {isCheckingIn ? (
+                                        <>
+                                            <Loader2 size={24} className="animate-spin" />
+                                            Checking in...
+                                        </>
+                                    ) : userData.lastCheckInDay >= Math.floor(Date.now() / 1000 / 86400) ? (
+                                        <>
+                                            <Check size={24} className="text-green-400" />
+                                            Checked In Today
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Star size={24} fill="currentColor" className="text-yellow-400" />
+                                            Daily Check-in
+                                        </>
+                                    )}
+                                </button>
+                            )}
 
                             <button
                                 onClick={handleShare}
