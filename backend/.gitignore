@@ -17,3 +17,7 @@ typechain-types/
 
 # google cloud credentials
 gcloud-key.json
+
+# AI metadata
+AGENTS.md
+CLAUDE.md

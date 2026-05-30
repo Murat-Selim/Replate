@@ -17,3 +17,7 @@ build/
 # typescript build info
 *.tsbuildinfo
 next-env.d.ts
+
+# AI metadata
+AGENTS.md
+CLAUDE.md
