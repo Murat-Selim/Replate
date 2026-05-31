@@ -244,8 +244,11 @@ Join me in reducing food waste!`,
                 <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
                     {/* Combined Header Area */}
                     <div className="text-center space-y-2">
-                        <h1 className="text-4xl font-black text-brand-primary">Shop & Verify</h1>
-                        <p className="text-brand-text/60">Upload receipt and earn rewards.</p>
+                        <span className="text-[11px] font-extrabold uppercase tracking-[0.25em] text-[#22D97A] font-heading">
+                            Smart Verification
+                        </span>
+                        <h1 className="text-4xl font-black text-white font-heading uppercase tracking-wide">Shop & Verify</h1>
+                        <p className="text-[#A6B0B5] text-sm">Upload receipt and earn rewards.</p>
                     </div>
 
                     {/* Section 1: Verify (Top) */}
@@ -262,8 +265,8 @@ Join me in reducing food waste!`,
                                 onClick={() => setShowUploadModal(true)}
                                 className="relative group cursor-pointer"
                             >
-                                <div className="absolute inset-0 bg-brand-primary/5 rounded-full blur-3xl group-hover:bg-brand-primary/10 transition-colors"></div>
-                                <div className="relative w-56 h-56 bg-white rounded-full shadow-xl border-4 border-white flex flex-col items-center justify-center overflow-hidden transition-transform group-hover:scale-105 active:scale-95">
+                                <div className="absolute inset-0 bg-[#22D97A]/10 rounded-full blur-3xl group-hover:bg-[#22D97A]/25 transition-all"></div>
+                                <div className="relative w-56 h-56 bg-[#131C20] rounded-full border-4 border-[#1E2A2F] flex flex-col items-center justify-center overflow-hidden transition-transform group-hover:scale-105 active:scale-95 shadow-[0_0_30px_rgba(34,217,122,0.1)]">
                                     {imagePreview ? (
                                         <div className="relative w-full h-full">
                                             <img
@@ -271,21 +274,21 @@ Join me in reducing food waste!`,
                                                 alt="Receipt preview"
                                                 className="w-full h-full object-cover"
                                             />
-                                            <div className="absolute inset-0 bg-brand-primary/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <div className="bg-white/20 backdrop-blur-md p-4 rounded-full border border-white/30">
-                                                    <Camera size={32} className="text-white" />
+                                            <div className="absolute inset-0 bg-[#0B1114]/75 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <div className="bg-brand-primary/20 backdrop-blur-md p-4 rounded-full border border-brand-primary/30">
+                                                    <Camera size={32} className="text-[#22D97A]" />
                                                 </div>
                                             </div>
-                                            <div className="absolute top-4 right-4 bg-green-500 text-white p-2 rounded-full shadow-lg">
-                                                <Check size={20} />
+                                            <div className="absolute top-4 right-4 bg-[#22D97A] text-[#0B1114] p-2 rounded-full shadow-lg">
+                                                <Check size={20} strokeWidth={3} />
                                             </div>
                                         </div>
                                     ) : (
                                         <div className="flex flex-col items-center gap-3">
-                                            <div className="w-20 h-20 bg-brand-accent/50 rounded-[24px] flex items-center justify-center text-brand-primary">
-                                                <Camera size={40} />
+                                            <div className="w-20 h-20 bg-[#1E2A2F] border border-[#22D97A]/15 rounded-[24px] flex items-center justify-center text-[#22D97A] shadow-[0_0_20px_rgba(34,217,122,0.1)]">
+                                                <Camera size={36} />
                                             </div>
-                                            <span className="font-bold text-brand-text/40 uppercase tracking-widest text-[10px]">
+                                            <span className="font-extrabold text-[#A6B0B5] uppercase tracking-widest text-[9px] font-heading">
                                                 Tap to take photo
                                             </span>
                                         </div>
@@ -295,167 +298,167 @@ Join me in reducing food waste!`,
                         </div>
                     </div>
 
-                {/* Section 2: Smart Shop Controls */}
-                <div className="space-y-8">
-                    <div className="space-y-6">
-                        {/* Household Size */}
-                        <div className="bg-white rounded-[32px] p-8 shadow-sm border border-brand-accent/20 space-y-4">
-                            <h2 className="text-center text-xs font-black uppercase tracking-[0.2em] text-brand-text/30">
-                                Household Size
-                            </h2>
-                            <div className="flex items-center justify-center gap-8">
-                                <button
-                                    onClick={() => setHouseholdSize(Math.max(1, householdSize - 1))}
-                                    className="w-12 h-12 rounded-full bg-brand-primary text-white flex items-center justify-center active:scale-90 transition-transform shadow-lg shadow-brand-primary/20"
-                                >
-                                    <Minus size={24} />
-                                </button>
-                                <span className="text-6xl font-black text-brand-primary w-20 text-center">
-                                    {householdSize}
-                                </span>
-                                <button
-                                    onClick={() => setHouseholdSize(householdSize + 1)}
-                                    className="w-12 h-12 rounded-full bg-brand-primary text-white flex items-center justify-center active:scale-90 transition-transform shadow-lg shadow-brand-primary/20"
-                                >
-                                    <Plus size={24} />
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Shopping Duration */}
-                        <div className="bg-white rounded-[32px] p-8 shadow-sm border border-brand-accent/20 space-y-4">
-                            <h2 className="text-center text-xs font-black uppercase tracking-[0.2em] text-brand-text/30">
-                                Shopping Duration
-                            </h2>
-                            <div className="flex items-center justify-center gap-8">
-                                <button
-                                    onClick={() => setDuration(Math.max(1, duration - 1))}
-                                    className="w-12 h-12 rounded-full bg-brand-primary text-white flex items-center justify-center active:scale-90 transition-transform shadow-lg shadow-brand-primary/20"
-                                >
-                                    <Minus size={24} />
-                                </button>
-                                <div className="flex items-baseline gap-2 w-32 justify-center">
-                                    <span className="text-6xl font-black text-brand-primary">
-                                        {duration}
+                    {/* Section 2: Smart Shop Controls */}
+                    <div className="space-y-8">
+                        <div className="space-y-5">
+                            {/* Household Size */}
+                            <div className="glass-card rounded-[32px] p-8 border border-[#22D97A]/10 space-y-4">
+                                <h2 className="text-center text-xs font-black uppercase tracking-[0.2em] text-[#A6B0B5] font-heading">
+                                    Household Size
+                                </h2>
+                                <div className="flex items-center justify-center gap-8">
+                                    <button
+                                        onClick={() => setHouseholdSize(Math.max(1, householdSize - 1))}
+                                        className="w-12 h-12 rounded-full bg-[#1E2A2F] border border-[#22D97A]/25 text-[#22D97A] flex items-center justify-center active:scale-90 transition-transform shadow-md hover:bg-[#22D97A]/10 animate-all duration-200"
+                                    >
+                                        <Minus size={20} strokeWidth={3} />
+                                    </button>
+                                    <span className="text-6xl font-black text-white w-20 text-center font-heading">
+                                        {householdSize}
                                     </span>
-                                    <span className="text-brand-text/30 font-bold">days</span>
+                                    <button
+                                        onClick={() => setHouseholdSize(householdSize + 1)}
+                                        className="w-12 h-12 rounded-full bg-[#1E2A2F] border border-[#22D97A]/25 text-[#22D97A] flex items-center justify-center active:scale-90 transition-transform shadow-md hover:bg-[#22D97A]/10 animate-all duration-200"
+                                    >
+                                        <Plus size={20} strokeWidth={3} />
+                                    </button>
                                 </div>
-                                <button
-                                    onClick={() => setDuration(duration + 1)}
-                                    className="w-12 h-12 rounded-full bg-brand-primary text-white flex items-center justify-center active:scale-90 transition-transform shadow-lg shadow-brand-primary/20"
-                                >
-                                    <Plus size={24} />
-                                </button>
+                            </div>
+
+                            {/* Shopping Duration */}
+                            <div className="glass-card rounded-[32px] p-8 border border-[#22D97A]/10 space-y-4">
+                                <h2 className="text-center text-xs font-black uppercase tracking-[0.2em] text-[#A6B0B5] font-heading">
+                                    Shopping Duration
+                                </h2>
+                                <div className="flex items-center justify-center gap-8">
+                                    <button
+                                        onClick={() => setDuration(Math.max(1, duration - 1))}
+                                        className="w-12 h-12 rounded-full bg-[#1E2A2F] border border-[#22D97A]/25 text-[#22D97A] flex items-center justify-center active:scale-90 transition-transform shadow-md hover:bg-[#22D97A]/10 animate-all duration-200"
+                                    >
+                                        <Minus size={20} strokeWidth={3} />
+                                    </button>
+                                    <div className="flex items-baseline gap-2 w-32 justify-center">
+                                        <span className="text-6xl font-black text-white font-heading">
+                                            {duration}
+                                        </span>
+                                        <span className="text-[#A6B0B5] font-black uppercase tracking-wider text-xs">days</span>
+                                    </div>
+                                    <button
+                                        onClick={() => setDuration(duration + 1)}
+                                        className="w-12 h-12 rounded-full bg-[#1E2A2F] border border-[#22D97A]/25 text-[#22D97A] flex items-center justify-center active:scale-90 transition-transform shadow-md hover:bg-[#22D97A]/10 animate-all duration-200"
+                                    >
+                                        <Plus size={20} strokeWidth={3} />
+                                    </button>
+                                </div>
                             </div>
                         </div>
-                    </div>
 
-                    <div className="space-y-4">
-                        <button
-                            onClick={handleVerify}
-                            disabled={isLoading || isCompressing || !imagePreview}
-                            className="w-full bg-brand-primary text-white py-5 px-8 rounded-3xl font-black text-xl shadow-xl shadow-brand-primary/20 hover:bg-brand-secondary transition-all active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            {isLoading ? (
-                                <>
-                                    <Loader2 size={24} className="animate-spin" />
-                                    Verifying...
-                                </>
-                            ) : isCompressing ? (
-                                <>
-                                    <Loader2 size={24} className="animate-spin" />
-                                    Compressing...
-                                </>
-                            ) : (
-                                <>
-                                    <Sparkles size={24} />
-                                    Verify & Earn
-                                </>
-                            )}
-                        </button>
-
-                        {error && (
-                            <div className="bg-red-50 border border-red-200 text-red-600 p-4 rounded-2xl text-sm font-medium">
-                                {error}
-                            </div>
-                        )}
-
-                        {result && (
-                            <div className="bg-white rounded-[32px] p-6 shadow-xl border-2 border-green-500/30 space-y-4">
-                                <div className="flex items-center justify-between">
-                                    <h3 className="text-lg font-black text-brand-primary">Verification Complete!</h3>
-                                    <button onClick={resetForm} className="p-2 hover:bg-brand-accent/20 rounded-full">
-                                        <X size={20} className="text-brand-text/50" />
-                                    </button>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div className="bg-brand-accent/30 p-4 rounded-2xl text-center">
-                                        <div className="flex items-center justify-center gap-1 text-green-600 mb-1">
-                                            <Leaf size={16} fill="currentColor" />
-                                        </div>
-                                        <p className="text-2xl font-black text-brand-primary">{result.healthScore}</p>
-                                        <p className="text-[10px] font-bold text-brand-text/50 uppercase">Health Score</p>
-                                    </div>
-                                    <div className="bg-brand-accent/30 p-4 rounded-2xl text-center">
-                                        <div className="flex items-center justify-center gap-1 text-yellow-600 mb-1">
-                                            <Star size={16} fill="currentColor" />
-                                        </div>
-                                        <p className="text-2xl font-black text-brand-primary">{result.nutritionScore}</p>
-                                        <p className="text-[10px] font-bold text-brand-text/50 uppercase">Nutrition</p>
-                                    </div>
-                                    <div className="bg-brand-accent/30 p-4 rounded-2xl text-center">
-                                        <div className="flex items-center justify-center gap-1 text-brand-primary mb-1">
-                                            <Trophy size={16} fill="currentColor" />
-                                        </div>
-                                        <p className="text-2xl font-black text-brand-primary">+{result.pointsEarned}</p>
-                                        <p className="text-[10px] font-bold text-brand-text/50 uppercase">XP Earned</p>
-                                    </div>
-                                    <div className="bg-brand-accent/30 p-4 rounded-2xl text-center">
-                                        <div className="flex items-center justify-center gap-1 text-green-600 mb-1">
-                                            <Leaf size={16} fill="currentColor" />
-                                        </div>
-                                        <p className="text-2xl font-black text-brand-primary">{result.fruitVegGrams}g</p>
-                                        <p className="text-[10px] font-bold text-brand-text/50 uppercase">Fruits & Veg</p>
-                                    </div>
-                                </div>
-
-                                {result.badgeMinted && (
-                                    <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-4 text-center">
-                                        <p className="text-lg font-black text-yellow-600">🏆 Badge Earned!</p>
-                                        <p className="text-xs text-yellow-600/70">You've unlocked the Healthy Shopper badge</p>
-                                    </div>
+                        <div className="space-y-4">
+                            <button
+                                onClick={handleVerify}
+                                disabled={isLoading || isCompressing || !imagePreview}
+                                className="w-full bg-[#22D97A] text-[#0B1114] py-5 px-8 rounded-full font-black text-lg uppercase tracking-wider flex items-center justify-center gap-3 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_30px_rgba(34,217,122,0.4)] hover:shadow-[0_0_40px_rgba(34,217,122,0.6)] cursor-pointer"
+                            >
+                                {isLoading ? (
+                                    <>
+                                        <Loader2 size={22} className="animate-spin" />
+                                        Verifying...
+                                    </>
+                                ) : isCompressing ? (
+                                    <>
+                                        <Loader2 size={22} className="animate-spin" />
+                                        Compressing...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Sparkles size={22} />
+                                        Verify & Earn
+                                    </>
                                 )}
+                            </button>
 
-                                <div className="text-xs text-brand-text/40 text-center break-all">
-                                    TX: {result.txHash.slice(0, 10)}...{result.txHash.slice(-8)}
+                            {error && (
+                                <div className="bg-[#1E2A2F] border border-red-500/30 text-red-400 p-5 rounded-[22px] text-sm font-bold text-center">
+                                    {error}
                                 </div>
+                            )}
 
-                                <div className="flex gap-2 pt-2">
-                                    <button
-                                        onClick={handleShare}
-                                        className="flex-1 bg-[#1DA1F2] text-white py-3 px-4 rounded-2xl font-bold text-sm hover:bg-[#1a9ed8] transition-all flex items-center justify-center gap-2"
-                                    >
-                                        Share Result
-                                    </button>
-                                    <button
-                                        onClick={resetForm}
-                                        className="flex-1 bg-brand-accent text-brand-primary py-3 px-4 rounded-2xl font-bold text-sm hover:bg-brand-accent/80 transition-all"
-                                    >
-                                        Verify Another
-                                    </button>
+                            {result && (
+                                <div className="glass-card rounded-[32px] p-6 border border-[#22D97A]/20 space-y-5 animate-in fade-in duration-300">
+                                    <div className="flex items-center justify-between">
+                                        <h3 className="text-lg font-black text-[#22D97A] font-heading uppercase tracking-wide">Verification Complete!</h3>
+                                        <button onClick={resetForm} className="p-2 hover:bg-[#1E2A2F] rounded-full transition-colors text-white">
+                                            <X size={20} />
+                                        </button>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="bg-[#131C20] border border-[#22D97A]/10 p-4 rounded-[22px] text-center">
+                                            <div className="flex items-center justify-center gap-1 text-[#22D97A] mb-1">
+                                                <Leaf size={16} fill="currentColor" />
+                                            </div>
+                                            <p className="text-2xl font-black text-white font-heading">{result.healthScore}</p>
+                                            <p className="text-[9px] font-black text-[#A6B0B5] uppercase tracking-wider">Health Score</p>
+                                        </div>
+                                        <div className="bg-[#131C20] border border-[#22D97A]/10 p-4 rounded-[22px] text-center">
+                                            <div className="flex items-center justify-center gap-1 text-[#22D97A] mb-1">
+                                                <Star size={16} fill="currentColor" />
+                                            </div>
+                                            <p className="text-2xl font-black text-white font-heading">{result.nutritionScore}</p>
+                                            <p className="text-[9px] font-black text-[#A6B0B5] uppercase tracking-wider">Nutrition</p>
+                                        </div>
+                                        <div className="bg-[#131C20] border border-[#22D97A]/10 p-4 rounded-[22px] text-center">
+                                            <div className="flex items-center justify-center gap-1 text-[#22D97A] mb-1">
+                                                <Trophy size={16} fill="currentColor" />
+                                            </div>
+                                            <p className="text-2xl font-black text-white font-heading">+{result.pointsEarned}</p>
+                                            <p className="text-[9px] font-black text-[#A6B0B5] uppercase tracking-wider">XP Earned</p>
+                                        </div>
+                                        <div className="bg-[#131C20] border border-[#22D97A]/10 p-4 rounded-[22px] text-center">
+                                            <div className="flex items-center justify-center gap-1 text-[#22D97A] mb-1">
+                                                <Leaf size={16} fill="currentColor" />
+                                            </div>
+                                            <p className="text-2xl font-black text-white font-heading">{result.fruitVegGrams}g</p>
+                                            <p className="text-[9px] font-black text-[#A6B0B5] uppercase tracking-wider">Fruits & Veg</p>
+                                        </div>
+                                    </div>
+
+                                    {result.badgeMinted && (
+                                        <div className="bg-[#22D97A]/10 border border-[#22D97A]/25 rounded-[22px] p-4 text-center">
+                                            <p className="text-base font-extrabold text-[#22D97A] font-heading uppercase tracking-wide">🏆 Badge Earned!</p>
+                                            <p className="text-xs text-[#A6B0B5] font-semibold mt-1">You've unlocked the Healthy Shopper badge</p>
+                                        </div>
+                                    )}
+
+                                    <div className="text-[9px] text-[#A6B0B5]/50 text-center break-all font-mono">
+                                        TX: {result.txHash}
+                                    </div>
+
+                                    <div className="flex gap-2 pt-2">
+                                        <button
+                                            onClick={handleShare}
+                                            className="flex-1 bg-[#1DA1F2] text-white py-3.5 px-4 rounded-xl font-bold text-xs hover:bg-[#1a9ed8] transition-all flex items-center justify-center gap-2"
+                                        >
+                                            Share Result
+                                        </button>
+                                        <button
+                                            onClick={resetForm}
+                                            className="flex-1 bg-[#1E2A2F] border border-[#22D97A]/20 text-[#22D97A] py-3.5 px-4 rounded-xl font-bold text-xs hover:bg-[#22D97A]/10 transition-all"
+                                        >
+                                            Verify Another
+                                        </button>
+                                    </div>
                                 </div>
+                            )}
+
+                            <div className="bg-[#131C20]/50 border border-[#22D97A]/5 p-5 rounded-[24px] text-center">
+                                <p className="text-xs text-[#A6B0B5] italic font-medium leading-relaxed">
+                                    "Eat healthier and more balanced with a {duration} day plan."
+                                </p>
                             </div>
-                        )}
-
-                        <div className="bg-brand-accent/40 p-5 rounded-[24px] border border-brand-accent/50 text-center">
-                            <p className="text-sm text-brand-text/50 italic font-medium">
-                                "Eat healthier and more balanced with a {duration} day plan."
-                            </p>
                         </div>
                     </div>
                 </div>
-            </div>
             </Shell>
 
             {/* Upload Source Selection Modal */}
@@ -463,33 +466,33 @@ Join me in reducing food waste!`,
                 <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
                     {/* Backdrop */}
                     <div 
-                        className="absolute inset-0 bg-brand-text/40 backdrop-blur-md transition-opacity"
+                        className="absolute inset-0 bg-[#0B1114]/80 backdrop-blur-sm transition-opacity"
                         onClick={() => setShowUploadModal(false)}
                     ></div>
                     
                     {/* Modal Content */}
-                    <div className="relative w-full sm:max-w-sm bg-white rounded-t-[32px] sm:rounded-[32px] p-6 shadow-2xl border border-brand-accent/20 animate-in slide-in-from-bottom duration-300 z-10 space-y-4">
+                    <div className="relative w-full sm:max-w-sm bg-[#131C20] border border-[#22D97A]/15 rounded-t-[32px] sm:rounded-[32px] p-6 shadow-2xl animate-in slide-in-from-bottom duration-300 z-10 space-y-5">
                         <div className="text-center pb-2">
-                            <h3 className="text-lg font-black text-brand-primary">Select Receipt Source</h3>
-                            <p className="text-xs text-brand-text/50">Choose how you want to upload your receipt</p>
+                            <h3 className="text-lg font-black text-white font-heading uppercase tracking-wide">Select Receipt Source</h3>
+                            <p className="text-xs text-[#A6B0B5]">Choose how you want to upload your receipt</p>
                         </div>
                         
                         <div className="space-y-3">
                             <button
                                 onClick={() => handleSelectOption("camera")}
                                 type="button"
-                                className="w-full py-4 px-6 bg-brand-primary text-white rounded-2xl font-bold text-base hover:bg-brand-secondary active:scale-98 transition-all flex items-center justify-center gap-3 shadow-lg shadow-brand-primary/10 cursor-pointer"
+                                className="w-full py-4 px-6 bg-[#22D97A] text-[#0B1114] rounded-2xl font-black text-sm uppercase tracking-wider flex items-center justify-center gap-3 shadow-lg shadow-brand-primary/10 cursor-pointer transition-all active:scale-98"
                             >
-                                <Camera size={20} />
+                                <Camera size={18} strokeWidth={3} />
                                 Take Photo (Camera)
                             </button>
                             
                             <button
                                 onClick={() => handleSelectOption("gallery")}
                                 type="button"
-                                className="w-full py-4 px-6 bg-brand-accent text-brand-primary rounded-2xl font-bold text-base hover:bg-brand-accent/80 active:scale-98 transition-all flex items-center justify-center gap-3 border border-brand-accent/50 cursor-pointer"
+                                className="w-full py-4 px-6 bg-[#1E2A2F] border border-[#22D97A]/25 text-[#22D97A] rounded-2xl font-black text-sm uppercase tracking-wider flex items-center justify-center gap-3 cursor-pointer transition-all hover:bg-[#22D97A]/10 active:scale-98"
                             >
-                                <Image size={20} />
+                                <Image size={18} />
                                 Choose from Gallery
                             </button>
                         </div>
@@ -497,7 +500,7 @@ Join me in reducing food waste!`,
                         <button
                             onClick={() => setShowUploadModal(false)}
                             type="button"
-                            className="w-full py-3 px-6 bg-transparent text-brand-text/40 hover:text-brand-text/60 font-bold text-sm transition-colors cursor-pointer"
+                            className="w-full py-3 px-6 bg-transparent text-[#A6B0B5] hover:text-white font-black text-xs uppercase tracking-widest transition-colors cursor-pointer"
                         >
                             Cancel
                         </button>
@@ -507,19 +510,19 @@ Join me in reducing food waste!`,
 
             {/* Custom Camera Stream Overlay */}
             {isCameraActive && (
-                <div className="fixed inset-0 z-50 bg-black flex flex-col justify-between p-6">
+                <div className="fixed inset-0 z-50 bg-[#0B1114] flex flex-col justify-between p-6">
                     <div className="flex justify-between items-center text-white">
-                        <h3 className="text-lg font-bold">Align Receipt</h3>
+                        <h3 className="text-lg font-black font-heading uppercase tracking-wide">Align Receipt</h3>
                         <button 
                             onClick={stopCamera}
                             type="button"
-                            className="p-2 bg-white/10 rounded-full hover:bg-white/20 transition-colors cursor-pointer"
+                            className="p-2.5 bg-[#1E2A2F] border border-white/10 rounded-full hover:bg-white/10 transition-colors cursor-pointer text-white"
                         >
                             <X size={20} />
                         </button>
                     </div>
                     
-                    <div className="relative flex-1 my-6 bg-zinc-900 rounded-3xl overflow-hidden flex items-center justify-center">
+                    <div className="relative flex-1 my-6 bg-[#131C20] rounded-3xl overflow-hidden flex items-center justify-center border border-[#22D97A]/10 shadow-[inset_0_0_20px_rgba(0,0,0,0.8)]">
                         <video 
                             ref={videoRef}
                             autoPlay 
@@ -528,8 +531,8 @@ Join me in reducing food waste!`,
                             className="w-full h-full object-cover"
                         />
                         {/* Overlay frame guide */}
-                        <div className="absolute inset-8 border-2 border-dashed border-white/30 rounded-2xl pointer-events-none flex items-center justify-center">
-                            <span className="text-white/50 text-xs font-medium uppercase tracking-wider bg-black/40 px-3 py-1.5 rounded-full text-center">
+                        <div className="absolute inset-8 border-2 border-dashed border-[#22D97A]/30 rounded-2xl pointer-events-none flex items-center justify-center">
+                            <span className="text-white text-[10px] font-black uppercase tracking-widest bg-[#0B1114]/80 border border-[#22D97A]/10 px-4 py-2 rounded-full text-center">
                                 Place receipt inside frame
                             </span>
                         </div>
@@ -539,10 +542,10 @@ Join me in reducing food waste!`,
                         <button
                             onClick={capturePhoto}
                             type="button"
-                            className="w-20 h-20 rounded-full bg-white p-1 border-4 border-zinc-800 active:scale-90 transition-transform shadow-2xl cursor-pointer"
+                            className="w-20 h-20 rounded-full bg-white p-1 border-4 border-[#1E2A2F] active:scale-90 transition-transform shadow-2xl cursor-pointer"
                         >
-                            <div className="w-full h-full rounded-full bg-brand-primary flex items-center justify-center text-white">
-                                <Camera size={28} />
+                            <div className="w-full h-full rounded-full bg-[#22D97A] flex items-center justify-center text-[#0B1114]">
+                                <Camera size={28} strokeWidth={2.5} />
                             </div>
                         </button>
                     </div>

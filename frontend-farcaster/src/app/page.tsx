@@ -1,9 +1,19 @@
-"use client";
-
 import Link from "next/link";
 import Image from "next/image";
 import Shell from "@/components/Shell";
-import { Camera, Sparkles, Trophy, ArrowRight, ChevronRight, Award } from "lucide-react";
+import { 
+    Camera, 
+    Sparkles, 
+    Trophy, 
+    ArrowRight, 
+    ChevronRight, 
+    ShoppingCart, 
+    Apple, 
+    Coins, 
+    Milk, 
+    Receipt,
+    DollarSign
+} from "lucide-react";
 
 const steps = [
     {
@@ -30,24 +40,24 @@ const topEarners = [
     {
         rank: 1,
         name: "CryptoHunter",
-        xp: "12,540 XP",
-        usdc: "25 USDC",
+        xp: "0 XP",
+        usdc: "0 USDC",
         color: "bg-[#FFB800] text-black",
         avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=80&auto=format&fit=crop&q=60"
     },
     {
         rank: 2,
         name: "GreenBasket",
-        xp: "9,820 XP",
-        usdc: "15 USDC",
+        xp: "0 XP",
+        usdc: "0 USDC",
         color: "bg-[#A6B0B5] text-black",
         avatar: "https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=80&auto=format&fit=crop&q=60"
     },
     {
         rank: 3,
         name: "Shop2Earn",
-        xp: "7,650 XP",
-        usdc: "10 USDC",
+        xp: "0 XP",
+        usdc: "0 USDC",
         color: "bg-[#CD7F32] text-black",
         avatar: "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=80&auto=format&fit=crop&q=60"
     }
@@ -59,23 +69,71 @@ export default function Home() {
             <div className="flex flex-col items-center justify-center text-center space-y-16 animate-in fade-in slide-in-from-bottom-6 duration-1000">
 
                 {/* Hero Section */}
-                <div className="relative w-full flex flex-col items-center pt-8">
+                <div className="relative w-full flex flex-col items-center pt-12">
                     {/* Glowing Ambient Background Circles */}
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72 bg-brand-primary/10 rounded-full blur-[80px] -z-10"></div>
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-[#22D97A]/10 rounded-full blur-[90px] -z-10"></div>
                     
-                    {/* Centered Logo with Green Glow Wrapper */}
-                    <div className="relative w-48 h-48 flex items-center justify-center mb-6">
-                        {/* Interactive pulsing rings */}
-                        <div className="absolute inset-0 bg-[#22D97A]/20 rounded-[48px] blur-xl animate-pulse"></div>
-                        <div className="absolute inset-3 border border-[#22D97A]/30 rounded-[44px]"></div>
+                    {/* Centered Logo & Floating Icons Wrapper */}
+                    <div className="relative w-64 h-64 flex items-center justify-center mb-8">
+                        {/* Connecting lines / radar effect in background */}
+                        <div className="absolute w-56 h-56 rounded-full border border-[#22D97A]/5 pointer-events-none"></div>
+                        <div className="absolute w-44 h-44 rounded-full border border-[#22D97A]/10 pointer-events-none"></div>
+
+                        {/* Floating Icons with Neon Glow */}
+                        {/* 1. Shopping Cart (Top Left) */}
+                        <div className="absolute left-[5px] top-[15px] w-10 h-10 rounded-full bg-[#131C20] border border-[#22D97A]/30 flex items-center justify-center text-[#22D97A] shadow-[0_0_15px_rgba(34,217,122,0.2)]">
+                            <ShoppingCart size={16} />
+                        </div>
                         
+                        {/* 2. Apple (Top Center-Left) */}
+                        <div className="absolute left-[65px] top-[-15px] w-9 h-9 rounded-full bg-[#131C20] border border-[#22D97A]/20 flex items-center justify-center text-[#22D97A] shadow-[0_0_12px_rgba(34,217,122,0.15)]">
+                            <Apple size={15} />
+                        </div>
+
+                        {/* 3. Coin (Top Center-Right) */}
+                        <div className="absolute right-[65px] top-[-15px] w-9 h-9 rounded-full bg-[#131C20] border border-[#22D97A]/30 flex items-center justify-center text-[#22D97A] shadow-[0_0_15px_rgba(34,217,122,0.25)]">
+                            <DollarSign size={15} />
+                        </div>
+
+                        {/* 4. Milk Bottle (Top Right) */}
+                        <div className="absolute right-[5px] top-[15px] w-10 h-10 rounded-full bg-[#131C20] border border-[#22D97A]/20 flex items-center justify-center text-[#22D97A] shadow-[0_0_12px_rgba(34,217,122,0.15)]">
+                            <Milk size={16} />
+                        </div>
+
+                        {/* 5. Receipt (Middle Right) */}
+                        <div className="absolute right-[-15px] top-[80px] w-10 h-10 rounded-full bg-[#131C20] border border-[#22D97A]/20 flex items-center justify-center text-[#22D97A] shadow-[0_0_12px_rgba(34,217,122,0.15)]">
+                            <Receipt size={16} />
+                        </div>
+
+                        {/* 6. Coin (Bottom Right) */}
+                        <div className="absolute right-[15px] bottom-[20px] w-9 h-9 rounded-full bg-[#131C20] border border-[#22D97A]/30 flex items-center justify-center text-[#22D97A] shadow-[0_0_15px_rgba(34,217,122,0.25)]">
+                            <DollarSign size={14} />
+                        </div>
+
+                        {/* 7. Coin (Bottom Left) */}
+                        <div className="absolute left-[15px] bottom-[20px] w-9 h-9 rounded-full bg-[#131C20] border border-[#22D97A]/30 flex items-center justify-center text-[#22D97A] shadow-[0_0_15px_rgba(34,217,122,0.25)]">
+                            <DollarSign size={14} />
+                        </div>
+
+                        {/* 8. Milk Bottle (Middle Left) */}
+                        <div className="absolute left-[-15px] top-[125px] w-10 h-10 rounded-full bg-[#131C20] border border-[#22D97A]/20 flex items-center justify-center text-[#22D97A] shadow-[0_0_12px_rgba(34,217,122,0.15)]">
+                            <Milk size={16} />
+                        </div>
+
+                        {/* 9. Apple (Middle Left-Top) */}
+                        <div className="absolute left-[-15px] top-[70px] w-9 h-9 rounded-full bg-[#131C20] border border-[#22D97A]/20 flex items-center justify-center text-[#22D97A] shadow-[0_0_12px_rgba(34,217,122,0.15)]">
+                            <Apple size={15} />
+                        </div>
+
                         {/* Logo Container */}
-                        <div className="relative w-40 h-40 bg-[#131C20] border-2 border-brand-primary rounded-[40px] flex items-center justify-center shadow-[0_0_40px_rgba(34,217,122,0.3)]">
+                        <div className="relative w-36 h-36 bg-[#131C20] border-2 border-brand-primary rounded-[36px] flex items-center justify-center shadow-[0_0_40px_rgba(34,217,122,0.35)] z-10">
+                            {/* Inner pulsing ring */}
+                            <div className="absolute inset-0 bg-[#22D97A]/10 rounded-[34px] blur-md animate-pulse -z-10"></div>
                             <Image
                                 src="/replate-image.png"
                                 alt="Replate Logo"
-                                width={120}
-                                height={120}
+                                width={100}
+                                height={100}
                                 className="object-contain"
                                 priority
                             />
@@ -119,7 +177,7 @@ export default function Home() {
                             <img className="w-8 h-8 rounded-full border-2 border-[#131C20] object-cover" src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=60&auto=format&fit=crop&q=60" alt="user3" />
                         </div>
                         <div className="text-left">
-                            <p className="text-[13px] font-black text-white leading-tight font-heading">20K+ Users</p>
+                            <p className="text-[13px] font-black text-white leading-tight font-heading">0 Users</p>
                             <p className="text-[10px] text-[#A6B0B5] font-semibold leading-none">Shopping & earning</p>
                         </div>
                     </div>

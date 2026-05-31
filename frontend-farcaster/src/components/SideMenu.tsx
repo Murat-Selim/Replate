@@ -6,7 +6,7 @@ import { X, Home, Circle, BarChart3, User } from "lucide-react";
 
 const menuItems = [
     { icon: Home, href: "/", label: "Home" },
-    { icon: Circle, href: "/shop", label: "Activity" },
+    { icon: Circle, href: "/shop", label: "Shop" },
     { icon: BarChart3, href: "/leaderboard", label: "Leaderboard" },
     { icon: User, href: "/impact", label: "Profile" },
 ];
