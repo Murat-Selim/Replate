@@ -1,22 +1,26 @@
 @import "tailwindcss";
 
 @theme {
-  --color-brand-primary: #1a3e2f;
-  --color-brand-secondary: #2d5a4c;
-  --color-brand-accent: #eef3f1;
-  --color-brand-surface: #ffffff;
-  --color-brand-background: #f8faf9;
-  --color-brand-text: #1a3e2f;
-  --color-brand-text-muted: #6b7280;
+  --color-brand-primary: #22D97A;
+  --color-brand-secondary: #35F08C;
+  --color-brand-accent: #1FAE5B;
+  --color-brand-surface: #131C20;
+  --color-brand-background: #0B1114;
+  --color-brand-text: #FFFFFF;
+  --color-brand-text-muted: #A6B0B5;
   
   --font-heading: "Outfit", sans-serif;
   --font-body: "Inter", sans-serif;
 }
 
 :root {
-  --background: #f8faf9;
-  --foreground: #1a3e2f;
-  --brand-primary: #1a3e2f;
+  --background: #0B1114;
+  --foreground: #FFFFFF;
+  --brand-primary: #22D97A;
+  --brand-surface: #131C20;
+  --brand-surface-alt: #1E2A2F;
+  --brand-muted: #A6B0B5;
+  --neon-glow: #1FAE5B;
 }
 
 body {
@@ -32,17 +36,57 @@ h1, h2, h3, h4, h5, h6 {
   font-weight: 700;
 }
 
+/* Glass Card / Frosted Glass effects */
 .glass-card {
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+  background: rgba(19, 28, 32, 0.7);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(34, 217, 122, 0.15);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
 }
 
+.glass-card-hover:hover {
+  border-color: rgba(34, 217, 122, 0.35);
+  box-shadow: 0 8px 32px 0 rgba(34, 217, 122, 0.1);
+  transform: translateY(-2px);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Navigation indicators */
 .nav-item-active {
   color: var(--brand-primary);
+  text-shadow: 0 0 10px rgba(34, 217, 122, 0.5);
 }
 
 .nav-item-inactive {
-  color: #9ca3af;
+  color: var(--brand-muted);
 }
+
+/* Neon Glows */
+.neon-glow-btn {
+  box-shadow: 0 0 20px rgba(34, 217, 122, 0.4);
+  transition: all 0.3s ease;
+}
+
+.neon-glow-btn:hover {
+  box-shadow: 0 0 30px rgba(34, 217, 122, 0.7);
+  transform: scale(1.02);
+}
+
+.neon-glow-text {
+  text-shadow: 0 0 15px rgba(34, 217, 122, 0.6);
+}
+
+.neon-glow-icon-bg {
+  background: rgba(34, 217, 122, 0.1);
+  border: 1px solid rgba(34, 217, 122, 0.25);
+  box-shadow: inset 0 0 10px rgba(34, 217, 122, 0.1);
+}
+
+/* Grid background texture */
+.grid-bg {
+  background-image: 
+    linear-gradient(rgba(34, 217, 122, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(34, 217, 122, 0.03) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+

@@ -3,89 +3,172 @@
 import Link from "next/link";
 import Image from "next/image";
 import Shell from "@/components/Shell";
-import { Camera, Sparkles, Trophy, ArrowRight } from "lucide-react";
+import { Camera, Sparkles, Trophy, ArrowRight, ChevronRight, Award } from "lucide-react";
 
 const steps = [
     {
         icon: Camera,
+        num: "01",
         title: "Snap Your Receipt",
         desc: "Upload any grocery receipt after shopping.",
     },
     {
         icon: Sparkles,
+        num: "02",
         title: "AI Analyzes It",
         desc: "We score your basket's health & nutrition balance.",
     },
     {
         icon: Trophy,
+        num: "03",
         title: "Earn Rewards",
         desc: "Get XP, climb the leaderboard, win weekly USDC prizes.",
     },
 ];
 
+const topEarners = [
+    {
+        rank: 1,
+        name: "CryptoHunter",
+        xp: "12,540 XP",
+        usdc: "25 USDC",
+        color: "bg-[#FFB800] text-black",
+        avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=80&auto=format&fit=crop&q=60"
+    },
+    {
+        rank: 2,
+        name: "GreenBasket",
+        xp: "9,820 XP",
+        usdc: "15 USDC",
+        color: "bg-[#A6B0B5] text-black",
+        avatar: "https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=80&auto=format&fit=crop&q=60"
+    },
+    {
+        rank: 3,
+        name: "Shop2Earn",
+        xp: "7,650 XP",
+        usdc: "10 USDC",
+        color: "bg-[#CD7F32] text-black",
+        avatar: "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=80&auto=format&fit=crop&q=60"
+    }
+];
+
 export default function Home() {
     return (
         <Shell>
-            <div className="flex flex-col items-center justify-center min-h-[70vh] text-center space-y-10 animate-in fade-in slide-in-from-bottom-6 duration-1000">
+            <div className="flex flex-col items-center justify-center text-center space-y-16 animate-in fade-in slide-in-from-bottom-6 duration-1000">
 
-                {/* Logo Image */}
-                <div className="relative w-48 h-48 flex items-center justify-center">
-                    {/* Subtle Outer Glow */}
-                    <div className="absolute inset-0 bg-brand-primary/10 rounded-full blur-[60px]"></div>
+                {/* Hero Section */}
+                <div className="relative w-full flex flex-col items-center pt-8">
+                    {/* Glowing Ambient Background Circles */}
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72 bg-brand-primary/10 rounded-full blur-[80px] -z-10"></div>
+                    
+                    {/* Centered Logo with Green Glow Wrapper */}
+                    <div className="relative w-48 h-48 flex items-center justify-center mb-6">
+                        {/* Interactive pulsing rings */}
+                        <div className="absolute inset-0 bg-[#22D97A]/20 rounded-[48px] blur-xl animate-pulse"></div>
+                        <div className="absolute inset-3 border border-[#22D97A]/30 rounded-[44px]"></div>
+                        
+                        {/* Logo Container */}
+                        <div className="relative w-40 h-40 bg-[#131C20] border-2 border-brand-primary rounded-[40px] flex items-center justify-center shadow-[0_0_40px_rgba(34,217,122,0.3)]">
+                            <Image
+                                src="/replate-image.png"
+                                alt="Replate Logo"
+                                width={120}
+                                height={120}
+                                className="object-contain"
+                                priority
+                            />
+                        </div>
+                    </div>
 
-                    {/* The Logo Image */}
-                    <div className="relative w-44 h-44 flex items-center justify-center overflow-hidden rounded-[40px]">
-                        <Image
-                            src="/replate-image.png"
-                            alt="Replate Logo"
-                            width={176}
-                            height={176}
-                            className="object-contain rounded-[40px]"
-                            priority
-                        />
+                    {/* Hero Title & Text */}
+                    <div className="space-y-4">
+                        <h1 className="text-6xl font-black tracking-tight text-white leading-none font-heading uppercase">
+                            Replate
+                        </h1>
+                        <div className="space-y-1.5">
+                            <p className="text-xl text-[#A6B0B5] font-medium tracking-wide">
+                                Buy groceries.
+                            </p>
+                            <p className="text-2xl text-white font-extrabold tracking-wide uppercase">
+                                Earn <span className="text-brand-primary neon-glow-text">crypto</span> rewards.
+                            </p>
+                        </div>
                     </div>
                 </div>
 
-                {/* Hero Text — Sell Point: EARN */}
-                <div className="space-y-4">
-                    <h1 className="text-6xl font-black tracking-tight text-brand-primary leading-none">
-                        Replate
-                    </h1>
-                    <div className="space-y-1">
-                        <p className="text-2xl text-brand-text/90 font-bold tracking-tight">
-                            Buy groceries.
-                        </p>
-                        <p className="text-2xl text-brand-primary font-black tracking-tight">
-                            Earn crypto.
-                        </p>
-                    </div>
-                    <p className="text-sm text-brand-text/50 max-w-xs mx-auto leading-relaxed">
-                        Get cashback in XP for every healthy grocery run - verified on Base blockchain.
-                    </p>
+                {/* Main CTA Button */}
+                <div className="w-full max-w-xs pt-2">
+                    <Link
+                        href="/shop"
+                        className="w-full bg-[#22D97A] text-[#0B1114] py-5 px-8 rounded-full font-black text-lg uppercase tracking-wider flex items-center justify-center gap-3 transition-all active:scale-95 shadow-[0_0_30px_rgba(34,217,122,0.45)] hover:shadow-[0_0_40px_rgba(34,217,122,0.7)]"
+                    >
+                        Start Earning
+                        <ArrowRight size={20} strokeWidth={3} />
+                    </Link>
                 </div>
 
-                {/* How It Works — 3-Step Flow */}
-                <div className="w-full space-y-5 pt-4">
-                    <h2 className="text-xs font-black uppercase tracking-[0.2em] text-brand-text/30 text-center">
-                        How It Works
-                    </h2>
+                {/* User Trust & Rewards Widget */}
+                <div className="w-full glass-card p-4 rounded-[28px] flex items-center justify-between border border-[#22D97A]/10 max-w-sm">
+                    {/* User Avatars stacked */}
+                    <div className="flex items-center gap-3">
+                        <div className="flex -space-x-3">
+                            <img className="w-8 h-8 rounded-full border-2 border-[#131C20] object-cover" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=60&auto=format&fit=crop&q=60" alt="user1" />
+                            <img className="w-8 h-8 rounded-full border-2 border-[#131C20] object-cover" src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=60&auto=format&fit=crop&q=60" alt="user2" />
+                            <img className="w-8 h-8 rounded-full border-2 border-[#131C20] object-cover" src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=60&auto=format&fit=crop&q=60" alt="user3" />
+                        </div>
+                        <div className="text-left">
+                            <p className="text-[13px] font-black text-white leading-tight font-heading">20K+ Users</p>
+                            <p className="text-[10px] text-[#A6B0B5] font-semibold leading-none">Shopping & earning</p>
+                        </div>
+                    </div>
 
-                    <div className="space-y-3">
+                    <div className="h-8 w-px bg-white/10"></div>
+
+                    {/* Rewards indicator */}
+                    <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-full bg-[#131C20] border border-[#22D97A]/20 flex items-center justify-center text-brand-primary">
+                            <span className="font-black text-xs">$</span>
+                        </div>
+                        <div className="text-left">
+                            <p className="text-[10px] text-[#A6B0B5] font-semibold leading-none">Rewards in</p>
+                            <p className="text-[13px] font-black text-white leading-tight uppercase font-heading">USDC</p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* How It Works Section */}
+                <div className="w-full space-y-6 pt-6 text-left">
+                    <div className="text-center md:text-left">
+                        <span className="text-[11px] font-extrabold uppercase tracking-[0.25em] text-[#22D97A] font-heading">
+                            How It Works
+                        </span>
+                        <h2 className="text-3xl font-extrabold text-white mt-1 leading-tight font-heading">
+                            Earn crypto in <span className="text-brand-primary">3</span> simple steps
+                        </h2>
+                    </div>
+
+                    <div className="space-y-4">
                         {steps.map((step, i) => {
                             const Icon = step.icon;
                             return (
                                 <div
                                     key={i}
-                                    className="flex items-start gap-4 bg-white rounded-[24px] p-5 shadow-sm border border-brand-accent/20 text-left"
+                                    className="flex items-center gap-4 glass-card rounded-[24px] p-5 border border-[#22D97A]/10 hover:border-[#22D97A]/25 transition-all duration-300"
                                 >
-                                    <div className="w-12 h-12 shrink-0 bg-brand-accent rounded-2xl flex items-center justify-center text-brand-primary">
+                                    <div className="w-14 h-14 shrink-0 bg-[#131C20] border border-[#22D97A]/15 rounded-2xl flex items-center justify-center text-brand-primary relative">
                                         <Icon size={24} />
+                                        <div className="absolute inset-0 bg-brand-primary/5 rounded-2xl blur-sm -z-10"></div>
                                     </div>
-                                    <div className="space-y-0.5">
-                                        <p className="font-bold text-brand-primary text-sm">
+                                    <div className="flex-1 space-y-1">
+                                        <div className="flex items-center justify-between">
+                                            <span className="font-black text-[11px] text-brand-primary font-heading tracking-widest">{step.num}</span>
+                                        </div>
+                                        <p className="font-extrabold text-white text-base font-heading">
                                             {step.title}
                                         </p>
-                                        <p className="text-xs text-brand-text/50 leading-snug">
+                                        <p className="text-xs text-[#A6B0B5] font-medium leading-relaxed">
                                             {step.desc}
                                         </p>
                                     </div>
@@ -95,21 +178,59 @@ export default function Home() {
                     </div>
                 </div>
 
-                {/* Trust / Micro Badge */}
-                <div className="bg-brand-accent/40 px-5 py-3 rounded-full">
-                    <p className="text-[11px] font-semibold text-brand-text/40 tracking-wide">
-                        🛡️ Verified on Base · Free to Start · No Hidden Fees
-                    </p>
+                {/* Leaderboard Preview (Today's Top Earners) */}
+                <div className="w-full space-y-5 pt-4 text-left">
+                    <div>
+                        <h3 className="text-lg font-black text-white font-heading uppercase tracking-wide">
+                            Today's Top Earners
+                        </h3>
+                    </div>
+
+                    <div className="space-y-3">
+                        {topEarners.map((earner) => (
+                            <div
+                                key={earner.rank}
+                                className="flex items-center justify-between glass-card p-4 rounded-[22px] border border-[#22D97A]/10 hover:border-[#22D97A]/20 transition-all"
+                            >
+                                <div className="flex items-center gap-3">
+                                    {/* Rank badge */}
+                                    <div className={`w-6 h-6 rounded-full flex items-center justify-center font-black text-xs font-heading ${earner.color}`}>
+                                        {earner.rank}
+                                    </div>
+                                    
+                                    {/* Avatar */}
+                                    <img src={earner.avatar} alt={earner.name} className="w-9 h-9 rounded-full object-cover border border-white/10" />
+                                    
+                                    {/* User Details */}
+                                    <div className="flex flex-col">
+                                        <span className="font-extrabold text-white text-sm font-heading">{earner.name}</span>
+                                        <span className="text-[10px] text-brand-primary font-bold tracking-wider">{earner.xp}</span>
+                                    </div>
+                                </div>
+
+                                {/* Reward tag */}
+                                <div className="flex items-center gap-1.5 bg-[#131C20] border border-[#22D97A]/15 py-1.5 px-3 rounded-full">
+                                    <div className="w-4 h-4 rounded-full bg-brand-primary/20 flex items-center justify-center text-brand-primary font-black text-[9px]">
+                                        $
+                                    </div>
+                                    <span className="text-[11px] font-black text-white uppercase tracking-wider font-heading">{earner.usdc}</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* View Leaderboard Link */}
+                    <div className="pt-2">
+                        <Link
+                            href="/leaderboard"
+                            className="w-full flex items-center justify-between bg-[#131C20] border border-[#22D97A]/10 hover:border-[#22D97A]/25 py-4 px-6 rounded-2xl text-xs font-black uppercase tracking-wider text-[#A6B0B5] hover:text-white transition-all"
+                        >
+                            <span>View Leaderboard</span>
+                            <ChevronRight size={16} className="text-brand-primary" />
+                        </Link>
+                    </div>
                 </div>
 
-                {/* CTA Button */}
-                <Link
-                    href="/shop"
-                    className="w-full max-w-xs bg-brand-primary text-white py-5 px-10 rounded-[32px] font-black text-xl shadow-[0_20px_40px_rgba(26,62,47,0.3)] hover:bg-brand-secondary transition-all active:scale-95 flex items-center justify-center gap-3"
-                >
-                    Start Earning
-                    <ArrowRight size={22} />
-                </Link>
             </div>
         </Shell>
     );

@@ -68,44 +68,44 @@ export default function Header() {
 
     return (
         <>
-            <header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-3 py-4 bg-brand-background/80 backdrop-blur-md">
-                <div className="flex items-center gap-2">
+            <header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4 bg-[#0B1114]/70 backdrop-blur-md border-b border-brand-primary/5">
+                <div className="flex items-center gap-3">
                     {pfpUrl ? (
-                        <div className="w-8 h-8 rounded-full overflow-hidden shadow-sm border border-brand-accent/20">
+                        <div className="w-9 h-9 rounded-full overflow-hidden border-2 border-brand-primary shadow-[0_0_10px_rgba(34,217,122,0.4)]">
                             <img src={pfpUrl} alt={displayIdentity} className="w-full h-full object-cover" />
                         </div>
                     ) : (
-                        <div className="w-8 h-8 rounded-full bg-brand-primary flex items-center justify-center text-white font-bold text-sm shadow-sm transition-all">
+                        <div className="w-9 h-9 rounded-full bg-brand-surface border border-brand-primary/30 flex items-center justify-center text-brand-primary font-bold text-sm shadow-[0_0_10px_rgba(34,217,122,0.2)]">
                             {isLoading && !isConnected ? (
-                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                <div className="w-4 h-4 border-2 border-brand-primary/30 border-t-brand-primary rounded-full animate-spin" />
                             ) : (
                                 initial
                             )}
                         </div>
                     )}
                     <div className="flex flex-col">
-                        <span className="font-bold text-brand-primary text-[11px] uppercase tracking-wider">
-                            {isLoading && !isConnected ? "@..." : `@${displayIdentity.toLowerCase()}`}
+                        <span className="font-extrabold text-white text-xs tracking-wider uppercase font-heading">
+                            {isLoading && !isConnected ? "@..." : `@${displayIdentity.toUpperCase()}`}
                         </span>
                         {isBaseApp && (
-                            <span className="text-[9px] text-blue-600 font-medium tracking-tight">Base App</span>
+                            <span className="text-[9px] text-brand-primary font-bold tracking-widest uppercase">Base App</span>
                         )}
                     </div>
                 </div>
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-2">
                     {showAddButton && (
                         <button
                             onClick={handleAddMiniApp}
                             disabled={isAdding}
-                            className="px-2.5 py-1.5 rounded-full bg-brand-primary text-white text-[10px] font-bold flex items-center gap-1 shadow-sm disabled:opacity-60 ring-1 ring-white/20 active:scale-95 transition-transform"
+                            className="px-3 py-1.5 rounded-full bg-brand-primary text-black text-[10px] font-black uppercase tracking-wider flex items-center gap-1 neon-glow-btn disabled:opacity-60 active:scale-95 transition-all"
                         >
-                            <Plus size={12} />
+                            <Plus size={11} strokeWidth={3} />
                             {isAdding ? "Adding..." : "Add App"}
                         </button>
                     )}
                     <button
                         onClick={() => setIsMenuOpen(true)}
-                        className="w-8 h-8 flex items-center justify-center text-brand-primary hover:bg-brand-accent/50 rounded-full transition-colors active:scale-90"
+                        className="w-9 h-9 flex items-center justify-center text-white hover:bg-brand-surface rounded-full transition-colors active:scale-90"
                     >
                         <Menu size={24} />
                     </button>
