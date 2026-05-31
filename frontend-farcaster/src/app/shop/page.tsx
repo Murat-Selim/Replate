@@ -2,10 +2,11 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import Shell from "@/components/Shell";
-import { Minus, Plus, Sparkles, Camera, Check, Loader2, X, Leaf, Star, Trophy } from "lucide-react";
+import { Minus, Plus, Sparkles, Camera, Check, Loader2, X, Leaf, Star, Trophy, Image } from "lucide-react";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { useFarcasterAccount } from "@/hooks/useFarcasterAccount";
 import { getApiUrl } from "@/lib/api";
+import { compressImage } from "@/lib/image";
 
 interface VerificationResult {
     txHash: string;
@@ -33,9 +34,11 @@ export default function SmartShop() {
     const [duration, setDuration] = useState(7);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [isCompressing, setIsCompressing] = useState(false);
     const [result, setResult] = useState<VerificationResult | null>(null);
     const [error, setError] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const cameraInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         const fetchContext = async () => {
@@ -55,19 +58,33 @@ export default function SmartShop() {
         fetchContext();
     }, [address]);
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setImagePreview(reader.result as string);
-            };
-            reader.readAsDataURL(file);
+            setIsCompressing(true);
+            setError(null);
+            try {
+                const compressed = await compressImage(file, 1600, 1600, 0.8);
+                setImagePreview(compressed);
+            } catch (err) {
+                console.error("Image compression failed, falling back to original", err);
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    setImagePreview(reader.result as string);
+                };
+                reader.readAsDataURL(file);
+            } finally {
+                setIsCompressing(false);
+            }
         }
     };
 
-    const triggerFileInput = () => {
+    const triggerGalleryInput = () => {
         fileInputRef.current?.click();
+    };
+
+    const triggerCameraInput = () => {
+        cameraInputRef.current?.click();
     };
 
     const handleVerify = async () => {
@@ -155,8 +172,16 @@ Join me in reducing food waste!`,
                             accept="image/*"
                             className="hidden"
                         />
+                        <input
+                            type="file"
+                            ref={cameraInputRef}
+                            onChange={handleFileChange}
+                            accept="image/*"
+                            capture="environment"
+                            className="hidden"
+                        />
                         <div
-                            onClick={triggerFileInput}
+                            onClick={triggerCameraInput}
                             className="relative group cursor-pointer"
                         >
                             <div className="absolute inset-0 bg-brand-primary/5 rounded-full blur-3xl group-hover:bg-brand-primary/10 transition-colors"></div>
@@ -183,12 +208,33 @@ Join me in reducing food waste!`,
                                             <Camera size={40} />
                                         </div>
                                         <span className="font-bold text-brand-text/40 uppercase tracking-widest text-[10px]">
-                                            Tap to upload
+                                            Tap to take photo
                                         </span>
                                     </div>
                                 )}
                             </div>
                         </div>
+
+                        {!imagePreview && (
+                            <div className="flex gap-4 justify-center mt-6 w-full max-w-xs animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                <button
+                                    onClick={triggerCameraInput}
+                                    type="button"
+                                    className="flex-1 py-3 px-4 bg-brand-primary text-white rounded-2xl font-bold text-sm hover:bg-brand-secondary transition-all flex items-center justify-center gap-2 active:scale-95 shadow-lg shadow-brand-primary/15 cursor-pointer"
+                                >
+                                    <Camera size={16} />
+                                    Take Photo
+                                </button>
+                                <button
+                                    onClick={triggerGalleryInput}
+                                    type="button"
+                                    className="flex-1 py-3 px-4 bg-brand-accent text-brand-primary rounded-2xl font-bold text-sm hover:bg-brand-accent/80 transition-all flex items-center justify-center gap-2 active:scale-95 border border-brand-accent/50 cursor-pointer"
+                                >
+                                    <Image size={16} />
+                                    Gallery
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -250,13 +296,18 @@ Join me in reducing food waste!`,
                     <div className="space-y-4">
                         <button
                             onClick={handleVerify}
-                            disabled={isLoading || !imagePreview}
+                            disabled={isLoading || isCompressing || !imagePreview}
                             className="w-full bg-brand-primary text-white py-5 px-8 rounded-3xl font-black text-xl shadow-xl shadow-brand-primary/20 hover:bg-brand-secondary transition-all active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {isLoading ? (
                                 <>
                                     <Loader2 size={24} className="animate-spin" />
                                     Verifying...
+                                </>
+                            ) : isCompressing ? (
+                                <>
+                                    <Loader2 size={24} className="animate-spin" />
+                                    Compressing...
                                 </>
                             ) : (
                                 <>
