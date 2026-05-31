@@ -175,39 +175,13 @@ export default function SmartShop() {
                                             <div className="w-16 h-16 bg-brand-accent rounded-2xl flex items-center justify-center text-brand-primary group-hover:scale-110 transition-transform">
                                                 <Camera size={32} />
                                             </div>
-                                            <div className="text-center space-y-1">
-                                                <p className="font-bold text-brand-text/60 text-sm">
-                                                    Click to take photo
-                                                </p>
-                                                <p className="text-[11px] text-brand-text/30">
-                                                    JPG, PNG or HEIC up to 10MB
-                                                </p>
-                                            </div>
+                                            <span className="font-bold text-brand-text/40 uppercase tracking-widest text-[10px] text-center">
+                                                Tap to take photo
+                                            </span>
                                         </div>
                                     )}
                                 </div>
                             </div>
-
-                            {!imagePreview && (
-                                <div className="flex gap-4 justify-center mt-4 w-full max-w-sm mx-auto animate-fade-in-up">
-                                    <button
-                                        onClick={triggerCameraInput}
-                                        type="button"
-                                        className="flex-1 py-3 px-4 bg-brand-primary text-white rounded-2xl font-bold text-sm hover:bg-brand-secondary transition-all flex items-center justify-center gap-2 active:scale-95 shadow-lg shadow-brand-primary/15 cursor-pointer"
-                                    >
-                                        <Camera size={16} />
-                                        Take Photo
-                                    </button>
-                                    <button
-                                        onClick={triggerGalleryInput}
-                                        type="button"
-                                        className="flex-1 py-3 px-4 bg-brand-accent text-brand-primary rounded-2xl font-bold text-sm hover:bg-brand-accent/80 transition-all flex items-center justify-center gap-2 active:scale-95 border border-brand-accent/50 cursor-pointer"
-                                    >
-                                        <Image size={16} />
-                                        Gallery
-                                    </button>
-                                </div>
-                            )}
                         </div>
 
                         {/* Controls */}

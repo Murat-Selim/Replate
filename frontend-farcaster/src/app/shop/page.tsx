@@ -214,27 +214,6 @@ Join me in reducing food waste!`,
                                 )}
                             </div>
                         </div>
-
-                        {!imagePreview && (
-                            <div className="flex gap-4 justify-center mt-6 w-full max-w-xs animate-in fade-in slide-in-from-bottom-2 duration-300">
-                                <button
-                                    onClick={triggerCameraInput}
-                                    type="button"
-                                    className="flex-1 py-3 px-4 bg-brand-primary text-white rounded-2xl font-bold text-sm hover:bg-brand-secondary transition-all flex items-center justify-center gap-2 active:scale-95 shadow-lg shadow-brand-primary/15 cursor-pointer"
-                                >
-                                    <Camera size={16} />
-                                    Take Photo
-                                </button>
-                                <button
-                                    onClick={triggerGalleryInput}
-                                    type="button"
-                                    className="flex-1 py-3 px-4 bg-brand-accent text-brand-primary rounded-2xl font-bold text-sm hover:bg-brand-accent/80 transition-all flex items-center justify-center gap-2 active:scale-95 border border-brand-accent/50 cursor-pointer"
-                                >
-                                    <Image size={16} />
-                                    Gallery
-                                </button>
-                            </div>
-                        )}
                     </div>
                 </div>
 
