@@ -190,6 +190,34 @@ const SKIP_PATTERNS = [
   /\bPOSET\b$/i,                    // trailing POSET (bag line, not food)
   /^TEL:|^FAX:/i,
   /THANK|TESEKKUR/i,
+  
+  // New robust filters for receipt meta lines
+  /\b(MERSIS|VKN|VERGI|DAIRE|SICIL|ADRES|FATURA|E-ARSIV|EARSIV|GIB|KASIYER|KASAYER|TERMINAL|ISLEM|NUSHA|MUSTERI|BANKA|KREDI|KART|PUAN|BAKIYE|PROVIZYON|MATRAH|IADE|ODEME|BEKLERIZ|ILETISIM|YINE BEKLERIZ|TEL|FAX|WEB|EPOSTA|E-POSTA|TESEKKUR|ISYERI|UNVAN|TABELA|HOSGELDINIZ|HOŞGELDİNİZ|FIYAT|FIYATI|TUTAR|TUTARI|KDVSIZ|KDV'LI|KDVLI)\b/i,
+];
+
+// ─── Packaged / processed product keywords (to exclude from fresh fruit/veg grams) ───
+const PROCESSED_OR_COMPOSITE_KEYWORDS = [
+  "suyu", "sut", "süt", "sos", "sirke", "recel", "reçel", "pure", "püre",
+  "biskuvi", "bisküvi", "gofret", "cips", "kek", "pasta", "aroma", "konserve", 
+  "tursu", "turşu", "yogurt", "yoğurt", "dondurma", "makarna", "pizza", "corba", 
+  "çorba", "un", "ekmek", "salca", "salça", "seker", "şeker", "cikolata", 
+  "çikolata", "goofret", "salam", "sosis", "sucuk", "pastirma", "pastırma", 
+  "hazir", "hazır", "bar", "borek", "börek", "pogaça", "poğaça", "simit", 
+  "tost", "sandvic", "sandviç", "durum", "dürüm", "kebap", "doner", "döner", 
+  "kofte", "köfte", "manti", "mantı", "erişte", "eriste", "pilav", "tatli", 
+  "tatlı", "helva", "pekmez", "tahin", "kaymak", "tereyag", "tereyağ", 
+  "margarin", "yag", "yağ", "peynir", "lor", "kasar", "kaşar", "krema", 
+  "ayran", "kefir", "cacik", "cazık", "meze", "kraker", "kurabiye", "lokum", 
+  "jelibon", "sakiz", "sakız", "gazoz", "kola", "cola", "fanta", "sprite", 
+  "icecek", "içecek", "limonata", "serbet", "şerbet", "komposto", "hosaf", 
+  "hoşaf", "salamura", "dondurulmus", "dondurulmuş", "kurutulmus", "kurutulmuş", 
+  "ketcap", "ketçap", "mayonez", "hardal", "tuz", "baharat"
+];
+
+// Whitelist of processed items that are actually healthy whole foods on their own
+const HEALTHY_PROCESSED_KEYWORDS = [
+  "sut", "süt", "yogurt", "yoğurt", "ayran", "kefir", "lor", "peynir", 
+  "zeytinyagi", "zeytinyağı", "su", "cay", "çay", "yumurta"
 ];
 
 // ─── Fruit & vegetable gram estimates ─────────────────────────────────
@@ -393,11 +421,19 @@ async function classifyProduct(productName: string, actualWeightGrams: number = 
   // Step 2: Check if this is a fruit/veg and calculate grams
   let isFruitVeg = false;
   let estimatedGrams = 0;
-  for (const [keyword, defaultGrams] of Object.entries(FRUIT_VEG_KEYWORDS)) {
-    if (resolvedName.includes(keyword) || normalized.includes(keyword)) {
-      isFruitVeg = true;
-      estimatedGrams = defaultGrams;
-      break;
+
+  // Packaged/processed products do NOT count as fresh fruits & vegetables
+  const isProcessedOrComposite = PROCESSED_OR_COMPOSITE_KEYWORDS.some(kw =>
+    normalized.includes(kw)
+  );
+
+  if (!isProcessedOrComposite) {
+    for (const [keyword, defaultGrams] of Object.entries(FRUIT_VEG_KEYWORDS)) {
+      if (resolvedName.includes(keyword) || normalized.includes(keyword)) {
+        isFruitVeg = true;
+        estimatedGrams = defaultGrams;
+        break;
+      }
     }
   }
 
@@ -408,9 +444,24 @@ async function classifyProduct(productName: string, actualWeightGrams: number = 
   }
 
   // Step 3: Keyword classification using both original and resolved names
-  const isHealthy = HEALTHY_KEYWORDS.some(kw =>
+  const isHealthyProcessedWhitelist = HEALTHY_PROCESSED_KEYWORDS.some(kw =>
+    normalized.includes(kw)
+  );
+
+  let isHealthy = HEALTHY_KEYWORDS.some(kw =>
     resolvedName.includes(kw) || normalized.includes(kw)
   );
+
+  // If a product contains processed keywords (like juice, sauce, jam) and is NOT in the healthy whitelist,
+  // we do not count it as healthy just because a raw fruit/veg ingredient is in the name.
+  if (isProcessedOrComposite && !isHealthyProcessedWhitelist) {
+    const nonFruitVegHealthyKeywords = HEALTHY_KEYWORDS.filter(kw => 
+      !Object.keys(FRUIT_VEG_KEYWORDS).includes(kw)
+    );
+    isHealthy = nonFruitVegHealthyKeywords.some(kw =>
+      resolvedName.includes(kw) || normalized.includes(kw)
+    );
+  }
   const isUnhealthy = UNHEALTHY_KEYWORDS.some(kw =>
     resolvedName.includes(kw) || normalized.includes(kw)
   );

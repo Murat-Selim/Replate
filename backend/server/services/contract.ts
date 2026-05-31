@@ -25,9 +25,74 @@ interface ContractResult {
   badgeMinted: boolean;
 }
 
+const getRpcList = (): string[] => {
+  const rpcUrl = process.env.RPC_URL || process.env.BASE_SEPOLIA_RPC_URL;
+  return [
+    rpcUrl,
+    "https://sepolia.base.org",
+    "https://base-sepolia.publicnode.com",
+    "https://endpoints.omniatech.io/v1/base/sepolia/public"
+  ].filter(Boolean) as string[];
+};
+
+let currentRpcIndex = 0;
+
+function rotateRpc(): boolean {
+  const list = getRpcList();
+
+  if (currentRpcIndex < list.length - 1) {
+    currentRpcIndex++;
+    const nextRpc = list[currentRpcIndex];
+    console.log(`🔄 Rotating RPC to fallback: ${nextRpc}`);
+    
+    const privateKey = process.env.VALIDATOR_PRIVATE_KEY || process.env.PRIVATE_KEY;
+    if (privateKey) {
+      provider = new ethers.JsonRpcProvider(nextRpc);
+      wallet = new Wallet(privateKey, provider);
+      contract = new Contract(process.env.CONTRACT_ADDRESS || CONTRACT_ADDRESS, REPLATE_QUEST_ABI, wallet);
+      return true;
+    }
+  }
+  return false;
+}
+
+async function withRetry<T>(fn: (c: Contract) => Promise<T>): Promise<T> {
+  let attempts = 0;
+  const maxAttempts = 4;
+
+  while (attempts < maxAttempts) {
+    try {
+      const c = getContract();
+      return await fn(c);
+    } catch (error: any) {
+      console.warn(`⚠️ Contract call attempt ${attempts + 1}/${maxAttempts} failed:`, error.message || error);
+      
+      const isRateLimitOrNetwork = 
+        error?.message?.includes("rate limit") || 
+        error?.message?.includes("exceeded maximum retry limit") ||
+        error?.message?.includes("429") ||
+        error?.message?.includes("500") ||
+        error?.message?.includes("SERVER_ERROR") ||
+        error?.message?.includes("network") ||
+        error?.message?.includes("timeout");
+
+      if (isRateLimitOrNetwork && attempts < maxAttempts - 1) {
+        const rotated = rotateRpc();
+        if (rotated) {
+          attempts++;
+          continue;
+        }
+      }
+      throw error;
+    }
+  }
+  throw new Error("Failed after multiple retries");
+}
+
 function getContract(): Contract {
   if (!contract) {
-    const rpcUrl = process.env.RPC_URL || process.env.BASE_SEPOLIA_RPC_URL;
+    const list = getRpcList();
+    const rpcUrl = list[currentRpcIndex] || list[0];
     const privateKey = process.env.VALIDATOR_PRIVATE_KEY || process.env.PRIVATE_KEY;
 
     if (!rpcUrl || !privateKey) {
@@ -56,67 +121,67 @@ export async function submitReceiptToContract(data: ReceiptSubmission): Promise<
   }
 
   try {
-    const c = getContract();
+    return await withRetry(async (c) => {
+      // Log what we're sending to the contract for debugging
+      console.log(`📊 Submitting to contract:`, {
+        user: data.user,
+        totalItems: data.totalItems,
+        healthyItems: data.healthyItems,
+        unhealthyItems: data.unhealthyItems,
+        fruitVegGrams: data.fruitVegGrams,
+        householdSize: data.householdSize,
+        daysCovered: data.daysCovered,
+        expectedGrams: data.householdSize * data.daysCovered * 300,
+        ratio: Math.round((data.fruitVegGrams * 100) / (data.householdSize * data.daysCovered * 300)),
+      });
 
-    // Log what we're sending to the contract for debugging
-    console.log(`📊 Submitting to contract:`, {
-      user: data.user,
-      totalItems: data.totalItems,
-      healthyItems: data.healthyItems,
-      unhealthyItems: data.unhealthyItems,
-      fruitVegGrams: data.fruitVegGrams,
-      householdSize: data.householdSize,
-      daysCovered: data.daysCovered,
-      expectedGrams: data.householdSize * data.daysCovered * 300,
-      ratio: Math.round((data.fruitVegGrams * 100) / (data.householdSize * data.daysCovered * 300)),
-    });
-
-    // Call submitReceipt  contract
-    const tx = await c.submitReceipt(
-      data.user,
-      data.totalItems,
-      data.healthyItems,
-      data.unhealthyItems,
-      data.fruitVegGrams,
-      data.householdSize,
-      data.daysCovered
-    );
-
-    console.log(`📤 Transaction sent: ${tx.hash}`);
-
-    // Wait for confirmation
-    const receipt = await tx.wait();
-    console.log(`✅ Transaction confirmed in block ${receipt.blockNumber}`);
-
-    // Parse events to get the result
-    const receiptEvent = receipt.logs.find((log: { topics: string[] }) =>
-      log.topics[0] === ethers.id("ReceiptSubmitted(address,uint8,uint8,uint256,uint16,uint16)")
-    );
-
-    const badgeMinted = !!receipt.logs.find((log: { topics: string[] }) =>
-      log.topics[0] === ethers.id("BadgeMinted(address,uint256)")
-    );
-
-    if (receiptEvent) {
-      const decoded = ethers.AbiCoder.defaultAbiCoder().decode(
-        ["uint8", "uint8", "uint256", "uint16", "uint16"],
-        receiptEvent.data
+      // Call submitReceipt contract
+      const tx = await c.submitReceipt(
+        data.user,
+        data.totalItems,
+        data.healthyItems,
+        data.unhealthyItems,
+        data.fruitVegGrams,
+        data.householdSize,
+        data.daysCovered
       );
 
-      return {
-        healthScore: Number(decoded[0]),
-        nutritionScore: Number(decoded[1]),
-        pointsEarned: Number(decoded[2]),
-        daysCovered: data.daysCovered,
-        txHash: tx.hash,
-        badgeMinted,
-      };
-    }
+      console.log(`📤 Transaction sent: ${tx.hash}`);
 
-    // Fallback calculation if event not found
-    return calculateScores(data);
+      // Wait for confirmation
+      const receipt = await tx.wait();
+      console.log(`✅ Transaction confirmed in block ${receipt.blockNumber}`);
+
+      // Parse events to get the result
+      const receiptEvent = receipt.logs.find((log: { topics: string[] }) =>
+        log.topics[0] === ethers.id("ReceiptSubmitted(address,uint8,uint8,uint256,uint16,uint16)")
+      );
+
+      const badgeMinted = !!receipt.logs.find((log: { topics: string[] }) =>
+        log.topics[0] === ethers.id("BadgeMinted(address,uint256)")
+      );
+
+      if (receiptEvent) {
+        const decoded = ethers.AbiCoder.defaultAbiCoder().decode(
+          ["uint8", "uint8", "uint256", "uint16", "uint16"],
+          receiptEvent.data
+        );
+
+        return {
+          healthScore: Number(decoded[0]),
+          nutritionScore: Number(decoded[1]),
+          pointsEarned: Number(decoded[2]),
+          daysCovered: data.daysCovered,
+          txHash: tx.hash,
+          badgeMinted,
+        };
+      }
+
+      // Fallback calculation if event not found
+      return calculateScores(data);
+    });
   } catch (error: any) {
-    console.error("❌ Contract submission failed:", error);
+    console.error("❌ Final contract submission failed:", error);
 
     // Extract the revert reason if available
     let message = "Failed to submit receipt to blockchain";
@@ -149,30 +214,30 @@ export async function submitCheckIn(userAddress: string): Promise<{ success: boo
   }
 
   try {
-    const c = getContract();
+    return await withRetry(async (c) => {
+      // Check if user already checked in today before sending transaction
+      let lastDay = 0;
+      try {
+        const lastDayVal = await c.lastCheckInDay(userAddress);
+        lastDay = Number(lastDayVal || 0);
+      } catch (e) {
+        console.warn("⚠️ Could not fetch lastCheckInDay in submitCheckIn, proceeding anyway");
+      }
 
-    // Check if user already checked in today before sending transaction
-    let lastDay = 0;
-    try {
-      const lastDayVal = await c.lastCheckInDay(userAddress);
-      lastDay = Number(lastDayVal || 0);
-    } catch (e) {
-      console.warn("⚠️ Could not fetch lastCheckInDay in submitCheckIn, proceeding anyway");
-    }
+      const today = Math.floor(Date.now() / 1000 / 86400);
+      if (lastDay >= today) {
+        throw new Error("Already checked in today");
+      }
 
-    const today = Math.floor(Date.now() / 1000 / 86400);
-    if (lastDay >= today) {
-      throw new Error("Already checked in today");
-    }
+      console.log(`🔗 Initiating contract check-in for ${userAddress}...`);
+      const tx = await c.checkIn(userAddress);
+      console.log(`📤 Check-in transaction sent: ${tx.hash}`);
 
-    console.log(`🔗 Initiating contract check-in for ${userAddress}...`);
-    const tx = await c.checkIn(userAddress);
-    console.log(`📤 Check-in transaction sent: ${tx.hash}`);
+      await tx.wait();
+      console.log(`✅ Check-in transaction confirmed for ${userAddress}`);
 
-    await tx.wait();
-    console.log(`✅ Check-in transaction confirmed for ${userAddress}`);
-
-    return { success: true, pointsEarned: 10 };
+      return { success: true, pointsEarned: 10 };
+    });
   } catch (error: any) {
     console.error("❌ Check-in failed in contract service:", error);
     // Sanitize the error message to avoid technical ethers dump on screen
@@ -196,24 +261,25 @@ export async function finalizeUserWeek(userAddress: string): Promise<{ success: 
   }
 
   try {
-    const c = getContract();
-    const tx = await c.finalizeWeek(userAddress);
-    const receipt = await tx.wait();
+    return await withRetry(async (c) => {
+      const tx = await c.finalizeWeek(userAddress);
+      const receipt = await tx.wait();
 
-    // Parse event for new streak
-    const event = receipt.logs.find((log: { topics: string[] }) =>
-      log.topics[0] === ethers.id("WeekFinalized(address,uint256,uint256,uint256)")
-    );
-
-    if (event) {
-      const decoded = ethers.AbiCoder.defaultAbiCoder().decode(
-        ["uint256", "uint256", "uint256"],
-        event.data
+      // Parse event for new streak
+      const event = receipt.logs.find((log: { topics: string[] }) =>
+        log.topics[0] === ethers.id("WeekFinalized(address,uint256,uint256,uint256)")
       );
-      return { success: true, newStreak: Number(decoded[2]) };
-    }
 
-    return { success: true, newStreak: 0 };
+      if (event) {
+        const decoded = ethers.AbiCoder.defaultAbiCoder().decode(
+          ["uint256", "uint256", "uint256"],
+          event.data
+        );
+        return { success: true, newStreak: Number(decoded[2]) };
+      }
+
+      return { success: true, newStreak: 0 };
+    });
   } catch (error) {
     console.error("❌ Week finalization failed:", error);
     throw error;
@@ -268,35 +334,35 @@ export async function getUserSummary(userAddress: string) {
   }
 
   try {
-    const c = getContract();
-    console.log(`📡 Calling contract at: ${c.target} for user: ${userAddress}`);
+    return await withRetry(async (c) => {
+      console.log(`📡 Calling contract at: ${c.target} for user: ${userAddress}`);
 
-    let summary: any = { _totalPoints: 0, _level: 0, _receiptStreak: 0, _checkInStreak: 0, _totalCheckIns: 0, _receiptCount: 0, _hasBadge: false };
-    try {
-      // Use raw call or wrap in a way that catches BAD_DATA
-      summary = await c.getUserSummary(userAddress);
-    } catch (e: any) {
-      console.error("❌ Failed to call getUserSummary:", e.message || e);
-    }
+      let summary: any = { _totalPoints: 0, _level: 0, _receiptStreak: 0, _checkInStreak: 0, _totalCheckIns: 0, _receiptCount: 0, _hasBadge: false };
+      try {
+        summary = await c.getUserSummary(userAddress);
+      } catch (e: any) {
+        console.error("❌ Failed to call getUserSummary:", e.message || e);
+      }
 
-    let lastCheckInDay = 0;
-    try {
-      const lastDayVal = await c.lastCheckInDay(userAddress);
-      lastCheckInDay = Number(lastDayVal || 0);
-    } catch (e: any) {
-      console.warn("⚠️ Failed to call lastCheckInDay:", e.message || e);
-    }
+      let lastCheckInDay = 0;
+      try {
+        const lastDayVal = await c.lastCheckInDay(userAddress);
+        lastCheckInDay = Number(lastDayVal || 0);
+      } catch (e: any) {
+        console.warn("⚠️ Failed to call lastCheckInDay:", e.message || e);
+      }
 
-    return {
-      totalPoints: Number(summary?._totalPoints || 0),
-      level: Number(summary?._level || 0),
-      receiptStreak: Number(summary?._receiptStreak || 0),
-      checkInStreak: Number(summary?._checkInStreak || 0),
-      totalCheckIns: Number(summary?._totalCheckIns || 0),
-      receiptCount: Number(summary?._receiptCount || 0),
-      hasBadge: !!summary?._hasBadge,
-      lastCheckInDay: lastCheckInDay,
-    };
+      return {
+        totalPoints: Number(summary?._totalPoints || 0),
+        level: Number(summary?._level || 0),
+        receiptStreak: Number(summary?._receiptStreak || 0),
+        checkInStreak: Number(summary?._checkInStreak || 0),
+        totalCheckIns: Number(summary?._totalCheckIns || 0),
+        receiptCount: Number(summary?._receiptCount || 0),
+        hasBadge: !!summary?._hasBadge,
+        lastCheckInDay: lastCheckInDay,
+      };
+    });
   } catch (error: any) {
     console.error("❌ Critical failure in getUserSummary:", error.message || error);
     return {
