@@ -63,34 +63,34 @@ export default function Leaderboard() {
             return leaders;
         }
 
-        // Fallback placeholder data matching the mockup exactly
+        // Fallback placeholder data with zeroed statistics and empty indicators
         return [
             {
                 rank: 1,
-                address: "User#1234",
+                address: "-",
                 totalPoints: 0,
-                level: 1,
+                level: 0,
                 streak: 0,
                 hasBadge: false,
-                avatarUrl: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=80&auto=format&fit=crop&q=60"
+                avatarUrl: "https://api.dicebear.com/7.x/bottts/svg?seed=placeholder1"
             },
             {
                 rank: 2,
-                address: "User#5678",
+                address: "-",
                 totalPoints: 0,
-                level: 1,
+                level: 0,
                 streak: 0,
                 hasBadge: false,
-                avatarUrl: "https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=80&auto=format&fit=crop&q=60"
+                avatarUrl: "https://api.dicebear.com/7.x/bottts/svg?seed=placeholder2"
             },
             {
                 rank: 3,
-                address: "User#9101",
+                address: "-",
                 totalPoints: 0,
-                level: 1,
+                level: 0,
                 streak: 0,
                 hasBadge: false,
-                avatarUrl: "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=80&auto=format&fit=crop&q=60"
+                avatarUrl: "https://api.dicebear.com/7.x/bottts/svg?seed=placeholder3"
             }
         ];
     };

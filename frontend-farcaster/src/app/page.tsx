@@ -1,19 +1,16 @@
+"use client";
+
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import Shell from "@/components/Shell";
 import { 
     Camera, 
     Sparkles, 
     Trophy, 
     ArrowRight, 
-    ChevronRight, 
-    ShoppingCart, 
-    Apple, 
-    Coins, 
-    Milk, 
-    Receipt,
-    DollarSign
+    ChevronRight
 } from "lucide-react";
+import { getApiUrl } from "@/lib/api";
 
 const steps = [
     {
@@ -36,34 +33,57 @@ const steps = [
     },
 ];
 
-const topEarners = [
-    {
-        rank: 1,
-        name: "CryptoHunter",
-        xp: "0 XP",
-        usdc: "0 USDC",
-        color: "bg-[#FFB800] text-black",
-        avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=80&auto=format&fit=crop&q=60"
-    },
-    {
-        rank: 2,
-        name: "GreenBasket",
-        xp: "0 XP",
-        usdc: "0 USDC",
-        color: "bg-[#A6B0B5] text-black",
-        avatar: "https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=80&auto=format&fit=crop&q=60"
-    },
-    {
-        rank: 3,
-        name: "Shop2Earn",
-        xp: "0 XP",
-        usdc: "0 USDC",
-        color: "bg-[#CD7F32] text-black",
-        avatar: "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=80&auto=format&fit=crop&q=60"
-    }
-];
-
 export default function Home() {
+    const [leaders, setLeaders] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchLeaderboard = async () => {
+            try {
+                const response = await fetch(getApiUrl("/api/leaderboard"));
+                const data = await response.json();
+                if (data.success) {
+                    setLeaders(data.data || []);
+                }
+            } catch (err) {
+                console.error("Failed to fetch leaderboard for homepage:", err);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        fetchLeaderboard();
+    }, []);
+
+    const formatAddress = (address: string) => {
+        if (!address) return "-";
+        if (address.length > 16) {
+            return `${address.slice(0, 6)}...${address.slice(-4)}`;
+        }
+        return address;
+    };
+
+    const displayEarners = Array.from({ length: 3 }, (_, i) => {
+        const leader = leaders[i];
+        if (leader) {
+            return {
+                rank: i + 1,
+                name: formatAddress(leader.address),
+                xp: `${leader.totalPoints} XP`,
+                usdc: "0 USDC",
+                avatar: leader.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${leader.address}`,
+                color: i === 0 ? "bg-[#FFB800] text-black" : i === 1 ? "bg-[#A6B0B5] text-black" : "bg-[#CD7F32] text-black"
+            };
+        }
+        return {
+            rank: i + 1,
+            name: "-",
+            xp: "0 XP",
+            usdc: "0 USDC",
+            avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=placeholder${i}`,
+            color: i === 0 ? "bg-[#FFB800] text-black" : i === 1 ? "bg-[#A6B0B5] text-black" : "bg-[#CD7F32] text-black"
+        };
+    });
+
     return (
         <Shell>
             <div className="flex flex-col items-center justify-center text-center space-y-16 animate-in fade-in slide-in-from-bottom-6 duration-1000">
@@ -73,70 +93,13 @@ export default function Home() {
                     {/* Glowing Ambient Background Circles */}
                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-[#22D97A]/10 rounded-full blur-[90px] -z-10"></div>
                     
-                    {/* Centered Logo & Floating Icons Wrapper */}
+                    {/* Centered Logo Wrapper with Pulsing Glow on top of background logo */}
                     <div className="relative w-64 h-64 flex items-center justify-center mb-8">
-                        {/* Connecting lines / radar effect in background */}
-                        <div className="absolute w-56 h-56 rounded-full border border-[#22D97A]/5 pointer-events-none"></div>
-                        <div className="absolute w-44 h-44 rounded-full border border-[#22D97A]/10 pointer-events-none"></div>
-
-                        {/* Floating Icons with Neon Glow */}
-                        {/* 1. Shopping Cart (Top Left) */}
-                        <div className="absolute left-[5px] top-[15px] w-10 h-10 rounded-full bg-[#131C20] border border-[#22D97A]/30 flex items-center justify-center text-[#22D97A] shadow-[0_0_15px_rgba(34,217,122,0.2)]">
-                            <ShoppingCart size={16} />
-                        </div>
-                        
-                        {/* 2. Apple (Top Center-Left) */}
-                        <div className="absolute left-[65px] top-[-15px] w-9 h-9 rounded-full bg-[#131C20] border border-[#22D97A]/20 flex items-center justify-center text-[#22D97A] shadow-[0_0_12px_rgba(34,217,122,0.15)]">
-                            <Apple size={15} />
-                        </div>
-
-                        {/* 3. Coin (Top Center-Right) */}
-                        <div className="absolute right-[65px] top-[-15px] w-9 h-9 rounded-full bg-[#131C20] border border-[#22D97A]/30 flex items-center justify-center text-[#22D97A] shadow-[0_0_15px_rgba(34,217,122,0.25)]">
-                            <DollarSign size={15} />
-                        </div>
-
-                        {/* 4. Milk Bottle (Top Right) */}
-                        <div className="absolute right-[5px] top-[15px] w-10 h-10 rounded-full bg-[#131C20] border border-[#22D97A]/20 flex items-center justify-center text-[#22D97A] shadow-[0_0_12px_rgba(34,217,122,0.15)]">
-                            <Milk size={16} />
-                        </div>
-
-                        {/* 5. Receipt (Middle Right) */}
-                        <div className="absolute right-[-15px] top-[80px] w-10 h-10 rounded-full bg-[#131C20] border border-[#22D97A]/20 flex items-center justify-center text-[#22D97A] shadow-[0_0_12px_rgba(34,217,122,0.15)]">
-                            <Receipt size={16} />
-                        </div>
-
-                        {/* 6. Coin (Bottom Right) */}
-                        <div className="absolute right-[15px] bottom-[20px] w-9 h-9 rounded-full bg-[#131C20] border border-[#22D97A]/30 flex items-center justify-center text-[#22D97A] shadow-[0_0_15px_rgba(34,217,122,0.25)]">
-                            <DollarSign size={14} />
-                        </div>
-
-                        {/* 7. Coin (Bottom Left) */}
-                        <div className="absolute left-[15px] bottom-[20px] w-9 h-9 rounded-full bg-[#131C20] border border-[#22D97A]/30 flex items-center justify-center text-[#22D97A] shadow-[0_0_15px_rgba(34,217,122,0.25)]">
-                            <DollarSign size={14} />
-                        </div>
-
-                        {/* 8. Milk Bottle (Middle Left) */}
-                        <div className="absolute left-[-15px] top-[125px] w-10 h-10 rounded-full bg-[#131C20] border border-[#22D97A]/20 flex items-center justify-center text-[#22D97A] shadow-[0_0_12px_rgba(34,217,122,0.15)]">
-                            <Milk size={16} />
-                        </div>
-
-                        {/* 9. Apple (Middle Left-Top) */}
-                        <div className="absolute left-[-15px] top-[70px] w-9 h-9 rounded-full bg-[#131C20] border border-[#22D97A]/20 flex items-center justify-center text-[#22D97A] shadow-[0_0_12px_rgba(34,217,122,0.15)]">
-                            <Apple size={15} />
-                        </div>
-
-                        {/* Logo Container */}
-                        <div className="relative w-36 h-36 bg-[#131C20] border-2 border-brand-primary rounded-[36px] flex items-center justify-center shadow-[0_0_40px_rgba(34,217,122,0.35)] z-10">
+                        <div className="relative w-36 h-36 rounded-[36px] flex items-center justify-center z-10">
                             {/* Inner pulsing ring */}
-                            <div className="absolute inset-0 bg-[#22D97A]/10 rounded-[34px] blur-md animate-pulse -z-10"></div>
-                            <Image
-                                src="/replate-image.png"
-                                alt="Replate Logo"
-                                width={100}
-                                height={100}
-                                className="object-contain"
-                                priority
-                            />
+                            <div className="absolute inset-0 bg-[#22D97A]/5 rounded-[34px] blur-md animate-pulse"></div>
+                            {/* Outer glow shadow */}
+                            <div className="absolute inset-0 rounded-[36px] shadow-[0_0_35px_rgba(34,217,122,0.2)] animate-pulse"></div>
                         </div>
                     </div>
 
@@ -177,7 +140,9 @@ export default function Home() {
                             <img className="w-8 h-8 rounded-full border-2 border-[#131C20] object-cover" src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=60&auto=format&fit=crop&q=60" alt="user3" />
                         </div>
                         <div className="text-left">
-                            <p className="text-[13px] font-black text-white leading-tight font-heading">0 Users</p>
+                            <p className="text-[13px] font-black text-white leading-tight font-heading">
+                                {isLoading ? "0 Users" : `${leaders.length} Users`}
+                            </p>
                             <p className="text-[10px] text-[#A6B0B5] font-semibold leading-none">Shopping & earning</p>
                         </div>
                     </div>
@@ -245,7 +210,7 @@ export default function Home() {
                     </div>
 
                     <div className="space-y-3">
-                        {topEarners.map((earner) => (
+                        {displayEarners.map((earner) => (
                             <div
                                 key={earner.rank}
                                 className="flex items-center justify-between glass-card p-4 rounded-[22px] border border-[#22D97A]/10 hover:border-[#22D97A]/20 transition-all"
@@ -257,7 +222,9 @@ export default function Home() {
                                     </div>
                                     
                                     {/* Avatar */}
-                                    <img src={earner.avatar} alt={earner.name} className="w-9 h-9 rounded-full object-cover border border-white/10" />
+                                    <div className="w-9 h-9 rounded-full overflow-hidden border border-white/10 bg-[#131C20]">
+                                        <img src={earner.avatar} alt={earner.name} className="w-full h-full object-cover" />
+                                    </div>
                                     
                                     {/* User Details */}
                                     <div className="flex flex-col">
@@ -289,6 +256,16 @@ export default function Home() {
                     </div>
                 </div>
 
+            </div>
+
+            {/* Custom Artwork Background (circuit lines, glowing icons, and wireframe globe) */}
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-lg h-[820px] pointer-events-none mix-blend-screen opacity-85 z-0">
+                <img 
+                    src="/home-bg.png" 
+                    alt="Replate Home Background Artwork" 
+                    className="w-full h-full object-cover object-top"
+                    style={{ filter: "invert(1) hue-rotate(180deg)" }}
+                />
             </div>
         </Shell>
     );
