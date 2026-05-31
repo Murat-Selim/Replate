@@ -29,7 +29,11 @@ export default function SmartShop() {
     const [isCompressing, setIsCompressing] = useState(false);
     const [result, setResult] = useState<VerificationResult | null>(null);
     const [error, setError] = useState<string | null>(null);
-
+    const [showUploadModal, setShowUploadModal] = useState(false);
+    const [isCameraActive, setIsCameraActive] = useState(false);
+    const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const videoRef = useRef<HTMLVideoElement>(null);
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -52,7 +56,82 @@ export default function SmartShop() {
         }
     };
 
+    const triggerGalleryInput = () => {
+        fileInputRef.current?.click();
+    };
 
+    const handleSelectOption = (option: "camera" | "gallery") => {
+        setShowUploadModal(false);
+        if (option === "camera") {
+            startCamera();
+        } else {
+            triggerGalleryInput();
+        }
+    };
+
+    const startCamera = async () => {
+        try {
+            setError(null);
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: "environment" },
+                audio: false
+            });
+            setCameraStream(stream);
+            setIsCameraActive(true);
+            
+            // Connect stream to video element
+            setTimeout(() => {
+                if (videoRef.current) {
+                    videoRef.current.srcObject = stream;
+                }
+            }, 100);
+        } catch (err) {
+            console.error("Failed to start camera stream", err);
+            setError("Could not access camera. Please choose from gallery instead.");
+        }
+    };
+
+    const stopCamera = () => {
+        if (cameraStream) {
+            cameraStream.getTracks().forEach(track => track.stop());
+            setCameraStream(null);
+        }
+        setIsCameraActive(false);
+    };
+
+    const capturePhoto = () => {
+        if (videoRef.current) {
+            const video = videoRef.current;
+            const canvas = document.createElement("canvas");
+            canvas.width = video.videoWidth || 640;
+            canvas.height = video.videoHeight || 480;
+            
+            const ctx = canvas.getContext("2d");
+            if (ctx) {
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
+                compressCapturedImage(dataUrl);
+                stopCamera();
+            }
+        }
+    };
+
+    const compressCapturedImage = async (dataUrl: string) => {
+        setIsCompressing(true);
+        setError(null);
+        try {
+            const response = await fetch(dataUrl);
+            const blob = await response.blob();
+            const file = new File([blob], "captured-receipt.jpg", { type: "image/jpeg" });
+            const compressed = await compressImage(file, 1600, 1600, 0.8);
+            setImagePreview(compressed);
+        } catch (err) {
+            console.error("Captured image compression failed", err);
+            setImagePreview(dataUrl);
+        } finally {
+            setIsCompressing(false);
+        }
+    };
 
     const handleVerify = async () => {
         if (!imagePreview || !address) {
@@ -110,7 +189,8 @@ export default function SmartShop() {
     };
 
     return (
-        <Shell>
+        <>
+            <Shell>
             <div className="space-y-8 animate-fade-in-up">
                 {/* Page Header */}
                 <div className="text-center lg:text-left space-y-2">
@@ -127,15 +207,18 @@ export default function SmartShop() {
                             <h2 className="text-xs font-black uppercase tracking-[0.2em] text-brand-text/30 text-center">
                                 Upload Receipt
                             </h2>
-                            <div className="relative group cursor-pointer mx-auto">
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                onChange={handleFileChange}
+                                accept="image/*"
+                                className="hidden"
+                            />
+                            <div
+                                onClick={() => setShowUploadModal(true)}
+                                className="relative group cursor-pointer mx-auto"
+                            >
                                 <div className="relative w-full aspect-[4/3] max-w-sm mx-auto bg-brand-accent/30 rounded-3xl border-2 border-dashed border-brand-primary/15 flex flex-col items-center justify-center overflow-hidden transition-all group-hover:border-brand-primary/30 group-hover:bg-brand-accent/50">
-                                    <input
-                                        type="file"
-                                        onChange={handleFileChange}
-                                        accept="image/*"
-                                        capture="environment"
-                                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
-                                    />
                                     {imagePreview ? (
                                         <div className="relative w-full h-full">
                                             <img
@@ -377,5 +460,97 @@ export default function SmartShop() {
                 </div>
             </div>
         </Shell>
+
+        {/* Upload Source Selection Modal */}
+        {showUploadModal && (
+            <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+                {/* Backdrop */}
+                <div 
+                    className="absolute inset-0 bg-brand-text/40 backdrop-blur-md transition-opacity"
+                    onClick={() => setShowUploadModal(false)}
+                ></div>
+                
+                {/* Modal Content */}
+                <div className="relative w-full sm:max-w-sm bg-white rounded-t-[32px] sm:rounded-[32px] p-6 shadow-2xl border border-brand-accent/20 animate-in slide-in-from-bottom duration-300 z-10 space-y-4">
+                    <div className="text-center pb-2">
+                        <h3 className="text-lg font-black text-brand-primary">Select Receipt Source</h3>
+                        <p className="text-xs text-brand-text/50">Choose how you want to upload your receipt</p>
+                    </div>
+                    
+                    <div className="space-y-3">
+                        <button
+                            onClick={() => handleSelectOption("camera")}
+                            type="button"
+                            className="w-full py-4 px-6 bg-brand-primary text-white rounded-2xl font-bold text-base hover:bg-brand-secondary active:scale-98 transition-all flex items-center justify-center gap-3 shadow-lg shadow-brand-primary/10 cursor-pointer"
+                        >
+                            <Camera size={20} />
+                            Take Photo (Camera)
+                        </button>
+                        
+                        <button
+                            onClick={() => handleSelectOption("gallery")}
+                            type="button"
+                            className="w-full py-4 px-6 bg-brand-accent text-brand-primary rounded-2xl font-bold text-base hover:bg-brand-accent/80 active:scale-98 transition-all flex items-center justify-center gap-3 border border-brand-accent/50 cursor-pointer"
+                        >
+                            <Image size={20} />
+                            Choose from Gallery
+                        </button>
+                    </div>
+                    
+                    <button
+                        onClick={() => setShowUploadModal(false)}
+                        type="button"
+                        className="w-full py-3 px-6 bg-transparent text-brand-text/40 hover:text-brand-text/60 font-bold text-sm transition-colors cursor-pointer"
+                    >
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        )}
+
+        {/* Custom Camera Stream Overlay */}
+        {isCameraActive && (
+            <div className="fixed inset-0 z-50 bg-black flex flex-col justify-between p-6">
+                <div className="flex justify-between items-center text-white">
+                    <h3 className="text-lg font-bold">Align Receipt</h3>
+                    <button 
+                        onClick={stopCamera}
+                        type="button"
+                        className="p-2 bg-white/10 rounded-full hover:bg-white/20 transition-colors cursor-pointer"
+                    >
+                        <X size={20} />
+                    </button>
+                </div>
+                
+                <div className="relative flex-1 my-6 bg-zinc-900 rounded-3xl overflow-hidden flex items-center justify-center">
+                    <video 
+                        ref={videoRef}
+                        autoPlay 
+                        playsInline 
+                        muted
+                        className="w-full h-full object-cover"
+                    />
+                    {/* Overlay frame guide */}
+                    <div className="absolute inset-8 border-2 border-dashed border-white/30 rounded-2xl pointer-events-none flex items-center justify-center">
+                        <span className="text-white/50 text-xs font-medium uppercase tracking-wider bg-black/40 px-3 py-1.5 rounded-full text-center">
+                            Place receipt inside frame
+                        </span>
+                    </div>
+                </div>
+                
+                <div className="flex justify-center pb-4">
+                    <button
+                        onClick={capturePhoto}
+                        type="button"
+                        className="w-20 h-20 rounded-full bg-white p-1 border-4 border-zinc-800 active:scale-90 transition-transform shadow-2xl cursor-pointer"
+                    >
+                        <div className="w-full h-full rounded-full bg-brand-primary flex items-center justify-center text-white">
+                            <Camera size={28} />
+                        </div>
+                    </button>
+                </div>
+            </div>
+        )}
+        </>
     );
 }
