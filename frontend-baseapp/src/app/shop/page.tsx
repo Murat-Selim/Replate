@@ -29,8 +29,7 @@ export default function SmartShop() {
     const [isCompressing, setIsCompressing] = useState(false);
     const [result, setResult] = useState<VerificationResult | null>(null);
     const [error, setError] = useState<string | null>(null);
-    const fileInputRef = useRef<HTMLInputElement>(null);
-    const cameraInputRef = useRef<HTMLInputElement>(null);
+
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -53,13 +52,7 @@ export default function SmartShop() {
         }
     };
 
-    const triggerGalleryInput = () => {
-        fileInputRef.current?.click();
-    };
 
-    const triggerCameraInput = () => {
-        cameraInputRef.current?.click();
-    };
 
     const handleVerify = async () => {
         if (!imagePreview || !address) {
@@ -134,26 +127,15 @@ export default function SmartShop() {
                             <h2 className="text-xs font-black uppercase tracking-[0.2em] text-brand-text/30 text-center">
                                 Upload Receipt
                             </h2>
-                            <input
-                                type="file"
-                                ref={fileInputRef}
-                                onChange={handleFileChange}
-                                accept="image/*"
-                                className="hidden"
-                            />
-                            <input
-                                type="file"
-                                ref={cameraInputRef}
-                                onChange={handleFileChange}
-                                accept="image/*"
-                                capture="environment"
-                                className="hidden"
-                            />
-                            <div
-                                onClick={triggerCameraInput}
-                                className="relative group cursor-pointer mx-auto"
-                            >
+                            <div className="relative group cursor-pointer mx-auto">
                                 <div className="relative w-full aspect-[4/3] max-w-sm mx-auto bg-brand-accent/30 rounded-3xl border-2 border-dashed border-brand-primary/15 flex flex-col items-center justify-center overflow-hidden transition-all group-hover:border-brand-primary/30 group-hover:bg-brand-accent/50">
+                                    <input
+                                        type="file"
+                                        onChange={handleFileChange}
+                                        accept="image/*"
+                                        capture="environment"
+                                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
+                                    />
                                     {imagePreview ? (
                                         <div className="relative w-full h-full">
                                             <img

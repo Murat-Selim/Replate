@@ -37,8 +37,7 @@ export default function SmartShop() {
     const [isCompressing, setIsCompressing] = useState(false);
     const [result, setResult] = useState<VerificationResult | null>(null);
     const [error, setError] = useState<string | null>(null);
-    const fileInputRef = useRef<HTMLInputElement>(null);
-    const cameraInputRef = useRef<HTMLInputElement>(null);
+
 
     useEffect(() => {
         const fetchContext = async () => {
@@ -79,20 +78,7 @@ export default function SmartShop() {
         }
     };
 
-    const triggerGalleryInput = () => {
-        fileInputRef.current?.click();
-    };
 
-    const triggerCameraInput = async () => {
-        try {
-            if (typeof window !== "undefined" && sdk?.actions?.requestCameraAndMicrophoneAccess) {
-                await sdk.actions.requestCameraAndMicrophoneAccess();
-            }
-        } catch (err) {
-            console.warn("Could not request camera permission via Farcaster SDK", err);
-        }
-        cameraInputRef.current?.click();
-    };
 
     const handleVerify = async () => {
         const targetAddress = address || userContext.address;
@@ -172,27 +158,16 @@ Join me in reducing food waste!`,
                 {/* Section 1: Verify (Top) */}
                 <div className="space-y-6">
                     <div className="flex flex-col items-center justify-center pt-4">
-                        <input
-                            type="file"
-                            ref={fileInputRef}
-                            onChange={handleFileChange}
-                            accept="image/*"
-                            className="hidden"
-                        />
-                        <input
-                            type="file"
-                            ref={cameraInputRef}
-                            onChange={handleFileChange}
-                            accept="image/*"
-                            capture="environment"
-                            className="hidden"
-                        />
-                        <div
-                            onClick={triggerCameraInput}
-                            className="relative group cursor-pointer"
-                        >
+                        <div className="relative group cursor-pointer">
                             <div className="absolute inset-0 bg-brand-primary/5 rounded-full blur-3xl group-hover:bg-brand-primary/10 transition-colors"></div>
                             <div className="relative w-56 h-56 bg-white rounded-full shadow-xl border-4 border-white flex flex-col items-center justify-center overflow-hidden transition-transform group-hover:scale-105 active:scale-95">
+                                <input
+                                    type="file"
+                                    onChange={handleFileChange}
+                                    accept="image/*"
+                                    capture="environment"
+                                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
+                                />
                                 {imagePreview ? (
                                     <div className="relative w-full h-full">
                                         <img
