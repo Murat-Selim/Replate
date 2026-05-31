@@ -320,15 +320,6 @@ export default function Home() {
                 </div>
 
             </div>
-
-            {/* Globe Background Image */}
-            <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 w-[120%] max-w-lg aspect-[4/3] pointer-events-none mix-blend-screen opacity-35 z-0">
-                <img 
-                    src="/globe-bg.png" 
-                    alt="Globe background" 
-                    className="w-full h-full object-contain object-bottom"
-                />
-            </div>
         </Shell>
     );
 }
