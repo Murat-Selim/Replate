@@ -304,14 +304,22 @@ export async function classifyFoods(lines: string[]): Promise<FoodClassification
 
 /**
  * Extract product lines from receipt text.
- * Handles Turkish receipt formats with KDV markers, quantity prefixes,
- * weight/kg indicators, and various price formats.
- *
- * KEY FEATURE: Detects per-kg items and pairs them with the weight line
- * that follows. Turkish receipts typically show:
- *   DOMATES x119,50 TL/kg  %01  *51,39
- *   0.430
- * The "0.430" means 0.430 kg = 430 grams.
+ * 
+ * STRATEGY: Uses a two-phase approach:
+ * 
+ * Phase 1 (NEGATIVE FILTER): Skip lines that are clearly NOT products:
+ *   - Store headers, addresses, dates, totals, payment info, separators
+ *   
+ * Phase 2 (POSITIVE SIGNAL): Among remaining lines, ONLY accept lines that
+ *   have at least one "product signal" — evidence that this line is a real
+ *   product entry on the receipt. Turkish receipts mark products with:
+ *   - Price patterns: *87,50 or trailing XX,YY
+ *   - KDV markers: %01, %08, %18, %20
+ *   - Product/KDV category codes: DIN10, CN01, MK01, LIN10, DN10
+ *   - Unit pricing: TL/kg, TL/ad, TL/lt  
+ *   - Quantity prefixes: x125,00
+ *   - Weight lines following (0.430 kg format)
+ *   - OR the line matches a known food keyword (for simple single-word items like "PATATES")
  */
 function extractProductLines(lines: string[]): ExtractedProduct[] {
   const products: ExtractedProduct[] = [];
@@ -319,102 +327,103 @@ function extractProductLines(lines: string[]): ExtractedProduct[] {
   for (let i = 0; i < lines.length; i++) {
     const trimmed = lines[i].trim();
 
-    // Skip via patterns
+    // Skip via SKIP_PATTERNS (negative filter for receipt metadata)
     if (SKIP_PATTERNS.some(p => p.test(trimmed))) {
       continue;
     }
 
-    // Skip very short lines
-    if (trimmed.length < 3) {
+    // Skip very short lines (< 4 chars)
+    if (trimmed.length < 4) {
       continue;
     }
 
-    // Check if this line is a standalone weight (kg) — e.g., "0.430", "1.864", "0.755"
-    // These belong to the PREVIOUS product line, skip them here
+    // Check if this line is a standalone weight (kg)
     if (/^\d+[.,]\d{3}$/.test(trimmed)) {
       continue;
     }
 
-    // Detect if this is a per-kg/per-unit item (has TL/kg or xNNN,NN TL/kg)
-    const isPerKg = /TL\/kg/i.test(trimmed);
-
-    // Look ahead: if the NEXT line is a standalone decimal (weight in kg)
+    // ── POSITIVE SIGNAL CHECK ──
+    const hasPrice = /[*]\d+[.,]\d{2}/.test(trimmed) || /\d+[.,]\d{2}\s*$/.test(trimmed);
+    const hasKdvMarker = /%\d{1,2}/.test(trimmed);
+    const hasProductCode = /\b[A-Z]{2,4}\d{2,3}\b/.test(trimmed);
+    const hasUnitPrice = /TL\/(kg|ad|lt|adet)/i.test(trimmed);
+    const hasQuantityPrefix = /\bx\d+[.,]?\d*/i.test(trimmed);
+    
+    let hasWeightLineBelow = false;
     let actualWeightGrams = 0;
     if (i + 1 < lines.length) {
       const nextLine = lines[i + 1].trim();
       const weightMatch = nextLine.match(/^(\d+)[.,](\d{3})$/);
       if (weightMatch) {
-        // e.g., "0.430" = 0.430 kg = 430g, "1.864" = 1864g
+        hasWeightLineBelow = true;
         const kg = parseInt(weightMatch[1]);
         const grams = parseInt(weightMatch[2]);
         actualWeightGrams = kg * 1000 + grams;
       }
     }
 
+    const hasProductSignal = hasPrice || hasKdvMarker || hasProductCode || hasUnitPrice || hasQuantityPrefix || hasWeightLineBelow;
+
+    // If no product signal, check if the line matches a known food keyword
+    let matchesKnownFood = false;
+    if (!hasProductSignal) {
+      const lower = trimmed.toLowerCase();
+      matchesKnownFood = [...HEALTHY_KEYWORDS, ...UNHEALTHY_KEYWORDS].some(kw =>
+        matchKeyword(lower, kw)
+      );
+      if (!matchesKnownFood) {
+        matchesKnownFood = Object.keys(TURKISH_PRODUCT_ALIASES).some(alias =>
+          lower.includes(alias)
+        );
+      }
+    }
+
+    // Skip if no product signal and no food keyword match
+    if (!hasProductSignal && !matchesKnownFood) {
+      continue;
+    }
+
+    // ── CLEANING PHASE ──
     let cleaned = trimmed;
 
-    // Remove KDV markers: %01, %08, %18, %20 etc.
     cleaned = cleaned.replace(/%\d{1,2}/g, "").trim();
-
-    // Remove quantity prefix: "x125,00", "x99,50", "x119,50"
     cleaned = cleaned.replace(/\bx\d+[.,]?\d*\b/gi, "").trim();
-
-    // Remove price from end: *87,50 or *4,00 or 87.50
     cleaned = cleaned.replace(/[*]?\d+[.,]\d{2}\s*$/, "").trim();
-
-    // Remove weight/unit suffixes: TL/kg, TL/ad, TL/lt
     cleaned = cleaned.replace(/TL\/(kg|ad|lt|adet)/gi, "").trim();
-
-    // Remove trailing "TL" alone
     cleaned = cleaned.replace(/\bTL\b\s*$/i, "").trim();
-
-    // Remove leading quantity: "1.864", "0.145", "0.430", "0.920" etc.
     cleaned = cleaned.replace(/^\d+[.,]\d{3}\b\s*/, "").trim();
 
-    // Extract inline weight like "2000 G", "384 G" before removing
-    // (useful for packaged goods where gram count is in the product name)
     if (!actualWeightGrams) {
       const inlineWeight = cleaned.match(/(\d+)\s*G\b/i);
       if (inlineWeight) {
         const inlineGrams = parseInt(inlineWeight[1]);
-        // Only use if reasonable (10g-5000g) and the product is a fruit/veg
         if (inlineGrams >= 10 && inlineGrams <= 5000) {
-          // We'll check if it's a fruit/veg later; store tentatively
           actualWeightGrams = inlineGrams;
         }
       }
     }
 
-    // Remove weight info like "2000 G", "384 G", "250 G"
     cleaned = cleaned.replace(/\b\d+\s*G\b/gi, "").trim();
-
-    // Remove "15LI L 63-72" type pack specs (egg carton formats)
+    cleaned = cleaned.replace(/\b[A-Z]{2,4}\d{2,3}\b/g, "").trim();
+    cleaned = cleaned.replace(/\b\d+\s*HL\b/gi, "").trim();
+    cleaned = cleaned.replace(/\bHL\b/gi, "").trim();
     cleaned = cleaned.replace(/\b\d+LI\s+L\s+\d+-\d+\b/gi, "").trim();
-
-    // Remove pack info like "(300G)", "PAKET"
-    cleaned = cleaned.replace(/\(\d+G\)/gi, "").trim();
+    cleaned = cleaned.replace(/\(\d+[Gg]?\)/gi, "").trim();
     cleaned = cleaned.replace(/\bPAKET\b/gi, "").trim();
-
-    // Remove "POSETLI" descriptor from food names (e.g., BUTUN TAVUK POSETLI)
     cleaned = cleaned.replace(/\bPOSETLI\b/gi, "").trim();
-
-    // Remove empty parentheses leftover from bracket cleanup
     cleaned = cleaned.replace(/\(\s*\)/g, "").trim();
-
-    // Remove brand/descriptor suffixes that aren't food
-    cleaned = cleaned.replace(/\b(PETEK|COKCA|VERA|BIRSAN|CAYKUR|NIMET|DEVECI|CARLISTON)\b/gi, "").trim();
-
-    // Remove "x number" patterns (quantity on Turkish receipts e.g., "x1,00")
+    cleaned = cleaned.replace(/\b(PETEK|COKCA|VERA|BIRSAN|CAYKUR|NIMET|DEVECI|CARLISTON|BERONA|BEYPAZA|BEYPAZARI|HEYWELL|MOLPED|HOLPED)\b/gi, "").trim();
+    cleaned = cleaned.replace(/\s+\d{1,2}$/, "").trim();
     cleaned = cleaned.replace(/x\d+[.,]?\d*/gi, "").trim();
-
-    // Remove leading/trailing special chars
-    cleaned = cleaned.replace(/^[*\-–—·.]+/, "").replace(/[*\-–—·.]+$/, "").trim();
-
-    // Remove multiple spaces
+    cleaned = cleaned.replace(/^[*\-\u2013\u2014\u00b7.]+/, "").replace(/[*\-\u2013\u2014\u00b7.]+$/, "").trim();
     cleaned = cleaned.replace(/\s{2,}/g, " ").trim();
 
-    // Skip if it's now just numbers, dates or empty
     if (cleaned.match(/^[\d\s\/\-:,.]+$/) || cleaned.length < 2) {
+      continue;
+    }
+
+    // Skip non-food products (hygiene, cleaning, household)
+    if (NON_FOOD_PATTERNS.some(p => p.test(cleaned))) {
       continue;
     }
 
@@ -423,6 +432,14 @@ function extractProductLines(lines: string[]): ExtractedProduct[] {
 
   return products;
 }
+
+// ─── Non-food products found on grocery receipts ──────────────────────
+const NON_FOOD_PATTERNS = [
+  /\b(PED|HIJYEN|PECETE|PE\u00c7ETE|HAVLU|KAGIT|KA\u011eIT|MENDIL|DETERJAN|SABUN|SAMPUAN|\u015eAMPUAN|DURULAY|YUMUSATICI|YUMU\u015eATICI|\u00c7AMA\u015eIR|CAMASIR|BULASIK|BULA\u015eIK)\b/i,
+  /\b(MOLPED|HOLPED|ORKID|KOTEX|ALWAYS|PRIMA|PAMPERS|HUGGIES)\b/i,
+  /\b(COP\s*POSET|\u00c7\u00d6P\s*PO\u015eET|TORBA|FIRIN TORBASI)\b/i,
+  /\b(AMPUL|PIL|BATARYA|LAMBA|DEODORANT|KREM|LOSYON|TIRNAK|DIS FIRCASI|DIS MACUNU|DIPMACUNU|TRA\u015e|TRAS)\b/i,
+];
 
 /**
  * Classify a single product line.
