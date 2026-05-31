@@ -47,7 +47,9 @@ function rotateRpc(): boolean {
     
     const privateKey = process.env.VALIDATOR_PRIVATE_KEY || process.env.PRIVATE_KEY;
     if (privateKey) {
-      provider = new ethers.JsonRpcProvider(nextRpc);
+      const connection = new ethers.FetchRequest(nextRpc);
+      connection.timeout = 15000; // 15 seconds request timeout
+      provider = new ethers.JsonRpcProvider(connection);
       wallet = new Wallet(privateKey, provider);
       contract = new Contract(process.env.CONTRACT_ADDRESS || CONTRACT_ADDRESS, REPLATE_QUEST_ABI, wallet);
       return true;
@@ -99,7 +101,9 @@ function getContract(): Contract {
       throw new Error("Missing RPC_URL or VALIDATOR_PRIVATE_KEY in environment");
     }
 
-    provider = new ethers.JsonRpcProvider(rpcUrl);
+    const connection = new ethers.FetchRequest(rpcUrl);
+    connection.timeout = 15000; // 15 seconds request timeout
+    provider = new ethers.JsonRpcProvider(connection);
     wallet = new Wallet(privateKey, provider);
     contract = new Contract(process.env.CONTRACT_ADDRESS || CONTRACT_ADDRESS, REPLATE_QUEST_ABI, wallet);
   }
@@ -513,7 +517,9 @@ export async function getLeaderboard(limit: number = 100): Promise<LeaderboardEn
   }
 
   try {
-    const provider = new ethers.JsonRpcProvider(rpcUrl);
+    const connection = new ethers.FetchRequest(rpcUrl);
+    connection.timeout = 15000; // 15 seconds request timeout
+    const provider = new ethers.JsonRpcProvider(connection);
     const contractAddr = process.env.CONTRACT_ADDRESS || CONTRACT_ADDRESS;
     const c = new Contract(contractAddr, REPLATE_QUEST_ABI, provider);
 

@@ -3,6 +3,18 @@ import axios from "axios";
 const OFF_API = "https://world.openfoodfacts.org/api/v2/product";
 const OFF_SEARCH = "https://world.openfoodfacts.org/api/v2/search";
 
+const offCache = new Map<string, ClassificationResult | null>();
+
+const matchKeyword = (text: string, keyword: string): boolean => {
+  if (keyword.length <= 3) {
+    const escaped = keyword.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+    // Enforce word boundaries including Turkish alphanumeric characters
+    const regex = new RegExp(`(?:^|[^a-zA-Z0-9çğışöüÇĞİŞÖÜ])${escaped}(?:$|[^a-zA-Z0-9çğışöüÇĞİŞÖÜ])`, 'i');
+    return regex.test(text);
+  }
+  return text.toLowerCase().includes(keyword.toLowerCase());
+};
+
 export interface ClassificationResult {
   name: string;
   category: "healthy" | "unhealthy" | "neutral";
@@ -28,6 +40,16 @@ export interface FoodClassification {
 // OCR often reads Turkish characters wrong or drops them. This map
 // normalizes common product names from Turkish grocery receipts.
 const TURKISH_PRODUCT_ALIASES: Record<string, string> = {
+  // OCR common misreadings
+  "lumon": "limon",
+  "seftall": "seftali",
+  "seftal": "seftali",
+  "donates": "domates",
+  "lcecek": "icecek",
+  "haden": "maden",
+  "nektart": "nektari",
+  "lavas": "lavas",
+
   // Fruits
   "elma starking": "elma",
   "elma granny smith": "elma",
@@ -192,7 +214,7 @@ const SKIP_PATTERNS = [
   /THANK|TESEKKUR/i,
   
   // New robust filters for receipt meta lines
-  /\b(MERSIS|VKN|VERGI|DAIRE|SICIL|ADRES|FATURA|E-ARSIV|EARSIV|GIB|KASIYER|KASAYER|TERMINAL|ISLEM|NUSHA|MUSTERI|BANKA|KREDI|KART|PUAN|BAKIYE|PROVIZYON|MATRAH|IADE|ODEME|BEKLERIZ|ILETISIM|YINE BEKLERIZ|TEL|FAX|WEB|EPOSTA|E-POSTA|TESEKKUR|ISYERI|UNVAN|TABELA|HOSGELDINIZ|HOŞGELDİNİZ|FIYAT|FIYATI|TUTAR|TUTARI|KDVSIZ|KDV'LI|KDVLI)\b/i,
+  /\b(MERSIS|VKN|VERGI|DAIRE|SICIL|ADRES|FATURA|E-ARSIV|EARSIV|GIB|KASIYER|KASAYER|TERMINAL|ISLEM|NUSHA|MUSTERI|BANKA|KREDI|KREDL|KART|KARTI|PUAN|BAKIYE|PROVIZYON|MATRAH|IADE|ODEME|BEKLERIZ|ILETISIM|YINE BEKLERIZ|TEL|FAX|WEB|EPOSTA|E-POSTA|TESEKKUR|ISYERI|UNVAN|TABELA|HOSGELDINIZ|HOŞGELDİNİZ|FIYAT|FIYATI|TUTAR|TUTARI|KDVSIZ|KDV'LI|KDVLI|MH|MAH|MAHALLESI|SOK|SOKAK|SOKAGI|SOKAĞI|CAD|CADDESI|NO|ILCE|ILCESI|IL|ILI|TURKIYE|TÜRKİYE|ESENYURT|USKLDAR|USKUDAR|ÜSKÜDAR|ISTANBUL|İSTANBUL|YAPI KREDI|YAPI KREDL|HACAZACILIK|HACIAZICILIK|ANONIM|SIRKETI|LTD|STI|ŞTİ|ARA TOPLAM|ARA TOPLAN|TOPEDY|TOPLAM)\b/i,
 ];
 
 // ─── Packaged / processed product keywords (to exclude from fresh fruit/veg grams) ───
@@ -217,7 +239,7 @@ const PROCESSED_OR_COMPOSITE_KEYWORDS = [
 // Whitelist of processed items that are actually healthy whole foods on their own
 const HEALTHY_PROCESSED_KEYWORDS = [
   "sut", "süt", "yogurt", "yoğurt", "ayran", "kefir", "lor", "peynir", 
-  "zeytinyagi", "zeytinyağı", "su", "cay", "çay", "yumurta"
+  "zeytinyagi", "zeytinyağı", "su", "cay", "çay", "yumurta", "maden suyu"
 ];
 
 // ─── Fruit & vegetable gram estimates ─────────────────────────────────
@@ -424,12 +446,12 @@ async function classifyProduct(productName: string, actualWeightGrams: number = 
 
   // Packaged/processed products do NOT count as fresh fruits & vegetables
   const isProcessedOrComposite = PROCESSED_OR_COMPOSITE_KEYWORDS.some(kw =>
-    normalized.includes(kw)
+    matchKeyword(normalized, kw)
   );
 
   if (!isProcessedOrComposite) {
     for (const [keyword, defaultGrams] of Object.entries(FRUIT_VEG_KEYWORDS)) {
-      if (resolvedName.includes(keyword) || normalized.includes(keyword)) {
+      if (matchKeyword(resolvedName, keyword) || matchKeyword(normalized, keyword)) {
         isFruitVeg = true;
         estimatedGrams = defaultGrams;
         break;
@@ -445,11 +467,11 @@ async function classifyProduct(productName: string, actualWeightGrams: number = 
 
   // Step 3: Keyword classification using both original and resolved names
   const isHealthyProcessedWhitelist = HEALTHY_PROCESSED_KEYWORDS.some(kw =>
-    normalized.includes(kw)
+    matchKeyword(normalized, kw)
   );
 
   let isHealthy = HEALTHY_KEYWORDS.some(kw =>
-    resolvedName.includes(kw) || normalized.includes(kw)
+    matchKeyword(resolvedName, kw) || matchKeyword(normalized, kw)
   );
 
   // If a product contains processed keywords (like juice, sauce, jam) and is NOT in the healthy whitelist,
@@ -459,11 +481,11 @@ async function classifyProduct(productName: string, actualWeightGrams: number = 
       !Object.keys(FRUIT_VEG_KEYWORDS).includes(kw)
     );
     isHealthy = nonFruitVegHealthyKeywords.some(kw =>
-      resolvedName.includes(kw) || normalized.includes(kw)
+      matchKeyword(resolvedName, kw) || matchKeyword(normalized, kw)
     );
   }
   const isUnhealthy = UNHEALTHY_KEYWORDS.some(kw =>
-    resolvedName.includes(kw) || normalized.includes(kw)
+    matchKeyword(resolvedName, kw) || matchKeyword(normalized, kw)
   );
 
   // If both match, decide by specificity — unhealthy patterns are usually
@@ -518,9 +540,14 @@ async function classifyProduct(productName: string, actualWeightGrams: number = 
 }
 
 /**
- * Query Open Food Facts API
+ * Query Open Food Facts API (with in-memory cache and 1-second timeout to prevent API hangs)
  */
 async function queryOpenFoodFacts(productName: string): Promise<ClassificationResult | null> {
+  const cacheKey = productName.toLowerCase().trim();
+  if (offCache.has(cacheKey)) {
+    return offCache.get(cacheKey)!;
+  }
+
   try {
     const response = await axios.get(OFF_SEARCH, {
       params: {
@@ -529,11 +556,12 @@ async function queryOpenFoodFacts(productName: string): Promise<ClassificationRe
         page_size: 1,
         json: 1,
       },
-      timeout: 3000,
+      timeout: 1000, // Reduced to 1 second
     });
 
     const products = response.data?.products;
     if (!products || products.length === 0) {
+      offCache.set(cacheKey, null);
       return null;
     }
 
@@ -549,14 +577,18 @@ async function queryOpenFoodFacts(productName: string): Promise<ClassificationRe
       category = "unhealthy";
     }
 
-    return {
+    const result: ClassificationResult = {
       name: productName,
       category,
       nutriscore,
       fruitVegGrams: Math.round(fruitVeg),
       confidence: 0.9,
     };
+    offCache.set(cacheKey, result);
+    return result;
   } catch (error) {
+    // Cache failures as null to avoid spamming slow requests
+    offCache.set(cacheKey, null);
     return null;
   }
 }
