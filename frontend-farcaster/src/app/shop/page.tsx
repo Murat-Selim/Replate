@@ -83,7 +83,14 @@ export default function SmartShop() {
         fileInputRef.current?.click();
     };
 
-    const triggerCameraInput = () => {
+    const triggerCameraInput = async () => {
+        try {
+            if (typeof window !== "undefined" && sdk?.actions?.requestCameraAndMicrophoneAccess) {
+                await sdk.actions.requestCameraAndMicrophoneAccess();
+            }
+        } catch (err) {
+            console.warn("Could not request camera permission via Farcaster SDK", err);
+        }
         cameraInputRef.current?.click();
     };
 
