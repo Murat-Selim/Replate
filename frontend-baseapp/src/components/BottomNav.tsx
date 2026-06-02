@@ -16,7 +16,7 @@ export default function BottomNav() {
     const pathname = usePathname();
 
     return (
-        <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-xl border-t border-brand-accent/30 px-4 sm:px-6 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))]">
+        <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#050806]/95 backdrop-blur-xl border-t border-[rgba(0,227,110,0.1)] px-4 sm:px-6 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))]">
             <div className="flex items-center justify-around max-w-md mx-auto">
                 {navItems.map((item) => {
                     const isActive = pathname === item.href;
@@ -27,14 +27,14 @@ export default function BottomNav() {
                             href={item.href}
                             className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-2xl transition-all ${
                                 isActive
-                                    ? "text-brand-primary"
-                                    : "text-gray-400 hover:text-brand-secondary"
-                            }`}
+                                    ? "text-[#00E36E]"
+                                    : "text-[#8c9790] hover:text-[#05CE67]"
+                             }`}
                         >
                             <div
                                 className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
                                     isActive
-                                        ? "bg-brand-primary/10 scale-110"
+                                        ? "bg-[#00E36E]/15 scale-110 shadow-[0_0_15px_rgba(0,227,110,0.15)]"
                                         : ""
                                 }`}
                             >
@@ -54,3 +54,4 @@ export default function BottomNav() {
         </nav>
     );
 }
+

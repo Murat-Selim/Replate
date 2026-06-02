@@ -194,8 +194,8 @@ export default function SmartShop() {
             <div className="space-y-8 animate-fade-in-up">
                 {/* Page Header */}
                 <div className="text-center lg:text-left space-y-2">
-                    <h1 className="text-3xl sm:text-4xl font-black text-brand-primary">Shop & Verify</h1>
-                    <p className="text-brand-text/60">Upload your receipt and earn XP rewards.</p>
+                    <h1 className="text-3xl sm:text-4xl font-black text-[#00E36E] drop-shadow-[0_0_10px_rgba(0,227,110,0.15)]">Shop & Verify</h1>
+                    <p className="text-[#8c9790]">Upload your receipt and earn XP rewards.</p>
                 </div>
 
                 {/* Main Content — 2 column on desktop */}
@@ -203,8 +203,8 @@ export default function SmartShop() {
                     {/* Left Column: Upload + Controls */}
                     <div className="space-y-6">
                         {/* Receipt Upload */}
-                        <div className="glass-card rounded-3xl p-6 sm:p-8 space-y-6">
-                            <h2 className="text-xs font-black uppercase tracking-[0.2em] text-brand-text/30 text-center">
+                        <div className="bg-[#0c1310]/90 border border-[#00E36E]/12 backdrop-blur-2xl rounded-3xl p-6 sm:p-8 space-y-6 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+                            <h2 className="text-xs font-black uppercase tracking-[0.2em] text-[#8c9790]/50 text-center">
                                 Upload Receipt
                             </h2>
                             <input
@@ -218,7 +218,7 @@ export default function SmartShop() {
                                 onClick={() => setShowUploadModal(true)}
                                 className="relative group cursor-pointer mx-auto"
                             >
-                                <div className="relative w-full aspect-[4/3] max-w-sm mx-auto bg-brand-accent/30 rounded-3xl border-2 border-dashed border-brand-primary/15 flex flex-col items-center justify-center overflow-hidden transition-all group-hover:border-brand-primary/30 group-hover:bg-brand-accent/50">
+                                <div className="relative w-full aspect-[4/3] max-w-sm mx-auto bg-[#00E36E]/5 rounded-3xl border-2 border-dashed border-[#00E36E]/15 flex flex-col items-center justify-center overflow-hidden transition-all group-hover:border-[#00E36E]/30 group-hover:bg-[#00E36E]/10">
                                     {imagePreview ? (
                                         <div className="relative w-full h-full">
                                             <img
@@ -226,9 +226,9 @@ export default function SmartShop() {
                                                 alt="Receipt preview"
                                                 className="w-full h-full object-cover rounded-3xl"
                                             />
-                                            <div className="absolute inset-0 bg-brand-primary/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-3xl">
-                                                <div className="bg-white/20 backdrop-blur-md p-4 rounded-full border border-white/30">
-                                                    <Camera size={28} className="text-white" />
+                                            <div className="absolute inset-0 bg-[#00E36E]/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-3xl">
+                                                <div className="bg-[#00E36E]/25 backdrop-blur-md p-4 rounded-full border border-[#00E36E]/45 shadow-[0_0_15px_rgba(0,227,110,0.2)]">
+                                                    <Camera size={28} className="text-[#00E36E]" />
                                                 </div>
                                             </div>
                                             <div className="absolute top-3 right-3 bg-green-500 text-white p-2 rounded-full shadow-lg">
@@ -237,10 +237,10 @@ export default function SmartShop() {
                                         </div>
                                     ) : (
                                         <div className="flex flex-col items-center gap-3 p-8">
-                                            <div className="w-16 h-16 bg-brand-accent rounded-2xl flex items-center justify-center text-brand-primary group-hover:scale-110 transition-transform">
+                                            <div className="w-16 h-16 bg-[#00E36E]/10 border border-[#00E36E]/20 rounded-2xl flex items-center justify-center text-[#00E36E] group-hover:scale-110 transition-transform shadow-[0_0_10px_rgba(0,227,110,0.1)]">
                                                 <Camera size={32} />
                                             </div>
-                                            <span className="font-bold text-brand-text/40 uppercase tracking-widest text-[10px] text-center">
+                                            <span className="font-bold text-[#8c9790]/60 uppercase tracking-widest text-[10px] text-center">
                                                 Tap to take photo
                                             </span>
                                         </div>
@@ -252,52 +252,51 @@ export default function SmartShop() {
                         {/* Controls */}
                         <div className="grid grid-cols-1 xs:grid-cols-2 gap-4">
                             {/* Household Size */}
-                            <div className="glass-card rounded-3xl p-6 space-y-4">
-                                <h2 className="text-center text-xs font-black uppercase tracking-[0.15em] text-brand-text/30">
+                            <div className="bg-[#0c1310]/90 border border-[#00E36E]/12 backdrop-blur-2xl rounded-3xl p-6 space-y-4 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+                                <h2 className="text-center text-xs font-black uppercase tracking-[0.15em] text-[#8c9790]">
                                     Household
                                 </h2>
                                 <div className="flex items-center justify-center gap-4">
                                     <button
                                         onClick={() => setHouseholdSize(Math.max(1, householdSize - 1))}
-                                        className="w-10 h-10 rounded-full bg-brand-primary text-white flex items-center justify-center active:scale-90 transition-transform shadow-lg shadow-brand-primary/20"
+                                        className="w-10 h-10 rounded-full bg-[#00E36E] hover:bg-[#00FF66] text-[#050806] flex items-center justify-center active:scale-90 transition-transform shadow-lg shadow-[#00E36E]/20"
                                     >
-                                        <Minus size={18} />
+                                        <Minus size={18} strokeWidth={2.5} />
                                     </button>
-                                    <span className="text-5xl font-black text-brand-primary w-16 text-center tabular-nums">
+                                    <span className="text-5xl font-black text-[#00E36E] w-16 text-center tabular-nums drop-shadow-[0_0_15px_rgba(0,227,110,0.2)]">
                                         {householdSize}
                                     </span>
                                     <button
                                         onClick={() => setHouseholdSize(householdSize + 1)}
-                                        className="w-10 h-10 rounded-full bg-brand-primary text-white flex items-center justify-center active:scale-90 transition-transform shadow-lg shadow-brand-primary/20"
+                                        className="w-10 h-10 rounded-full bg-[#00E36E] hover:bg-[#00FF66] text-[#050806] flex items-center justify-center active:scale-90 transition-transform shadow-lg shadow-[#00E36E]/20"
                                     >
-                                        <Plus size={18} />
+                                        <Plus size={18} strokeWidth={2.5} />
                                     </button>
                                 </div>
                             </div>
 
                             {/* Shopping Duration */}
-                            <div className="glass-card rounded-3xl p-6 space-y-4">
-                                <h2 className="text-center text-xs font-black uppercase tracking-[0.15em] text-brand-text/30">
+                            <div className="bg-[#0c1310]/90 border border-[#00E36E]/12 backdrop-blur-2xl rounded-3xl p-6 space-y-4 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+                                <h2 className="text-center text-xs font-black uppercase tracking-[0.15em] text-[#8c9790]">
                                     Duration
                                 </h2>
                                 <div className="flex items-center justify-center gap-4">
                                     <button
                                         onClick={() => setDuration(Math.max(1, duration - 1))}
-                                        className="w-10 h-10 rounded-full bg-brand-primary text-white flex items-center justify-center active:scale-90 transition-transform shadow-lg shadow-brand-primary/20"
+                                        className="w-10 h-10 rounded-full bg-[#00E36E] hover:bg-[#00FF66] text-[#050806] flex items-center justify-center active:scale-90 transition-transform shadow-lg shadow-[#00E36E]/20"
                                     >
-                                        <Minus size={18} />
+                                        <Minus size={18} strokeWidth={2.5} />
                                     </button>
-                                    <div className="flex items-baseline gap-1 w-20 justify-center">
-                                        <span className="text-5xl font-black text-brand-primary tabular-nums">
+                                    <div className="flex items-center w-20 justify-center">
+                                        <span className="text-5xl font-black text-[#00E36E] tabular-nums drop-shadow-[0_0_15px_rgba(0,227,110,0.2)] text-center">
                                             {duration}
                                         </span>
-                                        <span className="text-brand-text/30 font-bold text-sm">d</span>
                                     </div>
                                     <button
                                         onClick={() => setDuration(duration + 1)}
-                                        className="w-10 h-10 rounded-full bg-brand-primary text-white flex items-center justify-center active:scale-90 transition-transform shadow-lg shadow-brand-primary/20"
+                                        className="w-10 h-10 rounded-full bg-[#00E36E] hover:bg-[#00FF66] text-[#050806] flex items-center justify-center active:scale-90 transition-transform shadow-lg shadow-[#00E36E]/20"
                                     >
-                                        <Plus size={18} />
+                                        <Plus size={18} strokeWidth={2.5} />
                                     </button>
                                 </div>
                             </div>
@@ -307,7 +306,7 @@ export default function SmartShop() {
                         <button
                             onClick={handleVerify}
                             disabled={isLoading || isCompressing || !imagePreview}
-                            className="w-full bg-brand-primary text-white py-4 px-8 rounded-2xl font-bold text-lg shadow-xl shadow-brand-primary/20 hover:bg-brand-secondary hover:shadow-2xl transition-all active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:shadow-xl"
+                            className="w-full bg-[#00E36E] hover:bg-[#00FF66] text-[#050806] py-4 px-8 rounded-2xl font-black text-lg shadow-xl shadow-[#00E36E]/20 hover:shadow-2xl transition-all active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                             {isLoading ? (
                                 <>
@@ -328,7 +327,7 @@ export default function SmartShop() {
                         </button>
 
                         {error && (
-                            <div className="bg-red-50 border border-red-200 text-red-600 p-4 rounded-2xl text-sm font-medium text-center">
+                            <div className="bg-red-950/40 border border-red-800/30 text-red-400 p-4 rounded-2xl text-sm font-medium text-center shadow-[0_0_15px_rgba(239,68,68,0.1)]">
                                 {error}
                             </div>
                         )}
@@ -337,7 +336,7 @@ export default function SmartShop() {
                     {/* Right Column: Results or Tip */}
                     <div className="space-y-6">
                         {result ? (
-                            <div className="glass-card rounded-3xl p-6 sm:p-8 border-2 border-green-500/20 space-y-6 animate-fade-in-up">
+                            <div className="bg-[#0c1310]/90 border border-green-500/20 backdrop-blur-2xl rounded-3xl p-6 sm:p-8 space-y-6 animate-fade-in-up shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
                                 <div className="flex items-center justify-between">
                                     <h3 className="text-xl font-black text-brand-primary">Verification Complete!</h3>
                                     <button onClick={resetForm} className="p-2 hover:bg-brand-accent/30 rounded-full transition-colors">
@@ -411,46 +410,46 @@ export default function SmartShop() {
                                 </div>
                             </div>
                         ) : (
-                            <div className="glass-card rounded-3xl p-6 sm:p-8 space-y-6 gradient-mesh">
-                                <h3 className="text-lg font-black text-brand-primary">How Scoring Works</h3>
+                            <div className="bg-[#0c1310]/90 border border-[#00E36E]/12 backdrop-blur-2xl rounded-3xl p-6 sm:p-8 space-y-6 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+                                <h3 className="text-lg font-black text-white">How Scoring Works</h3>
                                 <div className="space-y-4">
                                     <div className="flex items-start gap-3">
-                                        <div className="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center text-green-600 shrink-0 mt-0.5">
+                                        <div className="w-8 h-8 rounded-lg bg-[#00E36E]/10 border border-[#00E36E]/20 flex items-center justify-center text-[#00E36E] shrink-0 mt-0.5">
                                             <Leaf size={16} />
                                         </div>
                                         <div>
-                                            <p className="font-bold text-sm text-brand-primary">Health Score</p>
-                                            <p className="text-xs text-brand-text/50 leading-relaxed">
+                                            <p className="font-extrabold text-sm text-[#00E36E]">Health Score</p>
+                                            <p className="text-xs text-[#8c9790] leading-relaxed">
                                                 Based on the ratio of healthy vs unhealthy items in your cart. More fruits, veggies, and whole grains = higher score.
                                             </p>
                                         </div>
                                     </div>
                                     <div className="flex items-start gap-3">
-                                        <div className="w-8 h-8 rounded-lg bg-yellow-100 flex items-center justify-center text-yellow-600 shrink-0 mt-0.5">
+                                        <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0 mt-0.5">
                                             <Star size={16} />
                                         </div>
                                         <div>
-                                            <p className="font-bold text-sm text-brand-primary">Nutrition Score</p>
-                                            <p className="text-xs text-brand-text/50 leading-relaxed">
+                                            <p className="font-extrabold text-sm text-[#00E36E]">Nutrition Score</p>
+                                            <p className="text-xs text-[#8c9790] leading-relaxed">
                                                 Based on WHO's 300g/day fruit & veg recommendation. We check if you're buying enough for your household.
                                             </p>
                                         </div>
                                     </div>
                                     <div className="flex items-start gap-3">
-                                        <div className="w-8 h-8 rounded-lg bg-brand-accent flex items-center justify-center text-brand-primary shrink-0 mt-0.5">
+                                        <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 shrink-0 mt-0.5">
                                             <Trophy size={16} />
                                         </div>
                                         <div>
-                                            <p className="font-bold text-sm text-brand-primary">XP Points</p>
-                                            <p className="text-xs text-brand-text/50 leading-relaxed">
+                                            <p className="font-extrabold text-sm text-[#00E36E]">XP Points</p>
+                                            <p className="text-xs text-[#8c9790] leading-relaxed">
                                                 Earn up to 150 XP per receipt based on your scores, plus streak bonuses for consistent healthy shopping.
                                             </p>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div className="bg-brand-accent/50 p-4 rounded-2xl text-center">
-                                    <p className="text-sm text-brand-text/50 italic font-medium">
+                                <div className="bg-[#00E36E]/5 border border-[#00E36E]/12 p-4 rounded-2xl text-center">
+                                    <p className="text-sm text-[#8c9790] italic font-medium">
                                         &ldquo;Eat healthier and more balanced with a {duration} day plan.&rdquo;
                                     </p>
                                 </div>
@@ -466,22 +465,22 @@ export default function SmartShop() {
             <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
                 {/* Backdrop */}
                 <div 
-                    className="absolute inset-0 bg-brand-text/40 backdrop-blur-md transition-opacity"
+                    className="fixed inset-0 bg-black/85 backdrop-blur-md transition-opacity"
                     onClick={() => setShowUploadModal(false)}
                 ></div>
                 
                 {/* Modal Content */}
-                <div className="relative w-full sm:max-w-sm bg-white rounded-t-[32px] sm:rounded-[32px] p-6 shadow-2xl border border-brand-accent/20 animate-in slide-in-from-bottom duration-300 z-10 space-y-4">
+                <div className="relative w-full sm:max-w-sm bg-[#0a0e0c] border border-[#00E36E]/20 backdrop-blur-2xl rounded-t-[32px] sm:rounded-[32px] p-6 shadow-2xl animate-in slide-in-from-bottom duration-300 z-10 space-y-4">
                     <div className="text-center pb-2">
-                        <h3 className="text-lg font-black text-brand-primary">Select Receipt Source</h3>
-                        <p className="text-xs text-brand-text/50">Choose how you want to upload your receipt</p>
+                        <h3 className="text-lg font-black text-white">Select Receipt Source</h3>
+                        <p className="text-xs text-[#8c9790]">Choose how you want to upload your receipt</p>
                     </div>
                     
                     <div className="space-y-3">
                         <button
                             onClick={() => handleSelectOption("camera")}
                             type="button"
-                            className="w-full py-4 px-6 bg-brand-primary text-white rounded-2xl font-bold text-base hover:bg-brand-secondary active:scale-98 transition-all flex items-center justify-center gap-3 shadow-lg shadow-brand-primary/10 cursor-pointer"
+                            className="w-full py-4 px-6 bg-[#00E36E] hover:bg-[#00FF66] text-[#050806] rounded-2xl font-black text-base active:scale-98 transition-all flex items-center justify-center gap-3 shadow-lg shadow-[#00E36E]/20 cursor-pointer"
                         >
                             <Camera size={20} />
                             Take Photo (Camera)
@@ -490,7 +489,7 @@ export default function SmartShop() {
                         <button
                             onClick={() => handleSelectOption("gallery")}
                             type="button"
-                            className="w-full py-4 px-6 bg-brand-accent text-brand-primary rounded-2xl font-bold text-base hover:bg-brand-accent/80 active:scale-98 transition-all flex items-center justify-center gap-3 border border-brand-accent/50 cursor-pointer"
+                            className="w-full py-4 px-6 bg-[#00E36E]/10 hover:bg-[#00E36E]/20 text-[#00E36E] rounded-2xl font-black text-base active:scale-98 transition-all flex items-center justify-center gap-3 border border-[#00E36E]/20 cursor-pointer"
                         >
                             <Image size={20} />
                             Choose from Gallery
@@ -500,7 +499,7 @@ export default function SmartShop() {
                     <button
                         onClick={() => setShowUploadModal(false)}
                         type="button"
-                        className="w-full py-3 px-6 bg-transparent text-brand-text/40 hover:text-brand-text/60 font-bold text-sm transition-colors cursor-pointer"
+                        className="w-full py-3 px-6 bg-transparent text-[#8c9790] hover:text-white font-bold text-sm transition-colors cursor-pointer"
                     >
                         Cancel
                     </button>
@@ -542,9 +541,9 @@ export default function SmartShop() {
                     <button
                         onClick={capturePhoto}
                         type="button"
-                        className="w-20 h-20 rounded-full bg-white p-1 border-4 border-zinc-800 active:scale-90 transition-transform shadow-2xl cursor-pointer"
+                        className="w-20 h-20 rounded-full bg-[#00E36E] p-1 border-4 border-[#050806] active:scale-90 transition-transform shadow-2xl cursor-pointer shadow-[#00E36E]/20"
                     >
-                        <div className="w-full h-full rounded-full bg-brand-primary flex items-center justify-center text-white">
+                        <div className="w-full h-full rounded-full bg-[#050806] flex items-center justify-center text-[#00E36E]">
                             <Camera size={28} />
                         </div>
                     </button>

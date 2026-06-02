@@ -25,11 +25,10 @@ export default function BottomNav() {
                         <Link
                             key={item.href}
                             href={item.href}
-                            className={`flex flex-col items-center gap-1.5 transition-all w-20 ${
-                                isActive 
-                                    ? "text-brand-primary scale-105" 
+                            className={`flex flex-col items-center gap-1.5 transition-all w-20 ${isActive
+                                    ? "text-brand-primary scale-105"
                                     : "text-[#A6B0B5] hover:text-white"
-                            }`}
+                                }`}
                         >
                             <div className="relative flex items-center justify-center">
                                 <Icon size={22} strokeWidth={isActive ? 2.5 : 2} />
@@ -37,9 +36,8 @@ export default function BottomNav() {
                                     <div className="absolute inset-0 bg-brand-primary/20 blur-md rounded-full -z-10"></div>
                                 )}
                             </div>
-                            <span className={`text-[9px] font-black uppercase tracking-wider transition-colors ${
-                                isActive ? "text-brand-primary" : "text-[#A6B0B5]"
-                            }`}>
+                            <span className={`text-[9px] font-black uppercase tracking-wider transition-colors ${isActive ? "text-brand-primary" : "text-[#A6B0B5]"
+                                }`}>
                                 {item.label}
                             </span>
                         </Link>

@@ -4,15 +4,15 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import Shell from "@/components/Shell";
-import { 
-    Camera, 
-    Sparkles, 
-    Trophy, 
-    ArrowRight, 
-    ChevronRight, 
-    ShoppingCart, 
-    Apple, 
-    Milk, 
+import {
+    Camera,
+    Sparkles,
+    Trophy,
+    ArrowRight,
+    ChevronRight,
+    ShoppingCart,
+    Apple,
+    Milk,
     Receipt,
     DollarSign
 } from "lucide-react";
@@ -98,7 +98,7 @@ export default function Home() {
                 <div className="relative w-full flex flex-col items-center pt-12">
                     {/* Glowing Ambient Background Circles */}
                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-[#22D97A]/10 rounded-full blur-[90px] -z-10"></div>
-                    
+
                     {/* Centered Logo & Floating Icons Wrapper */}
                     <div className="relative w-64 h-64 flex items-center justify-center mb-8">
                         {/* Connecting lines / radar effect in background */}
@@ -110,7 +110,7 @@ export default function Home() {
                         <div className="absolute left-[5px] top-[15px] w-10 h-10 rounded-full bg-[#131C20] border border-[#22D97A]/30 flex items-center justify-center text-[#22D97A] shadow-[0_0_15px_rgba(34,217,122,0.2)]">
                             <ShoppingCart size={16} />
                         </div>
-                        
+
                         {/* 2. Apple (Top Center-Left) */}
                         <div className="absolute left-[65px] top-[-15px] w-9 h-9 rounded-full bg-[#131C20] border border-[#22D97A]/20 flex items-center justify-center text-[#22D97A] shadow-[0_0_12px_rgba(34,217,122,0.15)]">
                             <Apple size={15} />
@@ -152,15 +152,15 @@ export default function Home() {
                         </div>
 
                         {/* Logo Container */}
-                        <div className="relative w-36 h-36 bg-[#131C20] border-2 border-brand-primary rounded-[36px] flex items-center justify-center shadow-[0_0_40px_rgba(34,217,122,0.35)] z-10">
+                        <div className="relative w-36 h-36 bg-[#131C20] border-2 border-brand-primary rounded-[36px] flex items-center justify-center shadow-[0_0_40px_rgba(34,217,122,0.35)] z-10 overflow-hidden">
                             {/* Inner pulsing ring */}
                             <div className="absolute inset-0 bg-[#22D97A]/10 rounded-[34px] blur-md animate-pulse -z-10"></div>
                             <Image
-                                src="/replate-image.png"
+                                src="/replate-logo1.png"
                                 alt="Replate Logo"
-                                width={100}
-                                height={100}
-                                className="object-contain"
+                                fill
+                                sizes="144px"
+                                className="object-cover rounded-[34px] scale-[2.5] translate-y-[4px]"
                                 priority
                             />
                         </div>
@@ -283,12 +283,12 @@ export default function Home() {
                                     <div className={`w-6 h-6 rounded-full flex items-center justify-center font-black text-xs font-heading ${earner.color}`}>
                                         {earner.rank}
                                     </div>
-                                    
+
                                     {/* Avatar */}
                                     <div className="w-9 h-9 rounded-full overflow-hidden border border-white/10 bg-[#131C20]">
                                         <img src={earner.avatar} alt={earner.name} className="w-full h-full object-cover" />
                                     </div>
-                                    
+
                                     {/* User Details */}
                                     <div className="flex flex-col">
                                         <span className="font-extrabold text-white text-sm font-heading">{earner.name}</span>

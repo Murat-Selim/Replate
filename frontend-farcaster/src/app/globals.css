@@ -8,7 +8,7 @@
   --color-brand-background: #0B1114;
   --color-brand-text: #FFFFFF;
   --color-brand-text-muted: #A6B0B5;
-  
+
   --font-heading: "Outfit", sans-serif;
   --font-body: "Inter", sans-serif;
 }
@@ -31,7 +31,12 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   font-family: var(--font-heading);
   font-weight: 700;
 }
@@ -84,9 +89,8 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Grid background texture */
 .grid-bg {
-  background-image: 
+  background-image:
     linear-gradient(rgba(34, 217, 122, 0.03) 1px, transparent 1px),
     linear-gradient(90deg, rgba(34, 217, 122, 0.03) 1px, transparent 1px);
   background-size: 24px 24px;
 }
-

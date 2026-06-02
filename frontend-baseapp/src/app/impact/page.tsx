@@ -146,7 +146,7 @@ export default function YourImpact() {
                 </div>
 
                 {!address ? (
-                    <div className="glass-card rounded-3xl flex flex-col items-center justify-center py-20 space-y-4">
+                    <div className="bg-[#0c1310]/90 border border-[#00E36E]/12 backdrop-blur-2xl rounded-3xl flex flex-col items-center justify-center py-20 space-y-4 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
                         <Trophy size={48} className="text-brand-primary/20" />
                         <p className="text-brand-text/60 font-bold">Connect your wallet to see your impact</p>
                     </div>
@@ -159,7 +159,7 @@ export default function YourImpact() {
                         {/* Top Row: Streak + Level */}
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
                             {/* Streak Card — Spans 2 cols on desktop */}
-                            <div className="lg:col-span-2 glass-card rounded-3xl p-8 sm:p-10 relative overflow-hidden group">
+                            <div className="lg:col-span-2 bg-[#0c1310]/90 border border-[#00E36E]/12 backdrop-blur-2xl rounded-3xl p-8 sm:p-10 relative overflow-hidden group shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
                                 <div className="absolute top-0 right-0 p-6 opacity-10 rotate-12 transition-transform group-hover:scale-110 group-hover:rotate-0">
                                     <Flame size={120} fill="currentColor" className="text-orange-500" />
                                 </div>
@@ -182,10 +182,10 @@ export default function YourImpact() {
 
                                     {/* Level indicator */}
                                     <div className="sm:ml-auto text-center">
-                                        <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center shadow-xl shadow-brand-primary/20">
+                                        <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gradient-to-br from-[#00E36E] to-[#05CE67] flex items-center justify-center shadow-xl shadow-[#00E36E]/20">
                                             <div className="text-center">
-                                                <p className="text-3xl sm:text-4xl font-black text-white leading-none">{userData.level}</p>
-                                                <p className="text-[9px] font-bold text-white/60 uppercase tracking-widest">Level</p>
+                                                <p className="text-3xl sm:text-4xl font-black text-[#050806] leading-none">{userData.level}</p>
+                                                <p className="text-[9px] font-bold text-[#050806]/70 uppercase tracking-widest">Level</p>
                                             </div>
                                         </div>
                                     </div>
@@ -193,7 +193,7 @@ export default function YourImpact() {
                             </div>
 
                             {/* Badge Card */}
-                            <div className="glass-card rounded-3xl p-6 sm:p-8 flex flex-col items-center justify-center text-center space-y-3">
+                            <div className="bg-[#0c1310]/90 border border-[#00E36E]/12 backdrop-blur-2xl rounded-3xl p-6 sm:p-8 flex flex-col items-center justify-center text-center space-y-3 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
                                 <div className="w-16 h-16 rounded-full bg-brand-accent flex items-center justify-center text-4xl">
                                     {userData.hasBadge ? "🏆" : "🔒"}
                                 </div>
@@ -212,50 +212,50 @@ export default function YourImpact() {
 
                         {/* Stats Grid */}
                         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                            <div className="glass-card glass-card-hover p-5 sm:p-6 rounded-3xl space-y-3">
-                                <div className="w-10 h-10 bg-yellow-100 rounded-2xl flex items-center justify-center text-yellow-600">
+                            <div className="bg-[#0c1310]/90 border border-[#00E36E]/12 backdrop-blur-2xl hover:border-[#00E36E]/25 transition-all duration-300 p-5 sm:p-6 rounded-3xl space-y-3 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+                                <div className="w-10 h-10 bg-yellow-500/10 rounded-2xl flex items-center justify-center text-yellow-400">
                                     <Star size={20} fill="currentColor" />
                                 </div>
                                 <div>
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-brand-text/30">Total XP</p>
-                                    <p className="text-2xl sm:text-3xl font-black text-brand-primary tabular-nums">{userData.totalPoints.toLocaleString()}</p>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-[#8c9790]/50">Total XP</p>
+                                    <p className="text-2xl sm:text-3xl font-black text-[#00E36E] tabular-nums">{userData.totalPoints.toLocaleString()}</p>
                                 </div>
                             </div>
 
-                            <div className="glass-card glass-card-hover p-5 sm:p-6 rounded-3xl space-y-3">
-                                <div className="w-10 h-10 bg-green-100 rounded-2xl flex items-center justify-center text-green-600">
+                            <div className="bg-[#0c1310]/90 border border-[#00E36E]/12 backdrop-blur-2xl hover:border-[#00E36E]/25 transition-all duration-300 p-5 sm:p-6 rounded-3xl space-y-3 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+                                <div className="w-10 h-10 bg-[#00E36E]/10 rounded-2xl flex items-center justify-center text-[#00E36E]">
                                     <Leaf size={20} fill="currentColor" />
                                 </div>
                                 <div>
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-brand-text/30">Nutrition</p>
-                                    <p className="text-2xl sm:text-3xl font-black text-brand-primary tabular-nums">{Math.round(nutritionScore)}</p>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-[#8c9790]/50">Nutrition</p>
+                                    <p className="text-2xl sm:text-3xl font-black text-[#00E36E] tabular-nums">{Math.round(nutritionScore)}</p>
                                 </div>
                             </div>
 
-                            <div className="glass-card glass-card-hover p-5 sm:p-6 rounded-3xl space-y-3">
-                                <div className="w-10 h-10 bg-blue-100 rounded-2xl flex items-center justify-center text-blue-600">
+                            <div className="bg-[#0c1310]/90 border border-[#00E36E]/12 backdrop-blur-2xl hover:border-[#00E36E]/25 transition-all duration-300 p-5 sm:p-6 rounded-3xl space-y-3 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+                                <div className="w-10 h-10 bg-blue-500/10 rounded-2xl flex items-center justify-center text-blue-400">
                                     <Receipt size={20} />
                                 </div>
                                 <div>
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-brand-text/30">Receipts</p>
-                                    <p className="text-2xl sm:text-3xl font-black text-brand-primary tabular-nums">{userData.receiptCount}</p>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-[#8c9790]/50">Receipts</p>
+                                    <p className="text-2xl sm:text-3xl font-black text-[#00E36E] tabular-nums">{userData.receiptCount}</p>
                                 </div>
                             </div>
 
-                            <div className="glass-card glass-card-hover p-5 sm:p-6 rounded-3xl space-y-3">
-                                <div className="w-10 h-10 bg-purple-100 rounded-2xl flex items-center justify-center text-purple-600">
+                            <div className="bg-[#0c1310]/90 border border-[#00E36E]/12 backdrop-blur-2xl hover:border-[#00E36E]/25 transition-all duration-300 p-5 sm:p-6 rounded-3xl space-y-3 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+                                <div className="w-10 h-10 bg-purple-500/10 rounded-2xl flex items-center justify-center text-purple-400">
                                     <CalendarCheck size={20} />
                                 </div>
                                 <div>
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-brand-text/30">Check-ins</p>
-                                    <p className="text-2xl sm:text-3xl font-black text-brand-primary tabular-nums">{userData.totalCheckIns}</p>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-[#8c9790]/50">Check-ins</p>
+                                    <p className="text-2xl sm:text-3xl font-black text-[#00E36E] tabular-nums">{userData.totalCheckIns}</p>
                                 </div>
                             </div>
                         </div>
 
                         {/* Weekly Report */}
                         {weekReport.receiptCount > 0 && (
-                            <div className="bg-gradient-to-r from-brand-accent/30 to-brand-primary/5 glass-card rounded-3xl p-6 sm:p-8 space-y-4">
+                            <div className="bg-[#0c1310]/90 border border-[#00E36E]/12 backdrop-blur-2xl rounded-3xl p-6 sm:p-8 space-y-4 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
                                 <h3 className="text-lg font-black text-brand-primary">This Week</h3>
                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                                     <div className="text-center sm:text-left">
@@ -279,7 +279,7 @@ export default function YourImpact() {
                         )}
 
                         {error && (
-                            <div className="bg-red-50 border border-red-200 text-red-600 p-4 rounded-2xl text-sm font-medium text-center">
+                            <div className="bg-red-950/40 border border-red-800/30 text-red-400 p-4 rounded-2xl text-sm font-medium text-center shadow-[0_0_15px_rgba(239,68,68,0.1)]">
                                 {error}
                             </div>
                         )}
@@ -289,7 +289,7 @@ export default function YourImpact() {
                             <button
                                 onClick={handleCheckIn}
                                 disabled={isCheckingIn || userData.lastCheckInDay >= Math.floor(Date.now() / 1000 / 86400)}
-                                className="bg-brand-primary text-white py-4 px-8 rounded-2xl font-bold text-lg shadow-xl shadow-brand-primary/20 hover:bg-brand-secondary hover:shadow-2xl transition-all active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-40"
+                                className="bg-[#00E36E] hover:bg-[#00FF66] text-[#050806] py-4 px-8 rounded-2xl font-black text-lg shadow-xl shadow-[#00E36E]/20 hover:shadow-2xl transition-all active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-40"
                             >
                                 {isCheckingIn ? (
                                     <>
@@ -303,7 +303,7 @@ export default function YourImpact() {
                                     </>
                                 ) : (
                                     <>
-                                        <Star size={22} fill="currentColor" className="text-yellow-400" />
+                                        <Star size={22} fill="currentColor" className="text-[#050806]" />
                                         Daily Check-in
                                     </>
                                 )}
@@ -311,7 +311,7 @@ export default function YourImpact() {
 
                             <button
                                 onClick={handleShare}
-                                className="bg-white text-brand-primary py-4 px-8 rounded-2xl font-bold text-lg border border-brand-accent hover:border-brand-primary/20 hover:bg-brand-accent/30 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+                                className="bg-white/[0.04] text-[#00E36E] border border-[#00E36E]/20 hover:bg-white/[0.08] hover:text-white transition-all py-4 px-8 rounded-2xl font-bold text-lg active:scale-[0.98] flex items-center justify-center gap-2"
                             >
                                 <Share2 size={20} />
                                 Share Your Impact
