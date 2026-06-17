@@ -156,11 +156,11 @@ export default function Home() {
                             {/* Inner pulsing ring */}
                             <div className="absolute inset-0 bg-[#22D97A]/10 rounded-[34px] blur-md animate-pulse -z-10"></div>
                             <Image
-                                src="/replate-logo1.png"
+                                src="/replate-logo1.jpeg"
                                 alt="Replate Logo"
                                 fill
                                 sizes="144px"
-                                className="object-cover rounded-[34px] scale-[2.5] translate-y-[4px]"
+                                className="object-cover rounded-[34px]"
                                 priority
                             />
                         </div>
