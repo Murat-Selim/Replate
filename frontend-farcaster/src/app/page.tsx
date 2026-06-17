@@ -9,12 +9,7 @@ import {
     Sparkles,
     Trophy,
     ArrowRight,
-    ChevronRight,
-    ShoppingCart,
-    Apple,
-    Milk,
-    Receipt,
-    DollarSign
+    ChevronRight
 } from "lucide-react";
 import { getApiUrl } from "@/lib/api";
 
@@ -99,57 +94,11 @@ export default function Home() {
                     {/* Glowing Ambient Background Circles */}
                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-[#22D97A]/10 rounded-full blur-[90px] -z-10"></div>
 
-                    {/* Centered Logo & Floating Icons Wrapper */}
+                    {/* Centered Logo Wrapper */}
                     <div className="relative w-64 h-64 flex items-center justify-center mb-8">
                         {/* Connecting lines / radar effect in background */}
                         <div className="absolute w-56 h-56 rounded-full border border-[#22D97A]/5 pointer-events-none"></div>
                         <div className="absolute w-44 h-44 rounded-full border border-[#22D97A]/10 pointer-events-none"></div>
-
-                        {/* Floating Icons with Neon Glow */}
-                        {/* 1. Shopping Cart (Top Left) */}
-                        <div className="absolute left-[5px] top-[15px] w-10 h-10 rounded-full bg-[#131C20] border border-[#22D97A]/30 flex items-center justify-center text-[#22D97A] shadow-[0_0_15px_rgba(34,217,122,0.2)]">
-                            <ShoppingCart size={16} />
-                        </div>
-
-                        {/* 2. Apple (Top Center-Left) */}
-                        <div className="absolute left-[65px] top-[-15px] w-9 h-9 rounded-full bg-[#131C20] border border-[#22D97A]/20 flex items-center justify-center text-[#22D97A] shadow-[0_0_12px_rgba(34,217,122,0.15)]">
-                            <Apple size={15} />
-                        </div>
-
-                        {/* 3. Coin (Top Center-Right) */}
-                        <div className="absolute right-[65px] top-[-15px] w-9 h-9 rounded-full bg-[#131C20] border border-[#22D97A]/30 flex items-center justify-center text-[#22D97A] shadow-[0_0_15px_rgba(34,217,122,0.25)]">
-                            <DollarSign size={15} />
-                        </div>
-
-                        {/* 4. Milk Bottle (Top Right) */}
-                        <div className="absolute right-[5px] top-[15px] w-10 h-10 rounded-full bg-[#131C20] border border-[#22D97A]/20 flex items-center justify-center text-[#22D97A] shadow-[0_0_12px_rgba(34,217,122,0.15)]">
-                            <Milk size={16} />
-                        </div>
-
-                        {/* 5. Receipt (Middle Right) */}
-                        <div className="absolute right-[-15px] top-[80px] w-10 h-10 rounded-full bg-[#131C20] border border-[#22D97A]/20 flex items-center justify-center text-[#22D97A] shadow-[0_0_12px_rgba(34,217,122,0.15)]">
-                            <Receipt size={16} />
-                        </div>
-
-                        {/* 6. Coin (Bottom Right) */}
-                        <div className="absolute right-[15px] bottom-[20px] w-9 h-9 rounded-full bg-[#131C20] border border-[#22D97A]/30 flex items-center justify-center text-[#22D97A] shadow-[0_0_15px_rgba(34,217,122,0.25)]">
-                            <DollarSign size={14} />
-                        </div>
-
-                        {/* 7. Coin (Bottom Left) */}
-                        <div className="absolute left-[15px] bottom-[20px] w-9 h-9 rounded-full bg-[#131C20] border border-[#22D97A]/30 flex items-center justify-center text-[#22D97A] shadow-[0_0_15px_rgba(34,217,122,0.25)]">
-                            <DollarSign size={14} />
-                        </div>
-
-                        {/* 8. Milk Bottle (Middle Left) */}
-                        <div className="absolute left-[-15px] top-[125px] w-10 h-10 rounded-full bg-[#131C20] border border-[#22D97A]/20 flex items-center justify-center text-[#22D97A] shadow-[0_0_12px_rgba(34,217,122,0.15)]">
-                            <Milk size={16} />
-                        </div>
-
-                        {/* 9. Apple (Middle Left-Top) */}
-                        <div className="absolute left-[-15px] top-[70px] w-9 h-9 rounded-full bg-[#131C20] border border-[#22D97A]/20 flex items-center justify-center text-[#22D97A] shadow-[0_0_12px_rgba(34,217,122,0.15)]">
-                            <Apple size={15} />
-                        </div>
 
                         {/* Logo Container */}
                         <div className="relative w-36 h-36 bg-[#131C20] border-2 border-brand-primary rounded-[36px] flex items-center justify-center shadow-[0_0_40px_rgba(34,217,122,0.35)] z-10 overflow-hidden">
