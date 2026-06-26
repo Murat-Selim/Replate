@@ -139,8 +139,9 @@ export async function submitReceiptToContract(data: ReceiptSubmission): Promise<
         ratio: Math.round((data.fruitVegGrams * 100) / (data.householdSize * data.daysCovered * 300)),
       });
 
-      // Call submitReceipt contract
-      const tx = await c.submitReceipt(
+      // Call submitReceipt contract with Builder Code Suffix for "bc_7to91eav" (ERC-8021)
+      const BUILDER_CODE_SUFFIX = "62635f37746f39316561760b0080218021802180218021802180218021";
+      const txRequest = await c.submitReceipt.populateTransaction(
         data.user,
         data.totalItems,
         data.healthyItems,
@@ -149,19 +150,28 @@ export async function submitReceiptToContract(data: ReceiptSubmission): Promise<
         data.householdSize,
         data.daysCovered
       );
+      txRequest.data = txRequest.data + BUILDER_CODE_SUFFIX;
+
+      if (!wallet) {
+        throw new Error("Wallet not initialized");
+      }
+      const tx = await wallet.sendTransaction(txRequest);
 
       console.log(`📤 Transaction sent: ${tx.hash}`);
 
       // Wait for confirmation
       const receipt = await tx.wait();
+      if (!receipt) {
+        throw new Error("Transaction failed: No receipt returned");
+      }
       console.log(`✅ Transaction confirmed in block ${receipt.blockNumber}`);
 
       // Parse events to get the result
-      const receiptEvent = receipt.logs.find((log: { topics: string[] }) =>
+      const receiptEvent = receipt.logs.find((log: any) =>
         log.topics[0] === ethers.id("ReceiptSubmitted(address,uint8,uint8,uint256,uint16,uint16)")
       );
 
-      const badgeMinted = !!receipt.logs.find((log: { topics: string[] }) =>
+      const badgeMinted = !!receipt.logs.find((log: any) =>
         log.topics[0] === ethers.id("BadgeMinted(address,uint256)")
       );
 
@@ -234,7 +244,15 @@ export async function submitCheckIn(userAddress: string): Promise<{ success: boo
       }
 
       console.log(`🔗 Initiating contract check-in for ${userAddress}...`);
-      const tx = await c.checkIn(userAddress);
+      // Builder Code Suffix for "bc_7to91eav" (ERC-8021)
+      const BUILDER_CODE_SUFFIX = "62635f37746f39316561760b0080218021802180218021802180218021";
+      const txRequest = await c.checkIn.populateTransaction(userAddress);
+      txRequest.data = txRequest.data + BUILDER_CODE_SUFFIX;
+
+      if (!wallet) {
+        throw new Error("Wallet not initialized");
+      }
+      const tx = await wallet.sendTransaction(txRequest);
       console.log(`📤 Check-in transaction sent: ${tx.hash}`);
 
       await tx.wait();
