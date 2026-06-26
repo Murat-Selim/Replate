@@ -26,12 +26,12 @@ interface ContractResult {
 }
 
 const getRpcList = (): string[] => {
-  const rpcUrl = process.env.RPC_URL || process.env.BASE_SEPOLIA_RPC_URL;
+  const rpcUrl = process.env.RPC_URL || process.env.BASE_RPC_URL;
   return [
     rpcUrl,
-    "https://sepolia.base.org",
-    "https://base-sepolia.publicnode.com",
-    "https://endpoints.omniatech.io/v1/base/sepolia/public"
+    "https://mainnet.base.org",
+    "https://base-rpc.publicnode.com",
+    "https://base.meowrpc.com"
   ].filter(Boolean) as string[];
 };
 
@@ -116,7 +116,7 @@ function getContract(): Contract {
  */
 export async function submitReceiptToContract(data: ReceiptSubmission): Promise<ContractResult> {
   // Check if we have valid RPC URL and private key
-  const rpcUrl = process.env.RPC_URL || process.env.BASE_SEPOLIA_RPC_URL;
+  const rpcUrl = process.env.RPC_URL || process.env.BASE_RPC_URL;
   const privateKey = process.env.VALIDATOR_PRIVATE_KEY || process.env.PRIVATE_KEY;
 
   if (!rpcUrl || !privateKey) {
@@ -210,7 +210,7 @@ export async function submitReceiptToContract(data: ReceiptSubmission): Promise<
  * Submit daily check-in for a user
  */
 export async function submitCheckIn(userAddress: string): Promise<{ success: boolean; pointsEarned: number }> {
-  const rpcUrl = process.env.RPC_URL || process.env.BASE_SEPOLIA_RPC_URL;
+  const rpcUrl = process.env.RPC_URL || process.env.BASE_RPC_URL;
   const privateKey = process.env.VALIDATOR_PRIVATE_KEY || process.env.PRIVATE_KEY;
 
   if (!rpcUrl || !privateKey) {
@@ -257,7 +257,7 @@ export async function submitCheckIn(userAddress: string): Promise<{ success: boo
  * Finalize a user's weekly streak
  */
 export async function finalizeUserWeek(userAddress: string): Promise<{ success: boolean; newStreak: number }> {
-  const rpcUrl = process.env.RPC_URL || process.env.BASE_SEPOLIA_RPC_URL;
+  const rpcUrl = process.env.RPC_URL || process.env.BASE_RPC_URL;
   const privateKey = process.env.VALIDATOR_PRIVATE_KEY || process.env.PRIVATE_KEY;
 
   if (!rpcUrl || !privateKey) {
@@ -297,7 +297,7 @@ export async function distributeWeeklyRewards(
   topUsers: string[],
   shares: bigint[]
 ): Promise<{ success: boolean; totalDistributed: bigint }> {
-  const rpcUrl = process.env.RPC_URL || process.env.BASE_SEPOLIA_RPC_URL;
+  const rpcUrl = process.env.RPC_URL || process.env.BASE_RPC_URL;
   const privateKey = process.env.VALIDATOR_PRIVATE_KEY || process.env.PRIVATE_KEY;
 
   if (!rpcUrl || !privateKey) {
@@ -320,7 +320,7 @@ export async function distributeWeeklyRewards(
  * Get user summary from contract
  */
 export async function getUserSummary(userAddress: string) {
-  const rpcUrl = process.env.RPC_URL || process.env.BASE_SEPOLIA_RPC_URL;
+  const rpcUrl = process.env.RPC_URL || process.env.BASE_RPC_URL;
   const privateKey = process.env.VALIDATOR_PRIVATE_KEY || process.env.PRIVATE_KEY;
 
   if (!rpcUrl || !privateKey) {
@@ -509,7 +509,7 @@ async function queryFilterWithChunking(
  * then fetching on-chain getUserSummary for each unique user.
  */
 export async function getLeaderboard(limit: number = 100): Promise<LeaderboardEntry[]> {
-  const rpcUrl = process.env.BASE_SEPOLIA_RPC_URL || process.env.RPC_URL || process.env.BASE_RPC_URL;
+  const rpcUrl = process.env.RPC_URL || process.env.BASE_RPC_URL;
 
   if (!rpcUrl) {
     console.log("⚠️ No RPC_URL available, returning mock leaderboard");

@@ -3,6 +3,7 @@ import "@nomicfoundation/hardhat-toolbox";
 import "@openzeppelin/hardhat-upgrades";
 import * as dotenv from "dotenv";
 
+dotenv.config({ path: ".env" });
 dotenv.config({ path: ".env.local" });
 
 const PRIVATE_KEY = process.env.VALIDATOR_PRIVATE_KEY || "0x0000000000000000000000000000000000000000000000000000000000000000";

@@ -11,7 +11,10 @@ function getVisionClient(): ImageAnnotatorClient {
         visionClient = new ImageAnnotatorClient({ credentials });
       } catch (error) {
         console.error("❌ Failed to parse GOOGLE_CREDENTIALS_JSON:", error);
-        visionClient = new ImageAnnotatorClient();
+        throw new Error(
+          "GOOGLE_CREDENTIALS_JSON is set but contains invalid JSON. " +
+          "Fix the env var or set USE_MOCK_OCR=true for development."
+        );
       }
     } else {
       visionClient = new ImageAnnotatorClient();
@@ -91,49 +94,65 @@ export async function processOCR(imageBase64: string): Promise<OCRResult> {
 
 /**
  * Mock OCR for development without Google Cloud credentials.
- * Includes a realistic mix of healthy and unhealthy items to properly
- * exercise Replate's health scoring and classification logic.
+ * Uses a realistic Turkish grocery receipt (Migros/BİM format) to properly
+ * exercise Replate's Turkish keyword classification, KDV patterns,
+ * weight extraction, and SKIP_PATTERNS logic.
  */
 function mockOCR(): OCRResult {
   const mockLines = [
-    // Store header
-    "WHOLE FOODS MARKET",
-    "123 Main Street, San Francisco CA",
-    "Tel: (415) 555-0100",
-    "Date: 2024-01-15  Time: 14:32",
-    "Cashier: #4  Register: 02",
+    // Store header — should be skipped by SKIP_PATTERNS
+    "MİGROS TİCARET A.Ş.",
+    "Migros Jet ESENYURT",
+    "ADRES: Cumhuriyet MH. Atatürk CAD.",
+    "VKN: 1234567890",
+    "TARIH: 15.01.2024  SAAT: 14:32",
+    "KASA NO: 04  KASİYER: 12",
     "--------------------------------",
 
-    // Healthy items
-    "Organic Bananas       1.2lb  $1.44",
-    "Baby Spinach 5oz             $3.99",
-    "Avocados 2ct                 $4.00",
-    "Greek Yogurt 32oz            $5.99",
-    "Chicken Breast 1lb           $8.99",
-    "Brown Rice 2lb               $4.49",
-    "Broccoli Crown 1lb           $2.49",
-    "Carrots 2lb Bag              $1.99",
-    "Extra Virgin Olive Oil 500ml $9.99",
-    "Blueberries 6oz              $4.49",
-    "Salmon Fillet 0.8lb          $9.59",
+    // Healthy items — fruits & vegetables with Turkish receipt format
+    "ELMA STARKING x109,50 TL/kg %01 *42,51",
+    "MUZ x72,50 TL/kg %01 *54,99",
+    "0.755",
+    "DOMATES x119,50 TL/kg %01 *51,39",
+    "0.430",
+    "LIMON %01 *14,43",
+    "0.145",
+    "PORTAKAL %01 *45,54",
+    "MAYDANOZ %01 *29,50",
+    "BIBER CARLISTON PAKET (300G) %01 *54,50",
+    "SALALIK %01 *73,13",
+    "0.475",
+    "PATATES x21,50 TL/kg *20,04",
+    "0.915",
+    "ARMUT DEVECI x99,50 TL/kg *54,74",
+
+    // Healthy items — protein & dairy
+    "BUTUN TAVUK POSETLI x125,00 TL/kg %01 *233,00",
+    "1.864",
+    "YUMURTA 15LI L 63-72 G %01 *99,00",
+    "SUT YAGLI 1 L BIRSAN %01 *46,00",
+    "CAY TURKAK 1 L BIRSAN %01 *149,95",
 
     // Unhealthy / processed items
-    "Coca-Cola 12pk               $6.99",
-    "Chips Ahoy Cookies           $3.49",
-    "Frozen Pepperoni Pizza       $5.99",
-    "Lay's Classic Chips 8oz      $4.29",
+    "SEKER TOZ 2000 G PETEK %01 *87,50",
+    "MARGARIN PAKET 250 G VERA %01 *23,00",
+    "BAR KAKAO KAPL. YER FISTIKLI %01 *8,00",
+    "KAHVE INS. 3U 1 ARADA 17.5 G N %01 *12,25",
+    "MEZE CIKOFTE 384 G COKCA %01 *32,50",
 
-    // Totals
+    // Non-food — should be skipped
+    "ALISVERIS POSETI %20 *4,00",
+
+    // Totals — should be skipped by SKIP_PATTERNS
     "--------------------------------",
-    "SUBTOTAL                    $77.72",
-    "TAX (8.5%)                   $6.61",
-    "TOTAL                       $84.33",
+    "ARA TOPLAM",
+    "TOPLAM                    *1.245,67",
+    "KDV %01                      *12,46",
+    "NAKIT                     *1.300,00",
+    "PARA USTU                    *54,33",
     "--------------------------------",
-    "CASH                       $100.00",
-    "CHANGE                      $15.67",
-    "--------------------------------",
-    "Thank you for shopping!",
-    "Receipt #: 20240115-00847",
+    "TESEKKUR EDERIZ",
+    "FIS NO: 20240115-00847",
   ];
 
   return {

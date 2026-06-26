@@ -8,6 +8,7 @@
     "start": "node server/index.ts",
     "compile": "cross-env TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat compile",
     "deploy": "cross-env TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat run scripts/deploy.cts --network baseSepolia",
+    "deploy:mainnet": "cross-env TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat run scripts/deploy.cts --network baseMainnet",
     "test:contracts": "cross-env TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat test",
     "verify": "cross-env TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat verify",
     "export-abi": "cross-env TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat run scripts/export-abi.cts"

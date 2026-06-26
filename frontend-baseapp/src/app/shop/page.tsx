@@ -263,7 +263,7 @@ export default function SmartShop() {
                                     >
                                         <Minus size={18} strokeWidth={2.5} />
                                     </button>
-                                    <span className="text-5xl font-black text-[#00E36E] w-16 text-center tabular-nums drop-shadow-[0_0_15px_rgba(0,227,110,0.2)]">
+                                    <span className="text-5xl font-black text-white w-16 text-center tabular-nums drop-shadow-[0_0_15px_rgba(255,255,255,0.1)]">
                                         {householdSize}
                                     </span>
                                     <button
@@ -288,7 +288,7 @@ export default function SmartShop() {
                                         <Minus size={18} strokeWidth={2.5} />
                                     </button>
                                     <div className="flex items-center w-20 justify-center">
-                                        <span className="text-5xl font-black text-[#00E36E] tabular-nums drop-shadow-[0_0_15px_rgba(0,227,110,0.2)] text-center">
+                                        <span className="text-5xl font-black text-white tabular-nums drop-shadow-[0_0_15px_rgba(255,255,255,0.1)] text-center">
                                             {duration}
                                         </span>
                                     </div>

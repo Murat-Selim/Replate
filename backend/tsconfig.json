@@ -10,6 +10,13 @@
     "resolveJsonModule": true,
     "declaration": false
   },
-  "include": ["api/**/*.ts", "server/**/*.ts", "src/lib/**/*.ts"],
+  "include": [
+    "api/**/*.ts",
+    "server/**/*.ts",
+    "src/lib/**/*.ts",
+    "hardhat.config.cts",
+    "hardhat.config.d.ts",
+    "scripts/**/*.cts"
+  ],
   "exclude": ["node_modules"]
 }

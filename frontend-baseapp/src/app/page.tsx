@@ -158,7 +158,7 @@ export default function Home() {
 
                         <div className="my-auto space-y-2 pt-2">
                             <span className="text-xs text-[#8c9790] font-bold uppercase tracking-wider block">Total Earned</span>
-                            <span className="text-4xl font-black text-[#00E36E] drop-shadow-[0_0_15px_rgba(0,227,110,0.25)]">
+                            <span className="text-4xl font-black text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.1)]">
                                 0 <span className="text-sm font-bold text-white ml-1">USDC</span>
                             </span>
                             
@@ -248,7 +248,7 @@ export default function Home() {
                         <div className="flex items-center justify-between my-auto pt-2">
                             <div className="space-y-2">
                                 <span className="text-xs text-[#8c9790] font-bold uppercase tracking-wider block">Total Rewards</span>
-                                <span className="text-4xl font-black text-[#00E36E] drop-shadow-[0_0_15px_rgba(0,227,110,0.25)] block">
+                                <span className="text-4xl font-black text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.1)] block">
                                     0 <span className="text-sm font-bold text-white ml-1">USDC</span>
                                 </span>
                                 <span className="text-[11px] text-[#8c9790] font-semibold block leading-none">

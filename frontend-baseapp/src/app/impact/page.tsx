@@ -218,7 +218,7 @@ export default function YourImpact() {
                                 </div>
                                 <div>
                                     <p className="text-[10px] font-black uppercase tracking-widest text-[#8c9790]/50">Total XP</p>
-                                    <p className="text-2xl sm:text-3xl font-black text-[#00E36E] tabular-nums">{userData.totalPoints.toLocaleString()}</p>
+                                    <p className="text-2xl sm:text-3xl font-black text-white tabular-nums">{userData.totalPoints.toLocaleString()}</p>
                                 </div>
                             </div>
 
@@ -228,7 +228,7 @@ export default function YourImpact() {
                                 </div>
                                 <div>
                                     <p className="text-[10px] font-black uppercase tracking-widest text-[#8c9790]/50">Nutrition</p>
-                                    <p className="text-2xl sm:text-3xl font-black text-[#00E36E] tabular-nums">{Math.round(nutritionScore)}</p>
+                                    <p className="text-2xl sm:text-3xl font-black text-white tabular-nums">{Math.round(nutritionScore)}</p>
                                 </div>
                             </div>
 
@@ -238,7 +238,7 @@ export default function YourImpact() {
                                 </div>
                                 <div>
                                     <p className="text-[10px] font-black uppercase tracking-widest text-[#8c9790]/50">Receipts</p>
-                                    <p className="text-2xl sm:text-3xl font-black text-[#00E36E] tabular-nums">{userData.receiptCount}</p>
+                                    <p className="text-2xl sm:text-3xl font-black text-white tabular-nums">{userData.receiptCount}</p>
                                 </div>
                             </div>
 
@@ -248,7 +248,7 @@ export default function YourImpact() {
                                 </div>
                                 <div>
                                     <p className="text-[10px] font-black uppercase tracking-widest text-[#8c9790]/50">Check-ins</p>
-                                    <p className="text-2xl sm:text-3xl font-black text-[#00E36E] tabular-nums">{userData.totalCheckIns}</p>
+                                    <p className="text-2xl sm:text-3xl font-black text-white tabular-nums">{userData.totalCheckIns}</p>
                                 </div>
                             </div>
                         </div>

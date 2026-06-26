@@ -135,7 +135,7 @@ export default function Leaderboard() {
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                                 <div className="space-y-1">
                                     <span className="text-[#8c9790] text-sm font-semibold">Weekly Prize Pool</span>
-                                    <p className="text-3xl font-black text-[#00E36E] drop-shadow-[0_0_12px_rgba(0,227,110,0.25)]">${(poolStatus.weeklyPool / 1e6).toFixed(2)} USDC</p>
+                                    <p className="text-3xl font-black text-white drop-shadow-[0_0_12px_rgba(255,255,255,0.1)]">${(poolStatus.weeklyPool / 1e6).toFixed(2)} USDC</p>
                                 </div>
                                 <div className="flex items-center gap-3">
                                     <div className="px-4 py-2 bg-[#00E36E]/15 border border-[#00E36E]/20 rounded-xl backdrop-blur-sm">
@@ -150,7 +150,7 @@ export default function Leaderboard() {
                             <TrendingUp size={22} />
                         </div>
                         <div>
-                            <p className="text-2xl font-black text-[#00E36E]">{leaders.length}</p>
+                            <p className="text-2xl font-black text-white">{leaders.length}</p>
                             <p className="text-xs font-bold text-[#8c9790]/70 uppercase tracking-wider">Total Players</p>
                         </div>
                     </div>

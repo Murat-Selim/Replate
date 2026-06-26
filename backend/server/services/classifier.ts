@@ -3,12 +3,22 @@ import axios from "axios";
 const OFF_API = "https://world.openfoodfacts.org/api/v2/product";
 const OFF_SEARCH = "https://world.openfoodfacts.org/api/v2/search";
 
-const offCache = new Map<string, ClassificationResult | null>();
+// Only create cache when OFF API is enabled
+const offCache = process.env.USE_OFF_API === "true"
+  ? new Map<string, ClassificationResult | null>()
+  : null;
+
+// Debug logging — suppressed in production
+const DEBUG = process.env.NODE_ENV !== "production";
+function debugLog(...args: unknown[]) {
+  if (DEBUG) console.log(...args);
+}
 
 const matchKeyword = (text: string, keyword: string): boolean => {
-  if (keyword.length <= 3) {
+  if (keyword.length <= 2) {
     const escaped = keyword.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
     // Enforce word boundaries including Turkish alphanumeric characters
+    // Only for very short keywords (≤2 chars like "su") to avoid false positives
     const regex = new RegExp(`(?:^|[^a-zA-Z0-9çğışöüÇĞİŞÖÜ])${escaped}(?:$|[^a-zA-Z0-9çğışöüÇĞİŞÖÜ])`, 'i');
     return regex.test(text);
   }
@@ -203,18 +213,18 @@ const UNHEALTHY_KEYWORDS = [
 // ─── Lines / keywords to fully SKIP (not a food product) ──────────────
 const SKIP_PATTERNS = [
   /^(TOTAL|SUBTOTAL|TAX|DATE|STORE|CASHIER|CHANGE|RECEIPT)/i,
-  /^(TOPLAM|KDV|FIS|SAAT|TARIH|ARA TOPLAM|ALISVERIS|NAKIT|BANKA)/i,
-  /^(BELGE|ETTN|FISC|KASA|DARA|ADET|ISKONTO|INDIRIM)/i,
+  /^(TOPLAM|KDV|FIS|FİŞ|SAAT|TARIH|ARA TOPLAM|ALISVERIS|ALIŞVERİŞ|NAKIT|BANKA)/i,
+  /^(BELGE|ETTN|FISC|KASA|DARA|ADET|ISKONTO|İSKONTO|INDIRIM|İNDİRİM)/i,
   /^\d{2}[./-]\d{2}[./-]\d{2,4}/, // dates
   /^[\d\/\-:,x\s]+$/,             // pure numbers / weight lines
   /^[*\-=]+$/,                     // separator lines
-  /^ALISVERIS POSET/i,             // bags (not food)
-  /\bPOSET\b$/i,                    // trailing POSET (bag line, not food)
+  /^ALI[SŞ]VERI[SŞ]\s*PO[SŞ]ET/i, // bags (not food)
+  /\bPO[SŞ]ET\b$/i,                // trailing POSET/POŞET (bag line, not food)
   /^TEL:|^FAX:/i,
-  /THANK|TESEKKUR/i,
+  /THANK|TE[SŞ]EKK[UÜ]R/i,
   
-  // New robust filters for receipt meta lines
-  /\b(MERSIS|VKN|VERGI|DAIRE|SICIL|ADRES|FATURA|E-ARSIV|EARSIV|GIB|KASIYER|KASAYER|TERMINAL|ISLEM|NUSHA|MUSTERI|BANKA|KREDI|KREDL|KART|KARTI|PUAN|BAKIYE|PROVIZYON|MATRAH|IADE|ODEME|BEKLERIZ|ILETISIM|YINE BEKLERIZ|TEL|FAX|WEB|EPOSTA|E-POSTA|TESEKKUR|ISYERI|UNVAN|TABELA|HOSGELDINIZ|HOŞGELDİNİZ|FIYAT|FIYATI|TUTAR|TUTARI|KDVSIZ|KDV'LI|KDVLI|MH|MAH|MAHALLESI|SOK|SOKAK|SOKAGI|SOKAĞI|CAD|CADDESI|NO|ILCE|ILCESI|IL|ILI|TURKIYE|TÜRKİYE|ESENYURT|USKLDAR|USKUDAR|ÜSKÜDAR|ISTANBUL|İSTANBUL|YAPI KREDI|YAPI KREDL|HACAZACILIK|HACIAZICILIK|ANONIM|SIRKETI|LTD|STI|ŞTİ|ARA TOPLAM|ARA TOPLAN|TOPEDY|TOPLAM)\b/i,
+  // Robust filters for receipt meta lines — all Turkish chars written literally
+  /\b(MERSIS|VKN|VERG[İI]|DAIRE|DAİRE|SICIL|SİCİL|ADRES|FATURA|E-ARŞİV|E-ARSIV|EARSIV|EARŞİV|GIB|GİB|KASİYER|KASIYER|KASAYER|TERMINAL|İŞLEM|ISLEM|NUSHA|NÜSHA|MÜŞTERİ|MUSTERI|BANKA|KREDİ|KREDI|KREDL|KART|KARTI|PUAN|BAKİYE|BAKIYE|PROVİZYON|PROVIZYON|MATRAH|İADE|IADE|ÖDEME|ODEME|BEKLERIZ|İLETİŞİM|ILETISIM|YINE BEKLERIZ|TEL|FAX|WEB|EPOSTA|E-POSTA|TEŞEKKÜR|TESEKKUR|İŞYERİ|ISYERI|UNVAN|TABELA|HOŞGELDİNİZ|HOSGELDINIZ|FİYAT|FIYAT|FİYATI|FIYATI|TUTAR|TUTARI|KDVSIZ|KDV'Lİ|KDVLI|MH|MAH|MAHALLESİ|MAHALLESI|SOK|SOKAK|SOKAĞI|SOKAGI|CAD|CADDESİ|CADDESI|NO|İLÇE|ILCE|İLÇESİ|ILCESI|İL|IL|İLİ|ILI|TÜRKİYE|TURKIYE|ESENYURT|ÜSKÜDAR|USKUDAR|İSTANBUL|ISTANBUL|YAPI KREDİ|YAPI KREDI|YAPI KREDL|ECZACILIK|HACIAZICILIK|ANONİM|ANONIM|ŞİRKETİ|SIRKETI|LTD|ŞTİ|STI|ARA TOPLAM|ARA TOPLAN|TOPEDY|TOPLAM)\b/i,
 ];
 
 // ─── Packaged / processed product keywords (to exclude from fresh fruit/veg grams) ───
@@ -273,14 +283,14 @@ export async function classifyFoods(lines: string[]): Promise<FoodClassification
 
   // Extract potential product lines with actual weights
   const productLines = extractProductLines(lines);
-  console.log(`🔍 Extracted ${productLines.length} product lines:`,
+  debugLog(`🔍 Extracted ${productLines.length} product lines:`,
     productLines.map(p => `${p.name}${p.actualWeightGrams ? ` (${p.actualWeightGrams}g)` : ''}`)
   );
 
   for (const item of productLines) {
     const classification = await classifyProduct(item.name, item.actualWeightGrams);
     products.push(classification);
-    console.log(`   → "${item.name}" => ${classification.category} (${classification.fruitVegGrams}g fruit/veg${item.actualWeightGrams ? ', actual weight' : ', estimated'})`);
+    debugLog(`   → "${item.name}" => ${classification.category} (${classification.fruitVegGrams}g fruit/veg${item.actualWeightGrams ? ', actual weight' : ', estimated'})`);
 
     if (classification.category === "healthy") {
       healthyItems++;
@@ -291,7 +301,7 @@ export async function classifyFoods(lines: string[]): Promise<FoodClassification
     fruitVegGrams += classification.fruitVegGrams;
   }
 
-  console.log(`📊 Final: ${productLines.length} total, ${healthyItems} healthy, ${unhealthyItems} unhealthy, ${fruitVegGrams}g fruit/veg`);
+  debugLog(`📊 Final: ${productLines.length} total, ${healthyItems} healthy, ${unhealthyItems} unhealthy, ${fruitVegGrams}g fruit/veg`);
 
   return {
     totalItems: productLines.length,
@@ -361,6 +371,7 @@ function extractProductLines(lines: string[]): ExtractedProduct[] {
         actualWeightGrams = kg * 1000 + grams;
       }
     }
+    // NOTE: We skip the weight line after pushing the product (see below)
 
     const hasProductSignal = hasPrice || hasKdvMarker || hasProductCode || hasUnitPrice || hasQuantityPrefix || hasWeightLineBelow;
 
@@ -428,6 +439,11 @@ function extractProductLines(lines: string[]): ExtractedProduct[] {
     }
 
     products.push({ name: cleaned, actualWeightGrams });
+
+    // Skip the weight line so it is not re-evaluated as a product
+    if (hasWeightLineBelow) {
+      i++;
+    }
   }
 
   return products;
@@ -435,36 +451,49 @@ function extractProductLines(lines: string[]): ExtractedProduct[] {
 
 // ─── Non-food products found on grocery receipts ──────────────────────
 const NON_FOOD_PATTERNS = [
-  /\b(PED|HIJYEN|PECETE|PE\u00c7ETE|HAVLU|KAGIT|KA\u011eIT|MENDIL|DETERJAN|SABUN|SAMPUAN|\u015eAMPUAN|DURULAY|YUMUSATICI|YUMU\u015eATICI|\u00c7AMA\u015eIR|CAMASIR|BULASIK|BULA\u015eIK)\b/i,
-  /\b(MOLPED|HOLPED|ORKID|KOTEX|ALWAYS|PRIMA|PAMPERS|HUGGIES)\b/i,
-  /\b(COP\s*POSET|\u00c7\u00d6P\s*PO\u015eET|TORBA|FIRIN TORBASI)\b/i,
-  /\b(AMPUL|PIL|BATARYA|LAMBA|DEODORANT|KREM|LOSYON|TIRNAK|DIS FIRCASI|DIS MACUNU|DIPMACUNU|TRA\u015e|TRAS)\b/i,
+  /\b(PED|HİJYEN|HIJYEN|PEÇETE|PECETE|HAVLU|KAĞIT|KAGIT|MENDİL|MENDIL|DETERJAN|SABUN|ŞAMPUAN|SAMPUAN|DURULAY|YUMUŞATICI|YUMUSATICI|ÇAMAŞIR|CAMASIR|BULAŞIK|BULASIK)\b/i,
+  /\b(MOLPED|HOLPED|ORKİD|ORKID|KOTEX|ALWAYS|PRİMA|PRIMA|PAMPERS|HUGGIES)\b/i,
+  /\b(ÇÖP\s*POŞET|COP\s*POSET|ÇÖP\s*PO[SŞ]ET|COP\s*PO[SŞ]ET|TORBA|FIRIN TORBASI)\b/i,
+  /\b(AMPUL|PİL|PIL|BATARYA|LAMBA|DEODORANT|KREM|LOSYON|TIRNAK|DİŞ FIR[CÇ]ASI|DIS FIRCASI|DİŞ MACUNU|DIS MACUNU|DIPMACUNU|TRAŞ|TRAS)\b/i,
 ];
 
 /**
  * Classify a single product line.
  * @param actualWeightGrams - Real weight from receipt (0 = use estimate)
  */
+// Pre-sort aliases by length (longest first) so more specific aliases match before shorter ones.
+// E.g. "elma granny smith" matches before "elma".
+const SORTED_ALIASES = Object.entries(TURKISH_PRODUCT_ALIASES)
+  .sort(([a], [b]) => b.length - a.length);
+
 async function classifyProduct(productName: string, actualWeightGrams: number = 0): Promise<ClassificationResult> {
   const normalized = productName.toLowerCase().trim();
 
-  // Step 1: Try to resolve Turkish aliases first
+  // Step 1: Try to resolve Turkish aliases (longest-first to prefer specific matches)
   let resolvedName = normalized;
-  for (const [alias, canonical] of Object.entries(TURKISH_PRODUCT_ALIASES)) {
+  for (const [alias, canonical] of SORTED_ALIASES) {
     if (normalized.includes(alias)) {
       resolvedName = canonical;
       break;
     }
   }
 
-  // Step 2: Check if this is a fruit/veg and calculate grams
-  let isFruitVeg = false;
-  let estimatedGrams = 0;
-
-  // Packaged/processed products do NOT count as fresh fruits & vegetables
-  const isProcessedOrComposite = PROCESSED_OR_COMPOSITE_KEYWORDS.some(kw =>
+  // Step 2: Check whitelist FIRST — healthy processed items (süt, yoğurt, ayran etc.)
+  // should not be penalized by the processed/composite check.
+  const isHealthyProcessedWhitelist = HEALTHY_PROCESSED_KEYWORDS.some(kw =>
     matchKeyword(normalized, kw)
   );
+
+  // Packaged/processed products do NOT count as fresh fruits & vegetables,
+  // BUT whitelisted healthy products (milk, yogurt, etc.) are exempt.
+  const isProcessedOrComposite = !isHealthyProcessedWhitelist &&
+    PROCESSED_OR_COMPOSITE_KEYWORDS.some(kw =>
+      matchKeyword(normalized, kw)
+    );
+
+  // Step 3: Check if this is a fruit/veg and calculate grams
+  let isFruitVeg = false;
+  let estimatedGrams = 0;
 
   if (!isProcessedOrComposite) {
     for (const [keyword, defaultGrams] of Object.entries(FRUIT_VEG_KEYWORDS)) {
@@ -482,18 +511,15 @@ async function classifyProduct(productName: string, actualWeightGrams: number = 
     fruitVegGrams = actualWeightGrams > 0 ? actualWeightGrams : estimatedGrams;
   }
 
-  // Step 3: Keyword classification using both original and resolved names
-  const isHealthyProcessedWhitelist = HEALTHY_PROCESSED_KEYWORDS.some(kw =>
-    matchKeyword(normalized, kw)
-  );
-
+  // Step 4: Keyword classification using both original and resolved names
   let isHealthy = HEALTHY_KEYWORDS.some(kw =>
     matchKeyword(resolvedName, kw) || matchKeyword(normalized, kw)
   );
 
-  // If a product contains processed keywords (like juice, sauce, jam) and is NOT in the healthy whitelist,
-  // we do not count it as healthy just because a raw fruit/veg ingredient is in the name.
-  if (isProcessedOrComposite && !isHealthyProcessedWhitelist) {
+  // If a product is processed/composite (and NOT whitelisted), restrict healthy
+  // classification to non-fruit/veg healthy keywords only. This prevents
+  // "portakal suyu" from being marked healthy just because of "portakal".
+  if (isProcessedOrComposite) {
     const nonFruitVegHealthyKeywords = HEALTHY_KEYWORDS.filter(kw => 
       !Object.keys(FRUIT_VEG_KEYWORDS).includes(kw)
     );
@@ -535,7 +561,7 @@ async function classifyProduct(productName: string, actualWeightGrams: number = 
     };
   }
 
-  // Step 4: Try Open Food Facts API for ambiguous items
+  // Step 5: Try Open Food Facts API for ambiguous items
   if (process.env.USE_OFF_API === "true") {
     try {
       const offResult = await queryOpenFoodFacts(productName);
@@ -560,9 +586,12 @@ async function classifyProduct(productName: string, actualWeightGrams: number = 
  * Query Open Food Facts API (with in-memory cache and 1-second timeout to prevent API hangs)
  */
 async function queryOpenFoodFacts(productName: string): Promise<ClassificationResult | null> {
+  // If OFF API is disabled, skip entirely (cache is also null)
+  if (!offCache) return null;
+
   const cacheKey = productName.toLowerCase().trim();
   if (offCache.has(cacheKey)) {
-    return offCache.get(cacheKey)!;
+    return offCache.get(cacheKey) ?? null;
   }
 
   try {

@@ -12,7 +12,7 @@ export function invalidateLeaderboardCache() {
 }
 
 export function setupEventListeners() {
-  const rpcUrl = process.env.RPC_URL || process.env.BASE_SEPOLIA_RPC_URL;
+  const rpcUrl = process.env.RPC_URL || process.env.BASE_RPC_URL;
   
   if (!rpcUrl) {
     console.log("⚠️ No RPC URL, skipping event listeners");
