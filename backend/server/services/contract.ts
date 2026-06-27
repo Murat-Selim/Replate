@@ -455,6 +455,7 @@ export interface LeaderboardEntry {
   hasBadge: boolean;
   totalCheckIns: number;
   receiptCount: number;
+  weeklyPoints: number;
 }
 
 // Contract deployment block on Base mainnet (never changes)
@@ -565,7 +566,10 @@ export async function getLeaderboard(limit: number = 100): Promise<LeaderboardEn
       const batch = addresses.slice(i, i + BATCH);
       const results = await Promise.allSettled(
         batch.map(async (addr) => {
-          const summary = await c.getUserSummary(addr);
+          const [summary, weekReport] = await Promise.all([
+            c.getUserSummary(addr),
+            c.getCurrentWeekReport(addr),
+          ]);
           const totalPoints = Number(summary?._totalPoints || summary?.[0] || 0);
 
           // Skip users with 0 points (never interacted)
@@ -579,6 +583,7 @@ export async function getLeaderboard(limit: number = 100): Promise<LeaderboardEn
             hasBadge: !!(summary?._hasBadge ?? summary?.[6] ?? false),
             totalCheckIns: Number(summary?._totalCheckIns || summary?.[4] || 0),
             receiptCount: Number(summary?._receiptCount || summary?.[5] || 0),
+            weeklyPoints: Number(weekReport?.weekPoints ?? weekReport?.[0] ?? 0),
           } as LeaderboardEntry;
         })
       );
@@ -617,6 +622,7 @@ export async function getUserRank(userAddress: string): Promise<LeaderboardEntry
       hasBadge: !!summary?._hasBadge,
       totalCheckIns: Number(summary?._totalCheckIns || 0),
       receiptCount: Number(summary?._receiptCount || 0),
+      weeklyPoints: 0,
     };
   } catch (error) {
     console.warn("⚠️ Failed to get user rank:", error);
@@ -651,11 +657,11 @@ export async function getUserWeekReport(userAddress: string) {
 
 function getMockLeaderboard(limit: number): LeaderboardEntry[] {
   const mock: LeaderboardEntry[] = [
-    { address: "0x1234567890abcdef1234567890abcdef12345678", totalPoints: 12500, level: 25, streak: 8, hasBadge: true, totalCheckIns: 30, receiptCount: 15 },
-    { address: "0x2345678901abcdef2345678901abcdef23456789", totalPoints: 10200, level: 20, streak: 5, hasBadge: true, totalCheckIns: 20, receiptCount: 10 },
-    { address: "0x3456789012abcdef3456789012abcdef34567890", totalPoints: 8500, level: 17, streak: 3, hasBadge: true, totalCheckIns: 15, receiptCount: 8 },
-    { address: "0x4567890123abcdef4567890123abcdef45678901", totalPoints: 7200, level: 14, streak: 2, hasBadge: false, totalCheckIns: 10, receiptCount: 5 },
-    { address: "0x5678901234abcdef5678901234abcdef56789012", totalPoints: 6500, level: 13, streak: 1, hasBadge: false, totalCheckIns: 5, receiptCount: 3 },
+    { address: "0x1234567890abcdef1234567890abcdef12345678", totalPoints: 12500, level: 25, streak: 8, hasBadge: true, totalCheckIns: 30, receiptCount: 15, weeklyPoints: 1200 },
+    { address: "0x2345678901abcdef2345678901abcdef23456789", totalPoints: 10200, level: 20, streak: 5, hasBadge: true, totalCheckIns: 20, receiptCount: 10, weeklyPoints: 950 },
+    { address: "0x3456789012abcdef3456789012abcdef34567890", totalPoints: 8500, level: 17, streak: 3, hasBadge: true, totalCheckIns: 15, receiptCount: 8, weeklyPoints: 600 },
+    { address: "0x4567890123abcdef4567890123abcdef45678901", totalPoints: 7200, level: 14, streak: 2, hasBadge: false, totalCheckIns: 10, receiptCount: 5, weeklyPoints: 400 },
+    { address: "0x5678901234abcdef5678901234abcdef56789012", totalPoints: 6500, level: 13, streak: 1, hasBadge: false, totalCheckIns: 5, receiptCount: 3, weeklyPoints: 200 },
   ];
   return mock.slice(0, limit);
 }

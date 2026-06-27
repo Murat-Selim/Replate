@@ -22,6 +22,7 @@ interface LeaderboardEntry {
     hasBadge: boolean;
     totalCheckIns: number;
     receiptCount: number;
+    weeklyPoints: number;
 }
 
 // Module-level cache — persists across navigations (no spinner on revisit)
@@ -36,27 +37,12 @@ export default function Leaderboard() {
 
     const getTabLeaders = () => {
         return leaders.map((user) => {
-            let points = user.totalPoints;
-            let streak = user.streak;
-            let level = user.level;
-
-            if (activeTab === "week") {
-                const charCodeSum = user.address.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
-                points = Math.floor((user.totalPoints * 0.12) + (charCodeSum % 150) + 50);
-                streak = Math.min(user.streak, 7);
-                level = Math.max(1, Math.floor(level / 3));
-            } else if (activeTab === "month") {
-                const charCodeSum = user.address.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
-                points = Math.floor((user.totalPoints * 0.45) + (charCodeSum % 400) + 150);
-                streak = Math.min(user.streak, 30);
-                level = Math.max(1, Math.floor(level / 1.5));
-            }
-
+            const points = activeTab === "week" ? user.weeklyPoints : user.totalPoints;
             return {
                 ...user,
                 displayPoints: points,
-                displayStreak: streak,
-                displayLevel: level,
+                displayStreak: user.streak,
+                displayLevel: user.level,
             };
         }).sort((a, b) => b.displayPoints - a.displayPoints)
           .map((user, index) => ({ ...user, displayRank: index + 1 }));

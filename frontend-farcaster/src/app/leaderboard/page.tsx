@@ -19,6 +19,7 @@ interface LeaderboardEntry {
     level: number;
     streak: number;
     hasBadge: boolean;
+    weeklyPoints: number;
     avatarUrl?: string;
 }
 
@@ -65,40 +66,59 @@ export default function Leaderboard() {
 
     // Get Mock/Static entries for zero-state representation matching mockup
     const getTabLeaders = () => {
-        if (leaders.length > 0) {
-            return leaders;
+        if (leaders.length === 0) {
+            // Fallback placeholder data with zeroed statistics and empty indicators
+            return [
+                {
+                    rank: 1,
+                    address: "-",
+                    totalPoints: 0,
+                    weeklyPoints: 0,
+                    level: 0,
+                    streak: 0,
+                    hasBadge: false,
+                    displayPoints: 0,
+                    displayRank: 1,
+                    avatarUrl: "https://api.dicebear.com/7.x/bottts/svg?seed=placeholder1"
+                },
+                {
+                    rank: 2,
+                    address: "-",
+                    totalPoints: 0,
+                    weeklyPoints: 0,
+                    level: 0,
+                    streak: 0,
+                    hasBadge: false,
+                    displayPoints: 0,
+                    displayRank: 2,
+                    avatarUrl: "https://api.dicebear.com/7.x/bottts/svg?seed=placeholder2"
+                },
+                {
+                    rank: 3,
+                    address: "-",
+                    totalPoints: 0,
+                    weeklyPoints: 0,
+                    level: 0,
+                    streak: 0,
+                    hasBadge: false,
+                    displayPoints: 0,
+                    displayRank: 3,
+                    avatarUrl: "https://api.dicebear.com/7.x/bottts/svg?seed=placeholder3"
+                }
+            ];
         }
 
-        // Fallback placeholder data with zeroed statistics and empty indicators
-        return [
-            {
-                rank: 1,
-                address: "-",
-                totalPoints: 0,
-                level: 0,
-                streak: 0,
-                hasBadge: false,
-                avatarUrl: "https://api.dicebear.com/7.x/bottts/svg?seed=placeholder1"
-            },
-            {
-                rank: 2,
-                address: "-",
-                totalPoints: 0,
-                level: 0,
-                streak: 0,
-                hasBadge: false,
-                avatarUrl: "https://api.dicebear.com/7.x/bottts/svg?seed=placeholder2"
-            },
-            {
-                rank: 3,
-                address: "-",
-                totalPoints: 0,
-                level: 0,
-                streak: 0,
-                hasBadge: false,
-                avatarUrl: "https://api.dicebear.com/7.x/bottts/svg?seed=placeholder3"
-            }
-        ];
+        return leaders.map((user) => {
+            const points = activeTab === "week" ? user.weeklyPoints : user.totalPoints;
+            return {
+                ...user,
+                displayPoints: points,
+            };
+        }).sort((a, b) => b.displayPoints - a.displayPoints)
+          .map((user, index) => ({
+              ...user,
+              displayRank: index + 1,
+          }));
     };
 
     const getRankIcon = (rank: number) => {
@@ -117,7 +137,7 @@ export default function Leaderboard() {
     const currentTabLeaders = getTabLeaders();
 
     // Check if the current user is ranked in our current list
-    const myRankEntry = leaders.find(l => l.address.toLowerCase() === userAddress);
+    const myRankEntry = currentTabLeaders.find(l => l.address.toLowerCase() === userAddress);
 
     return (
         <Shell>
@@ -171,12 +191,12 @@ export default function Leaderboard() {
                     <div className="space-y-3">
                         {currentTabLeaders.slice(0, 3).map((user) => (
                             <div
-                                key={user.rank}
+                                key={user.address}
                                 className="flex items-center justify-between p-4 rounded-[22px] glass-card border border-[#22D97A]/10 hover:border-[#22D97A]/25 transition-all"
                             >
                                 <div className="flex items-center gap-3.5">
                                     {/* Rank badge */}
-                                    {getRankIcon(user.rank)}
+                                    {getRankIcon(user.displayRank || user.rank)}
                                     
                                     {/* Avatar */}
                                     <div className="w-10 h-10 rounded-full overflow-hidden border border-[#22D97A]/10 bg-[#131C20]">
@@ -193,7 +213,7 @@ export default function Leaderboard() {
                                             {user.address.includes("#") ? user.address : formatAddress(user.address)}
                                         </span>
                                         <span className="text-[10px] text-[#22D97A] font-extrabold tracking-wider">
-                                            {user.totalPoints} XP
+                                            {user.displayPoints !== undefined ? user.displayPoints : user.totalPoints} XP
                                         </span>
                                     </div>
                                 </div>
@@ -220,7 +240,7 @@ export default function Leaderboard() {
                         <div className="flex items-center gap-4">
                             {/* Rank badge */}
                             <div className="w-6 h-6 rounded-full bg-[#1E2A2F] border border-white/5 text-[#A6B0B5] flex items-center justify-center font-black text-xs font-heading">
-                                {myRankEntry ? myRankEntry.rank : "-"}
+                                {myRankEntry ? (myRankEntry.displayRank || myRankEntry.rank) : "-"}
                             </div>
                             
                             {/* User details */}
@@ -229,7 +249,7 @@ export default function Leaderboard() {
                                     {myRankEntry ? formatAddress(myRankEntry.address) : "-"}
                                 </span>
                                 <span className="text-[10px] text-[#A6B0B5] font-bold">
-                                    {myRankEntry ? `${myRankEntry.totalPoints} XP` : "0 XP"}
+                                    {myRankEntry ? `${myRankEntry.displayPoints !== undefined ? myRankEntry.displayPoints : myRankEntry.totalPoints} XP` : "0 XP"}
                                 </span>
                             </div>
                         </div>
