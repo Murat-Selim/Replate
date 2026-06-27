@@ -1,5 +1,7 @@
 import { Router, Request, Response } from "express";
 import { submitCheckIn } from "../services/contract.js";
+import { trackUser } from "../services/user-tracker.js";
+import { clearLeaderboardCache } from "./leaderboard.js";
 
 const router = Router();
 
@@ -36,6 +38,10 @@ router.post("/", async (req: Request, res: Response) => {
                 newStreak: 1, // This would come from the contract in production
             },
         };
+
+        // Track user and refresh leaderboard
+        trackUser(userAddress);
+        clearLeaderboardCache();
 
         res.json(response);
     } catch (error) {

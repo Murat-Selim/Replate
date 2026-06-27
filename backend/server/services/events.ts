@@ -3,11 +3,8 @@ import { REPLATE_QUEST_ABI, CONTRACT_ADDRESS } from "../../src/lib/contract.js";
 
 export function invalidateLeaderboardCache() {
   import("../routes/leaderboard.js").then((module) => {
-    if (module.cachedLeaderboard) {
-      module.cachedLeaderboard = null;
-      module.cacheTimestamp = 0;
-      console.log("🔄 Leaderboard cache invalidated");
-    }
+    module.clearLeaderboardCache();
+    console.log("🔄 Leaderboard cache invalidated");
   }).catch(console.error);
 }
 

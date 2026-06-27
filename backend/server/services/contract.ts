@@ -453,20 +453,25 @@ export interface LeaderboardEntry {
   level: number;
   streak: number;
   hasBadge: boolean;
+  totalCheckIns: number;
+  receiptCount: number;
 }
 
-// Contract deployment block on Base Sepolia (never changes)
-const CONTRACT_DEPLOY_BLOCK = 38997383;
+// Contract deployment block on Base mainnet (never changes)
+const CONTRACT_DEPLOY_BLOCK = 47849426;
 function getMaxBlockRange(url: string): number {
   const lowerUrl = url.toLowerCase();
   if (lowerUrl.includes("tenderly.co")) {
     return 0; // 0 means no chunking (full history in one query)
   }
-  if (lowerUrl.includes("publicnode.com")) {
-    return 45000;
+  if (lowerUrl.includes("publicnode.com") || lowerUrl.includes("base.org")) {
+    return 5000; // Stay well under the 10,000 block limit enforced by these RPCs
   }
   if (lowerUrl.includes("drpc.org")) {
     return 50000;
+  }
+  if (lowerUrl.includes("meowrpc.com")) {
+    return 5000;
   }
   return 2000;
 }
@@ -489,7 +494,7 @@ async function queryFilterAll(
       return await c.queryFilter(filter, fromBlock, toBlock);
     } catch (e: any) {
       console.warn(`⚠️ queryFilter full range query failed, falling back to chunking: ${e.message}`);
-      return queryFilterWithChunking(c, filter, fromBlock, toBlock, 45000);
+      return queryFilterWithChunking(c, filter, fromBlock, toBlock, 5000);
     }
   }
 
@@ -523,8 +528,9 @@ async function queryFilterWithChunking(
 }
 
 /**
- * Get leaderboard by scanning ALL contract events since deploy,
- * then fetching on-chain getUserSummary for each unique user.
+ * Get leaderboard by fetching getUserSummary for each known user.
+ * Uses the local user tracker instead of scanning contract events
+ * (which requires archive RPC access not available on free public nodes).
  */
 export async function getLeaderboard(limit: number = 100): Promise<LeaderboardEntry[]> {
   const rpcUrl = process.env.RPC_URL || process.env.BASE_RPC_URL;
@@ -536,49 +542,22 @@ export async function getLeaderboard(limit: number = 100): Promise<LeaderboardEn
 
   try {
     const connection = new ethers.FetchRequest(rpcUrl);
-    connection.timeout = 15000; // 15 seconds request timeout
-    const provider = new ethers.JsonRpcProvider(connection);
+    connection.timeout = 15000;
+    const readProvider = new ethers.JsonRpcProvider(connection);
     const contractAddr = process.env.CONTRACT_ADDRESS || CONTRACT_ADDRESS;
-    const c = new Contract(contractAddr, REPLATE_QUEST_ABI, provider);
+    const c = new Contract(contractAddr, REPLATE_QUEST_ABI, readProvider);
 
-    console.log(`📡 Fetching live leaderboard from ${contractAddr}...`);
+    // Get known users from the local tracker
+    const { getKnownUsers } = await import("./user-tracker.js");
+    const addresses = getKnownUsers();
 
-    const latestBlock = await provider.getBlockNumber();
-    console.log(`🔎 Scanning blocks ${CONTRACT_DEPLOY_BLOCK} → ${latestBlock}...`);
+    console.log(`📡 Fetching leaderboard for ${addresses.length} known users from ${contractAddr}...`);
 
-    // Fetch sequentially to prevent concurrent request rate limits on public RPCs
-    const receiptEvents = await queryFilterAll(c, c.filters.ReceiptSubmitted(), CONTRACT_DEPLOY_BLOCK, latestBlock, rpcUrl);
-    const checkInEvents = await queryFilterAll(c, c.filters.CheckedIn(), CONTRACT_DEPLOY_BLOCK, latestBlock, rpcUrl);
-    const badgeEvents = await queryFilterAll(c, c.filters.BadgeMinted(), CONTRACT_DEPLOY_BLOCK, latestBlock, rpcUrl);
-
-    console.log(
-      `📊 Found: ${receiptEvents.length} receipts, ${checkInEvents.length} check-ins, ${badgeEvents.length} badges`
-    );
-
-    // Build set of unique user addresses
-    const userSet = new Set<string>();
-    for (const ev of [...receiptEvents, ...checkInEvents, ...badgeEvents]) {
-      if ('args' in ev && ev.args[0]) {
-        userSet.add((ev.args[0] as string).toLowerCase());
-      }
-    }
-
-    console.log(`👥 Unique users found: ${userSet.size}`);
-
-    if (userSet.size === 0) {
+    if (addresses.length === 0) {
       return [];
     }
 
-    // Badge set for quick lookup
-    const badgeSet = new Set<string>();
-    for (const ev of badgeEvents) {
-      if ('args' in ev && ev.args[0]) {
-        badgeSet.add((ev.args[0] as string).toLowerCase());
-      }
-    }
-
-    // Fetch on-chain summary for every user (in parallel, batched)
-    const addresses = Array.from(userSet);
+    // Fetch on-chain summary for every known user (batched)
     const BATCH = 10;
     const entries: LeaderboardEntry[] = [];
 
@@ -586,43 +565,32 @@ export async function getLeaderboard(limit: number = 100): Promise<LeaderboardEn
       const batch = addresses.slice(i, i + BATCH);
       const results = await Promise.allSettled(
         batch.map(async (addr) => {
-          try {
-            const summary = await c.getUserSummary(addr);
-            return {
-              address: addr,
-              totalPoints: Number(summary?._totalPoints || 0),
-              level: Number(summary?._level || 0),
-              streak: Number(summary?._receiptStreak || summary?._checkInStreak || 0),
-              hasBadge: badgeSet.has(addr),
-            } as LeaderboardEntry;
-          } catch {
-            // Fallback: tally points from events
-            let points = 0;
-            for (const ev of receiptEvents) {
-              if ('args' in ev && (ev.args[0] as string).toLowerCase() === addr) {
-                points += Number(ev.args[3] || 0);
-              }
-            }
-            for (const ev of checkInEvents) {
-              if ('args' in ev && (ev.args[0] as string).toLowerCase() === addr) {
-                points += Number(ev.args[3] || 0); // pointsEarned from CheckedIn
-              }
-            }
-            return {
-              address: addr,
-              totalPoints: points,
-              level: Math.floor(points / 500),
-              streak: 0,
-              hasBadge: badgeSet.has(addr),
-            } as LeaderboardEntry;
-          }
+          const summary = await c.getUserSummary(addr);
+          const totalPoints = Number(summary?._totalPoints || summary?.[0] || 0);
+
+          // Skip users with 0 points (never interacted)
+          if (totalPoints === 0) return null;
+
+          return {
+            address: addr,
+            totalPoints,
+            level: Number(summary?._level || summary?.[1] || 0),
+            streak: Number(summary?._receiptStreak || summary?.[2] || summary?._checkInStreak || summary?.[3] || 0),
+            hasBadge: !!(summary?._hasBadge ?? summary?.[6] ?? false),
+            totalCheckIns: Number(summary?._totalCheckIns || summary?.[4] || 0),
+            receiptCount: Number(summary?._receiptCount || summary?.[5] || 0),
+          } as LeaderboardEntry;
         })
       );
 
       for (const r of results) {
-        if (r.status === "fulfilled") entries.push(r.value);
+        if (r.status === "fulfilled" && r.value !== null) {
+          entries.push(r.value);
+        }
       }
     }
+
+    console.log(`✅ Leaderboard built: ${entries.length} active users`);
 
     return entries
       .sort((a, b) => b.totalPoints - a.totalPoints)
@@ -647,6 +615,8 @@ export async function getUserRank(userAddress: string): Promise<LeaderboardEntry
       level: Number(summary?._level || 0),
       streak: Number(summary?._receiptStreak || 0),
       hasBadge: !!summary?._hasBadge,
+      totalCheckIns: Number(summary?._totalCheckIns || 0),
+      receiptCount: Number(summary?._receiptCount || 0),
     };
   } catch (error) {
     console.warn("⚠️ Failed to get user rank:", error);
@@ -681,11 +651,11 @@ export async function getUserWeekReport(userAddress: string) {
 
 function getMockLeaderboard(limit: number): LeaderboardEntry[] {
   const mock: LeaderboardEntry[] = [
-    { address: "0x1234567890abcdef1234567890abcdef12345678", totalPoints: 12500, level: 25, streak: 8, hasBadge: true },
-    { address: "0x2345678901abcdef2345678901abcdef23456789", totalPoints: 10200, level: 20, streak: 5, hasBadge: true },
-    { address: "0x3456789012abcdef3456789012abcdef34567890", totalPoints: 8500, level: 17, streak: 3, hasBadge: true },
-    { address: "0x4567890123abcdef4567890123abcdef45678901", totalPoints: 7200, level: 14, streak: 2, hasBadge: false },
-    { address: "0x5678901234abcdef5678901234abcdef56789012", totalPoints: 6500, level: 13, streak: 1, hasBadge: false },
+    { address: "0x1234567890abcdef1234567890abcdef12345678", totalPoints: 12500, level: 25, streak: 8, hasBadge: true, totalCheckIns: 30, receiptCount: 15 },
+    { address: "0x2345678901abcdef2345678901abcdef23456789", totalPoints: 10200, level: 20, streak: 5, hasBadge: true, totalCheckIns: 20, receiptCount: 10 },
+    { address: "0x3456789012abcdef3456789012abcdef34567890", totalPoints: 8500, level: 17, streak: 3, hasBadge: true, totalCheckIns: 15, receiptCount: 8 },
+    { address: "0x4567890123abcdef4567890123abcdef45678901", totalPoints: 7200, level: 14, streak: 2, hasBadge: false, totalCheckIns: 10, receiptCount: 5 },
+    { address: "0x5678901234abcdef5678901234abcdef56789012", totalPoints: 6500, level: 13, streak: 1, hasBadge: false, totalCheckIns: 5, receiptCount: 3 },
   ];
   return mock.slice(0, limit);
 }

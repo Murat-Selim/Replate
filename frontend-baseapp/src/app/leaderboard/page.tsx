@@ -20,11 +20,16 @@ interface LeaderboardEntry {
     level: number;
     streak: number;
     hasBadge: boolean;
+    totalCheckIns: number;
+    receiptCount: number;
 }
 
+// Module-level cache — persists across navigations (no spinner on revisit)
+let cachedLeaders: LeaderboardEntry[] | null = null;
+
 export default function Leaderboard() {
-    const [leaders, setLeaders] = useState<LeaderboardEntry[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const [leaders, setLeaders] = useState<LeaderboardEntry[]>(cachedLeaders || []);
+    const [isLoading, setIsLoading] = useState(cachedLeaders === null);
     const [activeTab, setActiveTab] = useState<"week" | "month" | "all">("week");
     const { address } = useAccount();
     const userAddress = address?.toLowerCase() || null;
@@ -79,6 +84,7 @@ export default function Leaderboard() {
                 const data = await response.json();
 
                 if (data.success) {
+                    cachedLeaders = data.data; // Update module-level cache
                     setLeaders(data.data);
                 }
             } catch (err) {
@@ -222,7 +228,7 @@ export default function Leaderboard() {
                                                     isCurrentUser ? "text-[#050806]/70 font-semibold" : "text-[#8c9790]"
                                                 }`}
                                             >
-                                                🔥 {user.displayStreak} day streak · Lvl {user.displayLevel}
+                                                🔥 {user.displayStreak} streak · 📋 {user.receiptCount || 0} · ✅ {user.totalCheckIns || 0}
                                             </p>
                                         </div>
                                     </div>

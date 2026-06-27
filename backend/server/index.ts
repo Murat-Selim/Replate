@@ -10,6 +10,8 @@ import userRouter from "./routes/user.js";
 import checkInRouter from "./routes/check-in.js";
 import { runWeeklyFinalization } from "./cron/weekly.js";
 import { setupEventListeners, invalidateLeaderboardCache } from "./services/events.js";
+import { warmLeaderboardCache } from "./routes/leaderboard.js";
+import { loadKnownUsers } from "./services/user-tracker.js";
 
 dotenv.config();
 
@@ -84,6 +86,10 @@ if (process.env.NODE_ENV !== "production" || !process.env.VERCEL) {
     if (!process.env.VERCEL) {
       setupEventListeners();
     }
+
+    // Load known users from disk, then pre-warm the leaderboard cache
+    loadKnownUsers();
+    warmLeaderboardCache();
   });
 }
 
