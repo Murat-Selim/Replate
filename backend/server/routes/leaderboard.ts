@@ -5,6 +5,7 @@ import {
   getPoolStatus,
   LeaderboardEntry,
 } from "../services/contract.js";
+import { trackUser } from "../services/user-tracker.js";
 
 const router = Router();
 
@@ -128,8 +129,11 @@ router.get("/rank/:address", async (req: Request, res: Response) => {
       return;
     }
 
+    const normalizedAddress = address.toLowerCase();
+    trackUser(normalizedAddress);
+
     const [userData, { entries }] = await Promise.all([
-      getUserRank(address),
+      getUserRank(normalizedAddress),
       getOrRefreshCache(),
     ]);
 
@@ -150,7 +154,6 @@ router.get("/rank/:address", async (req: Request, res: Response) => {
       return;
     }
 
-    const normalizedAddress = address.toLowerCase();
     const index = entries.findIndex(
       (e) => e.address.toLowerCase() === normalizedAddress
     );
