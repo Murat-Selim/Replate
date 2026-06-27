@@ -5,8 +5,10 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Persistent file to store known user addresses
-const USERS_FILE = path.resolve(__dirname, "../../.known-users.json");
+// Use /tmp on Vercel since the main filesystem is read-only
+const USERS_FILE = process.env.VERCEL
+  ? "/tmp/.known-users.json"
+  : path.resolve(__dirname, "../../.known-users.json");
 
 let knownUsers: Set<string> = new Set();
 
