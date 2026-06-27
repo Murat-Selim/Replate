@@ -22,10 +22,14 @@ interface LeaderboardEntry {
     avatarUrl?: string;
 }
 
+// Module-level cache — persists across navigations (no spinner on revisit)
+let cachedLeaders: LeaderboardEntry[] | null = null;
+let cachedPoolStatus: PoolStatus | null = null;
+
 export default function Leaderboard() {
-    const [leaders, setLeaders] = useState<LeaderboardEntry[]>([]);
-    const [poolStatus, setPoolStatus] = useState<PoolStatus | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
+    const [leaders, setLeaders] = useState<LeaderboardEntry[]>(cachedLeaders || []);
+    const [poolStatus, setPoolStatus] = useState<PoolStatus | null>(cachedPoolStatus);
+    const [isLoading, setIsLoading] = useState(cachedLeaders === null);
     const [activeTab, setActiveTab] = useState<"week" | "month" | "all">("week");
     const { address } = useFarcasterAccount();
     const userAddress = address?.toLowerCase() || null;
@@ -37,6 +41,8 @@ export default function Leaderboard() {
                 const data = await response.json();
 
                 if (data.success) {
+                    cachedLeaders = data.data;
+                    cachedPoolStatus = data.poolStatus;
                     setLeaders(data.data);
                     setPoolStatus(data.poolStatus);
                 }
