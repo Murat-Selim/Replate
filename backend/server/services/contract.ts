@@ -1,11 +1,37 @@
 import { ethers, Wallet, Contract } from "ethers";
 import { REPLATE_QUEST_ABI, CONTRACT_ADDRESS } from "../../src/lib/contract.js";
 
-// Provider and wallet setup
+// ─── Sabitler ─────────────────────────────────────────────────────────
+// FIX: Duplicate'di, modül seviyesine taşındı
+const BUILDER_CODE_SUFFIX = "62635f37746f39316561760b0080218021802180218021802180218021";
+
+// FIX: getRpcList her çağrıda array oluşturuyordu, bir kez hesapla
+const RPC_LIST: string[] = [
+  process.env.RPC_URL || process.env.BASE_RPC_URL,
+  "https://mainnet.base.org",
+  "https://base-rpc.publicnode.com",
+  "https://base.meowrpc.com",
+].filter(Boolean) as string[];
+
+const CONTRACT_DEPLOY_BLOCK = 47849426;
+
+// ─── Singleton state ──────────────────────────────────────────────────
 let provider: ethers.JsonRpcProvider | null = null;
 let wallet: Wallet | null = null;
 let contract: Contract | null = null;
+let currentRpcIndex = 0;
 
+// ─── User discovery cache (1 saatlik TTL) ────────────────────────────
+// FIX: discoverUsersFromLogs her leaderboard refresh'te Basescan'a istek
+// atıyordu. Artık 1 saatlik cache ile korunuyor.
+interface UsersCache {
+  addresses: string[];
+  timestamp: number;
+}
+let usersCache: UsersCache | null = null;
+const USERS_CACHE_TTL = 60 * 60 * 1000; // 1 saat
+
+// ─── Interfaces ───────────────────────────────────────────────────────
 interface ReceiptSubmission {
   user: string;
   totalItems: number;
@@ -25,52 +51,82 @@ interface ContractResult {
   badgeMinted: boolean;
 }
 
-const getRpcList = (): string[] => {
-  const rpcUrl = process.env.RPC_URL || process.env.BASE_RPC_URL;
-  return [
-    rpcUrl,
-    "https://mainnet.base.org",
-    "https://base-rpc.publicnode.com",
-    "https://base.meowrpc.com"
-  ].filter(Boolean) as string[];
-};
-
-let currentRpcIndex = 0;
-
-function rotateRpc(): boolean {
-  const list = getRpcList();
-
-  if (currentRpcIndex < list.length - 1) {
-    currentRpcIndex++;
-    const nextRpc = list[currentRpcIndex];
-    console.log(`🔄 Rotating RPC to fallback: ${nextRpc}`);
-    
-    const privateKey = process.env.VALIDATOR_PRIVATE_KEY || process.env.PRIVATE_KEY;
-    if (privateKey) {
-      const connection = new ethers.FetchRequest(nextRpc);
-      connection.timeout = 15000; // 15 seconds request timeout
-      provider = new ethers.JsonRpcProvider(connection);
-      wallet = new Wallet(privateKey, provider);
-      contract = new Contract(process.env.CONTRACT_ADDRESS || CONTRACT_ADDRESS, REPLATE_QUEST_ABI, wallet);
-      return true;
-    }
-  }
-  return false;
+export interface LeaderboardEntry {
+  address: string;
+  totalPoints: number;
+  level: number;
+  streak: number;
+  hasBadge: boolean;
+  totalCheckIns: number;
+  receiptCount: number;
+  weeklyPoints: number;
 }
 
+export interface PoolStatus {
+  weeklyPool: number;
+  devFund: number;
+  currentPhase: number;
+}
+
+// ─── Provider yardımcıları ────────────────────────────────────────────
+function buildProvider(rpcUrl: string): ethers.JsonRpcProvider {
+  const connection = new ethers.FetchRequest(rpcUrl);
+  connection.timeout = 15000;
+  return new ethers.JsonRpcProvider(connection);
+}
+
+function getContract(): Contract {
+  if (!contract) {
+    const rpcUrl = RPC_LIST[currentRpcIndex] || RPC_LIST[0];
+    const privateKey = process.env.VALIDATOR_PRIVATE_KEY || process.env.PRIVATE_KEY;
+
+    if (!rpcUrl || !privateKey) {
+      throw new Error("Missing RPC_URL or VALIDATOR_PRIVATE_KEY in environment");
+    }
+
+    provider = buildProvider(rpcUrl);
+    wallet = new Wallet(privateKey, provider);
+    contract = new Contract(
+      process.env.CONTRACT_ADDRESS || CONTRACT_ADDRESS,
+      REPLATE_QUEST_ABI,
+      wallet
+    );
+  }
+  return contract;
+}
+
+// FIX: rotateRpc artık wallet'ı da doğru şekilde günceller
+function rotateRpc(): boolean {
+  if (currentRpcIndex >= RPC_LIST.length - 1) return false;
+
+  currentRpcIndex++;
+  const nextRpc = RPC_LIST[currentRpcIndex];
+  const privateKey = process.env.VALIDATOR_PRIVATE_KEY || process.env.PRIVATE_KEY;
+
+  console.log(`🔄 RPC rotation: ${nextRpc}`);
+
+  if (!privateKey) return false;
+
+  provider = buildProvider(nextRpc);
+  wallet = new Wallet(privateKey, provider);
+  contract = new Contract(
+    process.env.CONTRACT_ADDRESS || CONTRACT_ADDRESS,
+    REPLATE_QUEST_ABI,
+    wallet
+  );
+  return true;
+}
+
+// ─── Retry mekanizması ────────────────────────────────────────────────
 async function withRetry<T>(fn: (c: Contract) => Promise<T>): Promise<T> {
-  let attempts = 0;
   const maxAttempts = 4;
 
-  while (attempts < maxAttempts) {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
-      const c = getContract();
-      return await fn(c);
+      return await fn(getContract());
     } catch (error: any) {
-      console.warn(`⚠️ Contract call attempt ${attempts + 1}/${maxAttempts} failed:`, error.message || error);
-      
-      const isRateLimitOrNetwork = 
-        error?.message?.includes("rate limit") || 
+      const isRetryable =
+        error?.message?.includes("rate limit") ||
         error?.message?.includes("exceeded maximum retry limit") ||
         error?.message?.includes("429") ||
         error?.message?.includes("500") ||
@@ -78,44 +134,27 @@ async function withRetry<T>(fn: (c: Contract) => Promise<T>): Promise<T> {
         error?.message?.includes("network") ||
         error?.message?.includes("timeout");
 
-      if (isRateLimitOrNetwork && attempts < maxAttempts - 1) {
+      console.warn(
+        `⚠️ Attempt ${attempt + 1}/${maxAttempts} failed:`,
+        error.message || error
+      );
+
+      if (isRetryable && attempt < maxAttempts - 1) {
         const rotated = rotateRpc();
-        if (rotated) {
-          attempts++;
-          continue;
-        }
+        if (rotated) continue;
       }
+
       throw error;
     }
   }
+
   throw new Error("Failed after multiple retries");
 }
 
-function getContract(): Contract {
-  if (!contract) {
-    const list = getRpcList();
-    const rpcUrl = list[currentRpcIndex] || list[0];
-    const privateKey = process.env.VALIDATOR_PRIVATE_KEY || process.env.PRIVATE_KEY;
-
-    if (!rpcUrl || !privateKey) {
-      throw new Error("Missing RPC_URL or VALIDATOR_PRIVATE_KEY in environment");
-    }
-
-    const connection = new ethers.FetchRequest(rpcUrl);
-    connection.timeout = 15000; // 15 seconds request timeout
-    provider = new ethers.JsonRpcProvider(connection);
-    wallet = new Wallet(privateKey, provider);
-    contract = new Contract(process.env.CONTRACT_ADDRESS || CONTRACT_ADDRESS, REPLATE_QUEST_ABI, wallet);
-  }
-
-  return contract;
-}
-
-/**
- * Submit a verified receipt to the smart contract
- */
-export async function submitReceiptToContract(data: ReceiptSubmission): Promise<ContractResult> {
-  // Check if we have valid RPC URL and private key
+// ─── Receipt submission ───────────────────────────────────────────────
+export async function submitReceiptToContract(
+  data: ReceiptSubmission
+): Promise<ContractResult> {
   const rpcUrl = process.env.RPC_URL || process.env.BASE_RPC_URL;
   const privateKey = process.env.VALIDATOR_PRIVATE_KEY || process.env.PRIVATE_KEY;
 
@@ -126,21 +165,13 @@ export async function submitReceiptToContract(data: ReceiptSubmission): Promise<
 
   try {
     return await withRetry(async (c) => {
-      // Log what we're sending to the contract for debugging
-      console.log(`📊 Submitting to contract:`, {
+      console.log("📊 Submitting to contract:", {
         user: data.user,
         totalItems: data.totalItems,
         healthyItems: data.healthyItems,
-        unhealthyItems: data.unhealthyItems,
         fruitVegGrams: data.fruitVegGrams,
-        householdSize: data.householdSize,
-        daysCovered: data.daysCovered,
-        expectedGrams: data.householdSize * data.daysCovered * 300,
-        ratio: Math.round((data.fruitVegGrams * 100) / (data.householdSize * data.daysCovered * 300)),
       });
 
-      // Call submitReceipt contract with Builder Code Suffix for "bc_7to91eav" (ERC-8021)
-      const BUILDER_CODE_SUFFIX = "62635f37746f39316561760b0080218021802180218021802180218021";
       const txRequest = await c.submitReceipt.populateTransaction(
         data.user,
         data.totalItems,
@@ -150,25 +181,22 @@ export async function submitReceiptToContract(data: ReceiptSubmission): Promise<
         data.householdSize,
         data.daysCovered
       );
+      // FIX: BUILDER_CODE_SUFFIX artık modül sabiti
       txRequest.data = txRequest.data + BUILDER_CODE_SUFFIX;
 
-      if (!wallet) {
-        throw new Error("Wallet not initialized");
-      }
-      const tx = await wallet.sendTransaction(txRequest);
+      if (!wallet) throw new Error("Wallet not initialized");
 
+      const tx = await wallet.sendTransaction(txRequest);
       console.log(`📤 Transaction sent: ${tx.hash}`);
 
-      // Wait for confirmation
       const receipt = await tx.wait();
-      if (!receipt) {
-        throw new Error("Transaction failed: No receipt returned");
-      }
-      console.log(`✅ Transaction confirmed in block ${receipt.blockNumber}`);
+      if (!receipt) throw new Error("Transaction failed: No receipt returned");
 
-      // Parse events to get the result
+      console.log(`✅ Confirmed in block ${receipt.blockNumber}`);
+
       const receiptEvent = receipt.logs.find((log: any) =>
-        log.topics[0] === ethers.id("ReceiptSubmitted(address,uint8,uint8,uint256,uint16,uint16)")
+        log.topics[0] ===
+        ethers.id("ReceiptSubmitted(address,uint8,uint8,uint256,uint16,uint16)")
       );
 
       const badgeMinted = !!receipt.logs.find((log: any) =>
@@ -180,7 +208,6 @@ export async function submitReceiptToContract(data: ReceiptSubmission): Promise<
           ["uint8", "uint8", "uint256", "uint16", "uint16"],
           receiptEvent.data
         );
-
         return {
           healthScore: Number(decoded[0]),
           nutritionScore: Number(decoded[1]),
@@ -191,35 +218,30 @@ export async function submitReceiptToContract(data: ReceiptSubmission): Promise<
         };
       }
 
-      // Fallback calculation if event not found
       return calculateScores(data);
     });
   } catch (error: any) {
-    console.error("❌ Final contract submission failed:", error);
+    console.error("❌ Contract submission failed:", error);
 
-    // Extract the revert reason if available
     let message = "Failed to submit receipt to blockchain";
     if (error?.revert?.args?.[0]) {
       message = error.revert.args[0];
     } else if (error?.reason) {
       message = error.reason;
+    } else if (error?.message?.includes("Already submitted")) {
+      message = "Already submitted a receipt today";
     } else if (error?.message) {
-      // Basic cleaning for common strings
-      if (error.message.includes("Already submitted")) {
-        message = "Already submitted a receipt today";
-      } else {
-        message = error.message;
-      }
+      message = error.message;
     }
 
     throw new Error(message);
   }
 }
 
-/**
- * Submit daily check-in for a user
- */
-export async function submitCheckIn(userAddress: string): Promise<{ success: boolean; pointsEarned: number }> {
+// ─── Check-in ─────────────────────────────────────────────────────────
+export async function submitCheckIn(
+  userAddress: string
+): Promise<{ success: boolean; pointsEarned: number }> {
   const rpcUrl = process.env.RPC_URL || process.env.BASE_RPC_URL;
   const privateKey = process.env.VALIDATOR_PRIVATE_KEY || process.env.PRIVATE_KEY;
 
@@ -229,40 +251,33 @@ export async function submitCheckIn(userAddress: string): Promise<{ success: boo
 
   try {
     return await withRetry(async (c) => {
-      // Check if user already checked in today before sending transaction
       let lastDay = 0;
       try {
-        const lastDayVal = await c.lastCheckInDay(userAddress);
-        lastDay = Number(lastDayVal || 0);
-      } catch (e) {
-        console.warn("⚠️ Could not fetch lastCheckInDay in submitCheckIn, proceeding anyway");
+        lastDay = Number(await c.lastCheckInDay(userAddress) || 0);
+      } catch {
+        console.warn("⚠️ Could not fetch lastCheckInDay, proceeding anyway");
       }
 
       const today = Math.floor(Date.now() / 1000 / 86400);
-      if (lastDay >= today) {
-        throw new Error("Already checked in today");
-      }
+      if (lastDay >= today) throw new Error("Already checked in today");
 
-      console.log(`🔗 Initiating contract check-in for ${userAddress}...`);
-      // Builder Code Suffix for "bc_7to91eav" (ERC-8021)
-      const BUILDER_CODE_SUFFIX = "62635f37746f39316561760b0080218021802180218021802180218021";
+      console.log(`🔗 Check-in for ${userAddress}...`);
+
       const txRequest = await c.checkIn.populateTransaction(userAddress);
+      // FIX: BUILDER_CODE_SUFFIX artık modül sabiti
       txRequest.data = txRequest.data + BUILDER_CODE_SUFFIX;
 
-      if (!wallet) {
-        throw new Error("Wallet not initialized");
-      }
-      const tx = await wallet.sendTransaction(txRequest);
-      console.log(`📤 Check-in transaction sent: ${tx.hash}`);
+      if (!wallet) throw new Error("Wallet not initialized");
 
+      const tx = await wallet.sendTransaction(txRequest);
+      console.log(`📤 Check-in tx: ${tx.hash}`);
       await tx.wait();
-      console.log(`✅ Check-in transaction confirmed for ${userAddress}`);
+      console.log(`✅ Check-in confirmed for ${userAddress}`);
 
       return { success: true, pointsEarned: 10 };
     });
   } catch (error: any) {
-    console.error("❌ Check-in failed in contract service:", error);
-    // Sanitize the error message to avoid technical ethers dump on screen
+    console.error("❌ Check-in failed:", error);
     let message = error?.message || "Check-in failed";
     if (message.includes("BAD_DATA") || message.includes("decode")) {
       message = "Blockchain connection issue. Please try again later.";
@@ -271,25 +286,24 @@ export async function submitCheckIn(userAddress: string): Promise<{ success: boo
   }
 }
 
-/**
- * Finalize a user's weekly streak
- */
-export async function finalizeUserWeek(userAddress: string): Promise<{ success: boolean; newStreak: number }> {
+// ─── Week finalization ────────────────────────────────────────────────
+// FIX: withRetry eklendi — daha önce retry yoktu
+export async function finalizeUserWeek(
+  userAddress: string
+): Promise<{ success: boolean; newStreak: number }> {
   const rpcUrl = process.env.RPC_URL || process.env.BASE_RPC_URL;
   const privateKey = process.env.VALIDATOR_PRIVATE_KEY || process.env.PRIVATE_KEY;
 
-  if (!rpcUrl || !privateKey) {
-    return { success: true, newStreak: 1 };
-  }
+  if (!rpcUrl || !privateKey) return { success: true, newStreak: 1 };
 
   try {
     return await withRetry(async (c) => {
       const tx = await c.finalizeWeek(userAddress);
       const receipt = await tx.wait();
 
-      // Parse event for new streak
       const event = receipt.logs.find((log: { topics: string[] }) =>
-        log.topics[0] === ethers.id("WeekFinalized(address,uint256,uint256,uint256)")
+        log.topics[0] ===
+        ethers.id("WeekFinalized(address,uint256,uint256,uint256)")
       );
 
       if (event) {
@@ -308,9 +322,8 @@ export async function finalizeUserWeek(userAddress: string): Promise<{ success: 
   }
 }
 
-/**
- * Distribute weekly rewards to top users
- */
+// ─── Weekly reward distribution ───────────────────────────────────────
+// FIX: withRetry eklendi — para dağıtan fonksiyon retry'sız kalmamalı
 export async function distributeWeeklyRewards(
   topUsers: string[],
   shares: bigint[]
@@ -323,56 +336,44 @@ export async function distributeWeeklyRewards(
   }
 
   try {
-    const c = getContract();
-    const tx = await c.distributeWeeklyRewards(topUsers, shares);
-    await tx.wait();
-
-    return { success: true, totalDistributed: BigInt(0) };
+    return await withRetry(async (c) => {
+      const tx = await c.distributeWeeklyRewards(topUsers, shares);
+      await tx.wait();
+      return { success: true, totalDistributed: BigInt(0) };
+    });
   } catch (error) {
     console.error("❌ Reward distribution failed:", error);
     throw error;
   }
 }
 
-/**
- * Get user summary from contract
- */
+// ─── User summary ─────────────────────────────────────────────────────
 export async function getUserSummary(userAddress: string) {
   const rpcUrl = process.env.RPC_URL || process.env.BASE_RPC_URL;
   const privateKey = process.env.VALIDATOR_PRIVATE_KEY || process.env.PRIVATE_KEY;
 
-  if (!rpcUrl || !privateKey) {
-    console.log("⚠️ RPC_URL or private key missing, returning empty summary");
-    return {
-      totalPoints: 0,
-      level: 0,
-      receiptStreak: 0,
-      checkInStreak: 0,
-      totalCheckIns: 0,
-      receiptCount: 0,
-      hasBadge: false,
-      lastCheckInDay: 0,
-    };
-  }
+  const emptyResult = {
+    totalPoints: 0,
+    level: 0,
+    receiptStreak: 0,
+    checkInStreak: 0,
+    totalCheckIns: 0,
+    receiptCount: 0,
+    hasBadge: false,
+    lastCheckInDay: 0,
+  };
+
+  if (!rpcUrl || !privateKey) return emptyResult;
 
   try {
     return await withRetry(async (c) => {
-      console.log(`📡 Calling contract at: ${c.target} for user: ${userAddress}`);
+      console.log(`📡 getUserSummary: ${c.target} → ${userAddress}`);
 
-      let summary: any = { _totalPoints: 0, _level: 0, _receiptStreak: 0, _checkInStreak: 0, _totalCheckIns: 0, _receiptCount: 0, _hasBadge: false };
-      try {
-        summary = await c.getUserSummary(userAddress);
-      } catch (e: any) {
-        console.error("❌ Failed to call getUserSummary:", e.message || e);
-      }
-
-      let lastCheckInDay = 0;
-      try {
-        const lastDayVal = await c.lastCheckInDay(userAddress);
-        lastCheckInDay = Number(lastDayVal || 0);
-      } catch (e: any) {
-        console.warn("⚠️ Failed to call lastCheckInDay:", e.message || e);
-      }
+      // FIX: Hata yutmak yerine withRetry içinde doğal fırlatılıyor
+      const [summary, lastCheckInDay] = await Promise.all([
+        c.getUserSummary(userAddress),
+        c.lastCheckInDay(userAddress).catch(() => 0),
+      ]);
 
       return {
         totalPoints: Number(summary?._totalPoints || 0),
@@ -382,183 +383,120 @@ export async function getUserSummary(userAddress: string) {
         totalCheckIns: Number(summary?._totalCheckIns || 0),
         receiptCount: Number(summary?._receiptCount || 0),
         hasBadge: !!summary?._hasBadge,
-        lastCheckInDay: lastCheckInDay,
+        lastCheckInDay: Number(lastCheckInDay || 0),
       };
     });
   } catch (error: any) {
-    console.error("❌ Critical failure in getUserSummary:", error.message || error);
-    return {
-      totalPoints: 0,
-      level: 0,
-      receiptStreak: 0,
-      checkInStreak: 0,
-      totalCheckIns: 0,
-      receiptCount: 0,
-      hasBadge: false,
-      lastCheckInDay: 0,
-    };
+    console.error("❌ getUserSummary failed:", error.message || error);
+    return emptyResult;
   }
 }
 
-// Helper: Calculate scores locally (mirrors contract logic)
-function calculateScores(data: ReceiptSubmission): ContractResult {
-  const neutralItems = data.totalItems - data.healthyItems - data.unhealthyItems;
-  const rawScore = (data.healthyItems * 10) + (neutralItems * 5);
-  const maxScore = data.totalItems * 10;
-  const healthScore = Math.round((rawScore * 100) / maxScore);
-
-  const expectedGrams = data.householdSize * data.daysCovered * 300;
-  const ratio = (data.fruitVegGrams * 100) / expectedGrams;
-
-  let nutritionScore = 75;
-  if (ratio < 30) nutritionScore = 10;
-  else if (ratio < 50) nutritionScore = 40;
-  else if (ratio < 80) nutritionScore = 75;
-  else if (ratio <= 120) nutritionScore = 100;
-  else if (ratio <= 150) nutritionScore = 75;
-  else nutritionScore = 40;
-
-  let points = 50; // BASE_POINTS
-  if (healthScore >= 60) points += healthScore - 50;
-  const healthyRatio = (data.healthyItems * 100) / data.totalItems;
-  if (healthyRatio >= 80) points += 20;
-  else if (healthyRatio >= 50) points += 10;
-  if (nutritionScore >= 80) points += 30;
-  else if (nutritionScore >= 50) points += 15;
-  else if (nutritionScore < 30) points = Math.max(10, points - 20);
-
-  return {
-    healthScore,
-    nutritionScore,
-    pointsEarned: points,
-    daysCovered: data.daysCovered,
-    txHash: "",
-    badgeMinted: false,
-  };
-}
-
-// Mock response for development
-function mockContractResponse(data: ReceiptSubmission): ContractResult {
-  const result = calculateScores(data);
-  return {
-    ...result,
-    txHash: "0x0000000000000000000000000000000000000000000000000000000000000000",
-    badgeMinted: false,
-  };
-}
-
-export interface LeaderboardEntry {
-  address: string;
-  totalPoints: number;
-  level: number;
-  streak: number;
-  hasBadge: boolean;
-  totalCheckIns: number;
-  receiptCount: number;
-  weeklyPoints: number;
-}
-
-// Contract deployment block on Base mainnet (never changes)
-const CONTRACT_DEPLOY_BLOCK = 47849426;
-function getMaxBlockRange(url: string): number {
-  const lowerUrl = url.toLowerCase();
-  if (lowerUrl.includes("tenderly.co")) {
-    return 0; // 0 means no chunking (full history in one query)
+// ─── User discovery (Basescan) ────────────────────────────────────────
+async function discoverUsersFromLogs(): Promise<string[]> {
+  // 1 saatlik cache — her leaderboard refresh'te RPC'ye gitmesin
+  if (usersCache && Date.now() - usersCache.timestamp < USERS_CACHE_TTL) {
+    console.log(`📋 User cache hit: ${usersCache.addresses.length} users`);
+    return usersCache.addresses;
   }
-  if (lowerUrl.includes("publicnode.com") || lowerUrl.includes("base.org")) {
-    return 5000; // Stay well under the 10,000 block limit enforced by these RPCs
-  }
-  if (lowerUrl.includes("drpc.org")) {
-    return 50000;
-  }
-  if (lowerUrl.includes("meowrpc.com")) {
-    return 5000;
-  }
-  return 2000;
-}
 
-/**
- * Fetch all logs for a filter across the full contract history,
- * chunking to respect RPC limits. Fetch sequentially to avoid rate limiting.
- */
-async function queryFilterAll(
-  c: Contract,
-  filter: ReturnType<Contract['filters'][string]>,
-  fromBlock: number,
-  toBlock: number,
-  rpcUrl: string
-) {
-  const maxRange = getMaxBlockRange(rpcUrl);
+  const contractAddr = process.env.CONTRACT_ADDRESS || CONTRACT_ADDRESS;
 
-  if (maxRange === 0) {
-    try {
-      return await c.queryFilter(filter, fromBlock, toBlock);
-    } catch (e: any) {
-      console.warn(`⚠️ queryFilter full range query failed, falling back to chunking: ${e.message}`);
-      return queryFilterWithChunking(c, filter, fromBlock, toBlock, 5000);
+  const receiptTopic = ethers.id(
+    "ReceiptSubmitted(address,uint8,uint8,uint256,uint16,uint16)"
+  );
+  const checkInTopic = ethers.id("CheckedIn(address,uint256,uint256,uint256)");
+
+  console.log(`📡 Discovering users from on-chain logs via Tenderly Archive RPC (from block ${CONTRACT_DEPLOY_BLOCK})...`);
+
+  const users = new Set<string>();
+
+  try {
+    const provider = new ethers.JsonRpcProvider("https://base.gateway.tenderly.co");
+    const latestBlock = await provider.getBlockNumber();
+
+    const logs = await provider.getLogs({
+      address: contractAddr,
+      topics: [[receiptTopic, checkInTopic]],
+      fromBlock: CONTRACT_DEPLOY_BLOCK,
+      toBlock: latestBlock,
+    });
+
+    for (const log of logs) {
+      if (log.topics[1]) {
+        // topic[1] = indexed user address (padded to 32 bytes)
+        const addr = ethers.getAddress("0x" + log.topics[1].slice(26));
+        users.add(addr.toLowerCase());
+      }
+    }
+  } catch (error: any) {
+    console.error("⚠️ Failed to discover users from Tenderly RPC, trying fallback...", error.message || error);
+    
+    // Fallback: Use Alchemy RPC with chunking if Tenderly fails
+    const rpcUrl = process.env.RPC_URL || process.env.BASE_RPC_URL;
+    if (rpcUrl) {
+      try {
+        const readProvider = buildProvider(rpcUrl);
+        const latestBlock = await readProvider.getBlockNumber();
+        const CHUNK = 1000; // Small chunk range fallback
+        
+        for (const topic0 of [receiptTopic, checkInTopic]) {
+          for (let start = CONTRACT_DEPLOY_BLOCK; start <= latestBlock; start += CHUNK) {
+            const end = Math.min(start + CHUNK - 1, latestBlock);
+            try {
+              const logs = await readProvider.getLogs({
+                address: contractAddr,
+                topics: [topic0],
+                fromBlock: start,
+                toBlock: end,
+              });
+              for (const log of logs) {
+                if (log.topics[1]) {
+                  const addr = ethers.getAddress("0x" + log.topics[1].slice(26));
+                  users.add(addr.toLowerCase());
+                }
+              }
+            } catch {
+              // Ignore chunk failures
+            }
+          }
+        }
+      } catch (fallbackError: any) {
+        console.error("❌ Fallback user discovery failed:", fallbackError.message || fallbackError);
+      }
     }
   }
 
-  return queryFilterWithChunking(c, filter, fromBlock, toBlock, maxRange);
+  const addresses = Array.from(users);
+  console.log(`✅ Discovered ${addresses.length} unique users`);
+
+  // Cache'e yaz
+  usersCache = { addresses, timestamp: Date.now() };
+
+  return addresses;
 }
 
-async function queryFilterWithChunking(
-  c: Contract,
-  filter: ReturnType<Contract['filters'][string]>,
-  fromBlock: number,
-  toBlock: number,
-  rangeSize: number
-) {
-  const results: any[] = [];
-  let start = fromBlock;
-
-  while (start <= toBlock) {
-    const end = Math.min(start + rangeSize - 1, toBlock);
-    try {
-      const chunk = await c.queryFilter(filter, start, end);
-      results.push(...chunk);
-    } catch (e: any) {
-      console.warn(`⚠️ queryFilter chunk ${start}-${end} failed: ${e.message}`);
-    }
-    start = end + 1;
-    // Brief sleep to avoid rate limits
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
-
-  return results;
-}
-
-/**
- * Get leaderboard by fetching getUserSummary for each known user.
- * Uses the local user tracker instead of scanning contract events
- * (which requires archive RPC access not available on free public nodes).
- */
-export async function getLeaderboard(limit: number = 100): Promise<LeaderboardEntry[]> {
+// ─── Leaderboard ──────────────────────────────────────────────────────
+export async function getLeaderboard(
+  limit: number = 100
+): Promise<LeaderboardEntry[]> {
   const rpcUrl = process.env.RPC_URL || process.env.BASE_RPC_URL;
 
   if (!rpcUrl) {
-    console.log("⚠️ No RPC_URL available, returning mock leaderboard");
+    console.log("⚠️ No RPC_URL, returning mock leaderboard");
     return getMockLeaderboard(limit);
   }
 
   try {
-    const connection = new ethers.FetchRequest(rpcUrl);
-    connection.timeout = 15000;
-    const readProvider = new ethers.JsonRpcProvider(connection);
+    const readProvider = buildProvider(rpcUrl);
     const contractAddr = process.env.CONTRACT_ADDRESS || CONTRACT_ADDRESS;
     const c = new Contract(contractAddr, REPLATE_QUEST_ABI, readProvider);
 
-    // Get known users from the local tracker
-    const { getKnownUsers } = await import("./user-tracker.js");
-    const addresses = getKnownUsers();
+    const addresses = await discoverUsersFromLogs();
+    console.log(`📡 Fetching leaderboard for ${addresses.length} users...`);
 
-    console.log(`📡 Fetching leaderboard for ${addresses.length} known users from ${contractAddr}...`);
+    if (addresses.length === 0) return [];
 
-    if (addresses.length === 0) {
-      return [];
-    }
-
-    // Fetch on-chain summary for every known user (batched)
     const BATCH = 10;
     const entries: LeaderboardEntry[] = [];
 
@@ -570,20 +508,29 @@ export async function getLeaderboard(limit: number = 100): Promise<LeaderboardEn
             c.getUserSummary(addr),
             c.getCurrentWeekReport(addr),
           ]);
-          const totalPoints = Number(summary?._totalPoints || summary?.[0] || 0);
 
-          // Skip users with 0 points (never interacted)
+          const totalPoints = Number(
+            summary?._totalPoints || summary?.[0] || 0
+          );
           if (totalPoints === 0) return null;
 
           return {
             address: addr,
             totalPoints,
             level: Number(summary?._level || summary?.[1] || 0),
-            streak: Number(summary?._receiptStreak || summary?.[2] || summary?._checkInStreak || summary?.[3] || 0),
+            streak: Number(
+              summary?._receiptStreak ||
+              summary?.[2] ||
+              summary?._checkInStreak ||
+              summary?.[3] ||
+              0
+            ),
             hasBadge: !!(summary?._hasBadge ?? summary?.[6] ?? false),
             totalCheckIns: Number(summary?._totalCheckIns || summary?.[4] || 0),
             receiptCount: Number(summary?._receiptCount || summary?.[5] || 0),
-            weeklyPoints: Number(weekReport?.weekPoints ?? weekReport?.[0] ?? 0),
+            weeklyPoints: Number(
+              weekReport?.weekPoints ?? weekReport?.[0] ?? 0
+            ),
           } as LeaderboardEntry;
         })
       );
@@ -595,21 +542,21 @@ export async function getLeaderboard(limit: number = 100): Promise<LeaderboardEn
       }
     }
 
-    console.log(`✅ Leaderboard built: ${entries.length} active users`);
+    console.log(`✅ Leaderboard: ${entries.length} active users`);
 
     return entries
       .sort((a, b) => b.totalPoints - a.totalPoints)
       .slice(0, limit);
   } catch (error: any) {
-    console.error("❌ Critical: Leaderboard fetch failed:", error.message || error);
+    console.error("❌ Leaderboard fetch failed:", error.message || error);
     throw error;
   }
 }
 
-/**
- * Get user's rank from contract
- */
-export async function getUserRank(userAddress: string): Promise<LeaderboardEntry | null> {
+// ─── User rank ────────────────────────────────────────────────────────
+export async function getUserRank(
+  userAddress: string
+): Promise<LeaderboardEntry | null> {
   try {
     const c = getContract();
     const summary = await c.getUserSummary(userAddress);
@@ -630,14 +577,11 @@ export async function getUserRank(userAddress: string): Promise<LeaderboardEntry
   }
 }
 
-/**
- * Get current week report for a user
- */
+// ─── Week report ──────────────────────────────────────────────────────
 export async function getUserWeekReport(userAddress: string) {
   try {
     const c = getContract();
     const report = await c.getCurrentWeekReport(userAddress);
-
     return {
       weekPoints: Number(report?.[0] || 0),
       receiptCount: Number(report?.[1] || 0),
@@ -646,40 +590,15 @@ export async function getUserWeekReport(userAddress: string) {
     };
   } catch (error) {
     console.warn("⚠️ Failed to get week report:", error);
-    return {
-      weekPoints: 0,
-      receiptCount: 0,
-      avgHealthScore: 0,
-      avgNutritionScore: 0,
-    };
+    return { weekPoints: 0, receiptCount: 0, avgHealthScore: 0, avgNutritionScore: 0 };
   }
 }
 
-function getMockLeaderboard(limit: number): LeaderboardEntry[] {
-  const mock: LeaderboardEntry[] = [
-    { address: "0x1234567890abcdef1234567890abcdef12345678", totalPoints: 12500, level: 25, streak: 8, hasBadge: true, totalCheckIns: 30, receiptCount: 15, weeklyPoints: 1200 },
-    { address: "0x2345678901abcdef2345678901abcdef23456789", totalPoints: 10200, level: 20, streak: 5, hasBadge: true, totalCheckIns: 20, receiptCount: 10, weeklyPoints: 950 },
-    { address: "0x3456789012abcdef3456789012abcdef34567890", totalPoints: 8500, level: 17, streak: 3, hasBadge: true, totalCheckIns: 15, receiptCount: 8, weeklyPoints: 600 },
-    { address: "0x4567890123abcdef4567890123abcdef45678901", totalPoints: 7200, level: 14, streak: 2, hasBadge: false, totalCheckIns: 10, receiptCount: 5, weeklyPoints: 400 },
-    { address: "0x5678901234abcdef5678901234abcdef56789012", totalPoints: 6500, level: 13, streak: 1, hasBadge: false, totalCheckIns: 5, receiptCount: 3, weeklyPoints: 200 },
-  ];
-  return mock.slice(0, limit);
-}
-
-export interface PoolStatus {
-  weeklyPool: number;
-  devFund: number;
-  currentPhase: number;
-}
-
-/**
- * Get pool status from contract
- */
+// ─── Pool status ──────────────────────────────────────────────────────
 export async function getPoolStatus(): Promise<PoolStatus> {
   try {
     const c = getContract();
     const status = await c.getPoolStatus();
-
     return {
       weeklyPool: Number(status?.[0] || 0),
       devFund: Number(status?.[1] || 0),
@@ -689,4 +608,59 @@ export async function getPoolStatus(): Promise<PoolStatus> {
     console.warn("⚠️ Failed to get pool status:", error);
     return { weeklyPool: 0, devFund: 0, currentPhase: 0 };
   }
+}
+
+// ─── Hesap yardımcıları ───────────────────────────────────────────────
+function calculateScores(data: ReceiptSubmission): ContractResult {
+  const neutralItems = data.totalItems - data.healthyItems - data.unhealthyItems;
+  const rawScore = data.healthyItems * 10 + neutralItems * 5;
+  const maxScore = data.totalItems * 10;
+  const healthScore = Math.round((rawScore * 100) / maxScore);
+
+  const expectedGrams = data.householdSize * data.daysCovered * 300;
+  const ratio = (data.fruitVegGrams * 100) / expectedGrams;
+
+  let nutritionScore = 75;
+  if (ratio < 30) nutritionScore = 10;
+  else if (ratio < 50) nutritionScore = 40;
+  else if (ratio < 80) nutritionScore = 75;
+  else if (ratio <= 120) nutritionScore = 100;
+  else if (ratio <= 150) nutritionScore = 75;
+  else nutritionScore = 40;
+
+  let points = 50;
+  if (healthScore >= 60) points += healthScore - 50;
+  const healthyRatio = (data.healthyItems * 100) / data.totalItems;
+  if (healthyRatio >= 80) points += 20;
+  else if (healthyRatio >= 50) points += 10;
+  if (nutritionScore >= 80) points += 30;
+  else if (nutritionScore >= 50) points += 15;
+  else if (nutritionScore < 30) points = Math.max(10, points - 20);
+
+  return {
+    healthScore,
+    nutritionScore,
+    pointsEarned: points,
+    daysCovered: data.daysCovered,
+    txHash: "",
+    badgeMinted: false,
+  };
+}
+
+function mockContractResponse(data: ReceiptSubmission): ContractResult {
+  return {
+    ...calculateScores(data),
+    txHash: "0x0000000000000000000000000000000000000000000000000000000000000000",
+    badgeMinted: false,
+  };
+}
+
+function getMockLeaderboard(limit: number): LeaderboardEntry[] {
+  return [
+    { address: "0x1234567890abcdef1234567890abcdef12345678", totalPoints: 12500, level: 25, streak: 8, hasBadge: true, totalCheckIns: 30, receiptCount: 15, weeklyPoints: 1200 },
+    { address: "0x2345678901abcdef2345678901abcdef23456789", totalPoints: 10200, level: 20, streak: 5, hasBadge: true, totalCheckIns: 20, receiptCount: 10, weeklyPoints: 950 },
+    { address: "0x3456789012abcdef3456789012abcdef34567890", totalPoints: 8500, level: 17, streak: 3, hasBadge: true, totalCheckIns: 15, receiptCount: 8, weeklyPoints: 600 },
+    { address: "0x4567890123abcdef4567890123abcdef45678901", totalPoints: 7200, level: 14, streak: 2, hasBadge: false, totalCheckIns: 10, receiptCount: 5, weeklyPoints: 400 },
+    { address: "0x5678901234abcdef5678901234abcdef56789012", totalPoints: 6500, level: 13, streak: 1, hasBadge: false, totalCheckIns: 5, receiptCount: 3, weeklyPoints: 200 },
+  ].slice(0, limit);
 }

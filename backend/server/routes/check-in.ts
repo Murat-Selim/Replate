@@ -1,6 +1,5 @@
 import { Router, Request, Response } from "express";
 import { submitCheckIn } from "../services/contract.js";
-import { trackUser } from "../services/user-tracker.js";
 import { clearLeaderboardCache } from "./leaderboard.js";
 
 const router = Router();
@@ -39,8 +38,7 @@ router.post("/", async (req: Request, res: Response) => {
             },
         };
 
-        // Track user and refresh leaderboard
-        trackUser(userAddress);
+        // Refresh leaderboard to reflect new points immediately
         clearLeaderboardCache();
 
         res.json(response);

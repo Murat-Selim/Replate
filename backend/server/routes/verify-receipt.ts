@@ -3,7 +3,6 @@ import { processOCR } from "../services/ocr.js";
 import { classifyFoods, ClassificationResult } from "../services/classifier.js";
 import { submitReceiptToContract } from "../services/contract.js";
 import { clearLeaderboardCache } from "./leaderboard.js";
-import { trackUser } from "../services/user-tracker.js";
 
 const router = Router();
 
@@ -72,8 +71,7 @@ router.post("/", async (req: Request, res: Response) => {
       daysCovered: daysCovered || estimateDaysCovered(classification.totalItems, householdSize),
     });
 
-    // Track user and clear leaderboard cache to reflect new points immediately
-    trackUser(userAddress);
+    // Clear leaderboard cache to reflect new points immediately
     clearLeaderboardCache();
 
     const response: VerifyReceiptResponse = {
