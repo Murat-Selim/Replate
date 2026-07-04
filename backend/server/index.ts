@@ -8,6 +8,7 @@ import verifyReceiptRouter from "./routes/verify-receipt.js";
 import leaderboardRouter from "./routes/leaderboard.js";
 import userRouter from "./routes/user.js";
 import checkInRouter from "./routes/check-in.js";
+import metaRouter from "./routes/meta.js";
 import { runWeeklyFinalization } from "./cron/weekly.js";
 import { setupEventListeners, invalidateLeaderboardCache } from "./services/events.js";
 import { warmLeaderboardCache } from "./routes/leaderboard.js";
@@ -47,6 +48,7 @@ app.use("/api/verify-receipt", verifyReceiptRouter);
 app.use("/api/leaderboard", leaderboardRouter);
 app.use("/api/user", userRouter);
 app.use("/api/check-in", checkInRouter);
+app.use("/api/meta", metaRouter);
 
 // Cron endpoint for Vercel
 app.get("/api/cron/weekly", async (req, res) => {

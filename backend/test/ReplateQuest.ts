@@ -1,6 +1,7 @@
 import { expect } from "chai";
-import { ethers } from "hardhat";
-import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
+import hardhat from "hardhat";
+const { ethers } = hardhat;
+import type { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers.js";
 import { Contract } from "ethers";
 import "@nomicfoundation/hardhat-chai-matchers";
 
@@ -340,7 +341,7 @@ describe("ReplateQuest", function () {
       it("should prevent nonce replay (same signature twice)", async function () {
         const nonce = await (replateV2 as any).nonces(user1.address);
         const block = await ethers.provider.getBlock("latest");
-        const deadline = block!.timestamp + 3600;
+        const deadline = block!.timestamp + 86400 * 2; // 2 days — survives 1-day time advance
 
         const message = {
           user: user1.address,

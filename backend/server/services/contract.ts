@@ -664,3 +664,145 @@ function getMockLeaderboard(limit: number): LeaderboardEntry[] {
     { address: "0x5678901234abcdef5678901234abcdef56789012", totalPoints: 6500, level: 13, streak: 1, hasBadge: false, totalCheckIns: 5, receiptCount: 3, weeklyPoints: 200 },
   ].slice(0, limit);
 }
+
+// ─── Meta-Transaction (EIP-712) Functions ─────────────────────────────
+
+/**
+ * Get the current EIP-712 nonce for a user from the contract
+ */
+export async function getUserNonce(userAddress: string): Promise<number> {
+  try {
+    const c = getContract();
+    const nonce = await c.nonces(userAddress);
+    return Number(nonce);
+  } catch (error: any) {
+    console.error("❌ getUserNonce failed:", error.message || error);
+    return 0;
+  }
+}
+
+/**
+ * Submit a check-in with EIP-712 signature (meta-transaction)
+ * The user signs off-chain, backend relays the tx
+ */
+export async function submitCheckInWithSig(
+  userAddress: string,
+  deadline: number,
+  signature: string
+): Promise<{ success: boolean; pointsEarned: number; txHash: string }> {
+  try {
+    return await withRetry(async (c) => {
+      console.log(`🔗 CheckInWithSig for ${userAddress}...`);
+
+      const txRequest = await c.checkInWithSig.populateTransaction(
+        userAddress,
+        deadline,
+        signature
+      );
+      // Append Builder Code suffix
+      txRequest.data = txRequest.data + BUILDER_CODE_SUFFIX;
+
+      if (!wallet) throw new Error("Wallet not initialized");
+
+      const tx = await wallet.sendTransaction(txRequest);
+      console.log(`📤 CheckInWithSig tx: ${tx.hash}`);
+      await tx.wait();
+      console.log(`✅ CheckInWithSig confirmed for ${userAddress}`);
+
+      return { success: true, pointsEarned: 10, txHash: tx.hash };
+    });
+  } catch (error: any) {
+    console.error("❌ CheckInWithSig failed:", error);
+    let message = error?.message || "Check-in with signature failed";
+    if (message.includes("Invalid signature")) {
+      message = "Invalid signature. Please sign the message again.";
+    } else if (message.includes("Signature expired")) {
+      message = "Signature expired. Please sign again.";
+    } else if (message.includes("Already checked in today")) {
+      message = "Already checked in today";
+    }
+    throw new Error(message);
+  }
+}
+
+/**
+ * Submit a receipt with EIP-712 signature (meta-transaction)
+ */
+export async function submitReceiptWithSig(
+  data: ReceiptSubmission,
+  deadline: number,
+  signature: string
+): Promise<ContractResult> {
+  try {
+    return await withRetry(async (c) => {
+      console.log("📊 SubmitReceiptWithSig:", {
+        user: data.user,
+        totalItems: data.totalItems,
+        healthyItems: data.healthyItems,
+      });
+
+      const txRequest = await c.submitReceiptWithSig.populateTransaction(
+        data.user,
+        data.totalItems,
+        data.healthyItems,
+        data.unhealthyItems,
+        data.fruitVegGrams,
+        data.householdSize,
+        data.daysCovered,
+        deadline,
+        signature
+      );
+      // Append Builder Code suffix
+      txRequest.data = txRequest.data + BUILDER_CODE_SUFFIX;
+
+      if (!wallet) throw new Error("Wallet not initialized");
+
+      const tx = await wallet.sendTransaction(txRequest);
+      console.log(`📤 ReceiptWithSig tx: ${tx.hash}`);
+
+      const receipt = await tx.wait();
+      if (!receipt) throw new Error("Transaction failed: No receipt returned");
+
+      console.log(`✅ ReceiptWithSig confirmed in block ${receipt.blockNumber}`);
+
+      const receiptEvent = receipt.logs.find((log: any) =>
+        log.topics[0] ===
+        ethers.id("ReceiptSubmitted(address,uint8,uint8,uint256,uint16,uint16)")
+      );
+
+      const badgeMinted = !!receipt.logs.find((log: any) =>
+        log.topics[0] === ethers.id("BadgeMinted(address,uint256)")
+      );
+
+      if (receiptEvent) {
+        const decoded = ethers.AbiCoder.defaultAbiCoder().decode(
+          ["uint8", "uint8", "uint256", "uint16", "uint16"],
+          receiptEvent.data
+        );
+        return {
+          healthScore: Number(decoded[0]),
+          nutritionScore: Number(decoded[1]),
+          pointsEarned: Number(decoded[2]),
+          daysCovered: data.daysCovered,
+          txHash: tx.hash,
+          badgeMinted,
+        };
+      }
+
+      return calculateScores(data);
+    });
+  } catch (error: any) {
+    console.error("❌ ReceiptWithSig failed:", error);
+
+    let message = "Failed to submit receipt with signature";
+    if (error?.revert?.args?.[0]) {
+      message = error.revert.args[0];
+    } else if (error?.reason) {
+      message = error.reason;
+    } else if (error?.message) {
+      message = error.message;
+    }
+
+    throw new Error(message);
+  }
+}

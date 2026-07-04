@@ -6,6 +6,9 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/cryptography/EIP712Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/NoncesUpgradeable.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /// @title ReplateQuest
@@ -16,8 +19,11 @@ contract ReplateQuest is
     ERC721Upgradeable,
     UUPSUpgradeable,
     PausableUpgradeable,
-    ReentrancyGuardUpgradeable
+    ReentrancyGuardUpgradeable,
+    EIP712Upgradeable,
+    NoncesUpgradeable
 {
+    using ECDSA for bytes32;
     // ─── Phase System ────────────────────────────────────────────────
     enum Phase { FREE, PAID }
     Phase public currentPhase;
@@ -62,6 +68,14 @@ contract ReplateQuest is
     uint256 constant BASE_POINTS                = 50;
     uint256 constant STREAK_BONUS               = 25;
     uint256 constant CHECKIN_POINTS             = 10;   // XP per daily check-in
+
+    // ─── EIP-712 Typehashes ──────────────────────────────────────────
+    bytes32 constant CHECKIN_TYPEHASH = keccak256(
+        "CheckIn(address user,uint256 nonce,uint256 deadline)"
+    );
+    bytes32 constant RECEIPT_TYPEHASH = keccak256(
+        "SubmitReceipt(address user,uint8 totalItems,uint8 healthyItems,uint8 unhealthyItems,uint16 fruitVegGrams,uint8 householdSize,uint8 daysCovered,uint256 nonce,uint256 deadline)"
+    );
 
     // ─── Mappings ────────────────────────────────────────────────────
     mapping(address => Receipt[])                         public receipts;
@@ -117,11 +131,19 @@ contract ReplateQuest is
         __UUPSUpgradeable_init();
         __Pausable_init();
         __ReentrancyGuard_init();
+        __EIP712_init("ReplateQuest", "1");
+        __Nonces_init();
 
         validator    = msg.sender;
         devWallet    = _devWallet;
         usdc         = IERC20(_usdc);
         currentPhase = Phase.FREE;
+    }
+
+    /// @notice V2 initializer — adds EIP-712 support for meta-transactions
+    function initializeV2() public reinitializer(2) {
+        __EIP712_init("ReplateQuest", "1");
+        __Nonces_init();
     }
 
     // ─── UUPS Upgrade Authorization ──────────────────────────────────
@@ -253,6 +275,48 @@ contract ReplateQuest is
         emit CheckedIn(user, today, checkInStreak[user], CHECKIN_POINTS);
     }
 
+    /// @notice Meta-transaction check-in: user signs EIP-712 message, anyone can relay
+    /// @param user      The user who signed the check-in request
+    /// @param deadline  Signature expiry timestamp
+    /// @param signature EIP-712 signature from the user
+    function checkInWithSig(
+        address user,
+        uint256 deadline,
+        bytes calldata signature
+    ) external whenNotPaused {
+        require(user != address(0), "Invalid user address");
+        require(block.timestamp <= deadline, "Signature expired");
+
+        uint256 currentNonce = _useNonce(user);
+
+        bytes32 structHash = keccak256(abi.encode(
+            CHECKIN_TYPEHASH,
+            user,
+            currentNonce,
+            deadline
+        ));
+
+        bytes32 digest = _hashTypedDataV4(structHash);
+        address signer = digest.recover(signature);
+        require(signer == user, "Invalid signature");
+
+        // ── Same logic as checkIn ──
+        uint256 today = block.timestamp / 1 days;
+        require(lastCheckInDay[user] < today, "Already checked in today");
+
+        if (lastCheckInDay[user] == today - 1) {
+            checkInStreak[user] += 1;
+        } else {
+            checkInStreak[user] = 1;
+        }
+
+        lastCheckInDay[user] = today;
+        totalCheckIns[user]  += 1;
+        totalPoints[user]    += CHECKIN_POINTS;
+
+        emit CheckedIn(user, today, checkInStreak[user], CHECKIN_POINTS);
+    }
+
     // ─── Weekly Reward Distribution ──────────────────────────────────
 
     /// @notice Distribute USDC to top 100 users proportional to their XP shares
@@ -326,6 +390,124 @@ contract ReplateQuest is
         }
 
         emit WeekFinalized(user, lastWeek, report.totalPoints, streak[user]);
+    }
+
+    /// @notice Meta-transaction receipt submission: user signs EIP-712 message, anyone can relay
+    function submitReceiptWithSig(
+        address user,
+        uint8   totalItems,
+        uint8   healthyItems,
+        uint8   unhealthyItems,
+        uint16  fruitVegGrams,
+        uint8   householdSize,
+        uint8   daysCovered,
+        uint256 deadline,
+        bytes calldata signature
+    ) external whenNotPaused nonReentrant {
+
+        require(user != address(0),                             "Invalid user address");
+        require(block.timestamp <= deadline,                    "Signature expired");
+        require(totalItems > 0,                                 "Empty receipt");
+        require(healthyItems + unhealthyItems <= totalItems,    "Item count mismatch");
+        require(householdSize >= 1 && householdSize <= 10,      "Household size must be 1-10");
+        require(daysCovered >= 1 && daysCovered <= 30,          "Days covered must be 1-30");
+
+        // Verify EIP-712 signature in a separate scope to avoid stack-too-deep
+        _verifyReceiptSig(
+            user, totalItems, healthyItems, unhealthyItems,
+            fruitVegGrams, householdSize, daysCovered, deadline, signature
+        );
+
+        // ── Same logic as submitReceipt (without onlyValidator) ──
+        _processReceipt(user, totalItems, healthyItems, unhealthyItems, fruitVegGrams, householdSize, daysCovered);
+    }
+
+    /// @dev Internal: verify EIP-712 receipt signature
+    function _verifyReceiptSig(
+        address user,
+        uint8   totalItems,
+        uint8   healthyItems,
+        uint8   unhealthyItems,
+        uint16  fruitVegGrams,
+        uint8   householdSize,
+        uint8   daysCovered,
+        uint256 deadline,
+        bytes calldata signature
+    ) internal {
+        uint256 currentNonce = _useNonce(user);
+
+        bytes32 structHash = keccak256(abi.encode(
+            RECEIPT_TYPEHASH,
+            user,
+            totalItems,
+            healthyItems,
+            unhealthyItems,
+            fruitVegGrams,
+            householdSize,
+            daysCovered,
+            currentNonce,
+            deadline
+        ));
+
+        bytes32 digest = _hashTypedDataV4(structHash);
+        address signer = digest.recover(signature);
+        require(signer == user, "Invalid signature");
+    }
+
+    /// @dev Internal: process receipt data (shared by submitReceipt and submitReceiptWithSig)
+    function _processReceipt(
+        address user,
+        uint8   totalItems,
+        uint8   healthyItems,
+        uint8   unhealthyItems,
+        uint16  fruitVegGrams,
+        uint8   householdSize,
+        uint8   daysCovered
+    ) internal {
+        uint256 today = block.timestamp / 1 days;
+        require(lastReceiptDay[user] < today, "Already submitted a receipt today");
+        lastReceiptDay[user] = today;
+
+        if (currentPhase == Phase.PAID) {
+            require(usdc.transferFrom(user, address(this), FEE), "USDC transfer failed");
+            weeklyPool += FEE / 2;
+            devFund    += FEE / 2;
+        }
+
+        uint8 healthScore = _calcHealthScore(totalItems, healthyItems, unhealthyItems);
+
+        uint16 expectedGrams = uint16(householdSize)
+                             * uint16(daysCovered)
+                             * DAILY_FRUIT_VEG_PER_PERSON;
+
+        uint8 nutritionScore = _calcNutritionScore(fruitVegGrams, expectedGrams);
+        uint256 points = _calcPoints(healthScore, totalItems, healthyItems, nutritionScore);
+
+        receipts[user].push(Receipt({
+            timestamp:      block.timestamp,
+            healthScore:    healthScore,
+            nutritionScore: nutritionScore,
+            totalItems:     totalItems,
+            healthyItems:   healthyItems,
+            unhealthyItems: unhealthyItems,
+            fruitVegGrams:  fruitVegGrams,
+            householdSize:  householdSize,
+            daysCovered:    daysCovered,
+            pointsEarned:   points
+        }));
+
+        totalPoints[user] += points;
+
+        uint256 weekNum = block.timestamp / 7 days;
+        WeeklyReport storage report = weeklyReports[user][weekNum];
+        report.receiptCount     += 1;
+        report.totalPoints      += points;
+        report.avgHealthScore    = _updateAvg(report.avgHealthScore,    healthScore,    report.receiptCount);
+        report.avgNutritionScore = _updateAvg(report.avgNutritionScore, nutritionScore, report.receiptCount);
+
+        emit ReceiptSubmitted(user, healthScore, nutritionScore, points, expectedGrams, fruitVegGrams);
+
+        _checkAndMintBadge(user, healthScore, nutritionScore);
     }
 
     // ─── Internal Calculation Functions ──────────────────────────────
