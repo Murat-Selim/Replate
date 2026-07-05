@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { useAccount, useSignTypedData, useWriteContract, usePublicClient } from 'wagmi';
+import { useAccount, useSignTypedData, useWriteContract } from 'wagmi';
 import { useWalletType, type WalletType } from '@/lib/walletType';
 import {
   EIP712_DOMAIN,
@@ -12,9 +12,7 @@ import {
   createDeadline,
   type ReceiptData,
 } from '@/lib/eip712';
-import { getPaymasterCapabilities, isPaymasterConfigured } from '@/lib/paymaster';
 import { REPLATE_QUEST_ABI, CONTRACT_ADDRESS } from '@/lib/contract';
-import { appChain } from '@/lib/network';
 import { getApiUrl } from '@/lib/api';
 
 // ─── Types ───────────────────────────────────────────────────────────
@@ -25,8 +23,8 @@ interface TransactionResult {
   error?: string;
 }
 
-// ─── Nonce Helper ────────────────────────────────────────────────────
-async function fetchNonce(address: string): Promise<bigint> {
+// ─── Nonce Helper (from contract directly) ───────────────────────────
+async function fetchNonceFromBackend(address: string): Promise<bigint> {
   const res = await fetch(getApiUrl(`/api/meta/nonce/${address}`));
   const data = await res.json();
   return BigInt(data.nonce || 0);
@@ -35,7 +33,6 @@ async function fetchNonce(address: string): Promise<bigint> {
 // ─── useCheckIn Hook ─────────────────────────────────────────────────
 export function useCheckIn() {
   const { address } = useAccount();
-  const publicClient = usePublicClient();
   const { detectWalletType } = useWalletType();
   const { signTypedDataAsync } = useSignTypedData();
   const { writeContractAsync } = useWriteContract();
@@ -57,22 +54,40 @@ export function useCheckIn() {
       setWalletType(wType);
 
       if (wType === 'smart') {
-        // ── Smart Wallet → ERC-4337 direct contract call ──
-        console.log('🔷 Smart Wallet detected — using ERC-4337');
+        // ── Smart Wallet → EIP-712 sign + direct contract call ──
+        // User's own Smart Wallet sends the tx, so Base App sees each user individually
+        console.log('🔷 Smart Wallet detected — using EIP-712 + direct call (user-attributed tx)');
 
+        // 1. Get nonce from contract
+        const nonce = await fetchNonceFromBackend(address);
+        const deadline = createDeadline(5);
+
+        // 2. Build & sign EIP-712 message
+        const message = buildCheckInMessage(address, nonce, deadline);
+
+        const signature = await signTypedDataAsync({
+          domain: EIP712_DOMAIN,
+          types: CHECK_IN_TYPES,
+          primaryType: 'CheckIn',
+          message,
+        });
+
+        // 3. User's Smart Wallet calls checkInWithSig directly
+        //    → from = user's wallet address → Base App counts as unique user ✅
         const txHash = await writeContractAsync({
           address: CONTRACT_ADDRESS,
           abi: REPLATE_QUEST_ABI,
-          functionName: 'checkIn',
-          args: [address],
+          functionName: 'checkInWithSig',
+          args: [address, deadline, signature],
         });
 
         return { success: true, txHash, pointsEarned: 10 };
       } else {
         // ── EOA → EIP-712 sign + backend relay ──
-        console.log('🔶 EOA detected — using EIP-712');
+        // EOAs can't use paymaster, so backend relays the tx
+        console.log('🔶 EOA detected — using EIP-712 + backend relay');
 
-        const nonce = await fetchNonce(address);
+        const nonce = await fetchNonceFromBackend(address);
         const deadline = createDeadline(5);
 
         const message = buildCheckInMessage(address, nonce, deadline);
@@ -124,7 +139,6 @@ export function useCheckIn() {
 // ─── useSubmitReceipt Hook ───────────────────────────────────────────
 export function useSubmitReceipt() {
   const { address } = useAccount();
-  const publicClient = usePublicClient();
   const { detectWalletType } = useWalletType();
   const { signTypedDataAsync } = useSignTypedData();
   const { writeContractAsync } = useWriteContract();
@@ -147,13 +161,30 @@ export function useSubmitReceipt() {
         setWalletType(wType);
 
         if (wType === 'smart') {
-          // ── Smart Wallet → ERC-4337 direct contract call ──
-          console.log('🔷 Smart Wallet — using ERC-4337 for receipt');
+          // ── Smart Wallet → EIP-712 sign + direct contract call ──
+          // User's own Smart Wallet sends the tx
+          console.log('🔷 Smart Wallet — using EIP-712 + direct call for receipt (user-attributed tx)');
 
+          // 1. Get nonce from contract
+          const nonce = await fetchNonceFromBackend(address);
+          const deadline = createDeadline(5);
+
+          // 2. Build & sign EIP-712 message
+          const message = buildReceiptMessage(address, receiptData, nonce, deadline);
+
+          const signature = await signTypedDataAsync({
+            domain: EIP712_DOMAIN,
+            types: RECEIPT_TYPES,
+            primaryType: 'SubmitReceipt',
+            message,
+          });
+
+          // 3. User's Smart Wallet calls submitReceiptWithSig directly
+          //    → from = user's wallet address → Base App counts as unique user ✅
           const txHash = await writeContractAsync({
             address: CONTRACT_ADDRESS,
             abi: REPLATE_QUEST_ABI,
-            functionName: 'submitReceipt',
+            functionName: 'submitReceiptWithSig',
             args: [
               address,
               receiptData.totalItems,
@@ -162,15 +193,17 @@ export function useSubmitReceipt() {
               receiptData.fruitVegGrams,
               receiptData.householdSize,
               receiptData.daysCovered,
+              deadline,
+              signature,
             ],
           });
 
           return { success: true, txHash };
         } else {
           // ── EOA → EIP-712 sign + backend relay ──
-          console.log('🔶 EOA — using EIP-712 for receipt');
+          console.log('🔶 EOA — using EIP-712 + backend relay for receipt');
 
-          const nonce = await fetchNonce(address);
+          const nonce = await fetchNonceFromBackend(address);
           const deadline = createDeadline(5);
 
           const message = buildReceiptMessage(address, receiptData, nonce, deadline);

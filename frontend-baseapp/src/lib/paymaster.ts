@@ -36,3 +36,10 @@ export function getPaymasterCapabilities(chainId: number) {
 export function isPaymasterConfigured(): boolean {
   return !CDP_PAYMASTER_URL.includes('YOUR_CDP_KEY');
 }
+
+/**
+ * Get the raw paymaster URL for direct use
+ */
+export function getPaymasterUrl(): string {
+  return CDP_PAYMASTER_URL;
+}
