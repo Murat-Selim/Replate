@@ -574,6 +574,7 @@ export const REPLATE_QUEST_ABI = [
     "name": "UPGRADE_INTERFACE_VERSION",
     "outputs": [
       {
+        "defaultValue": null,
         "internalType": "string",
         "name": "",
         "type": "string"
@@ -663,6 +664,29 @@ export const REPLATE_QUEST_ABI = [
       }
     ],
     "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "deadline",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bytes",
+        "name": "signature",
+        "type": "bytes"
+      }
+    ],
+    "name": "checkInWithSig",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -1034,6 +1058,25 @@ export const REPLATE_QUEST_ABI = [
   {
     "inputs": [
       {
+        "internalType": "address",
+        "name": "owner",
+        "type": "address"
+      }
+    ],
+    "name": "nonces",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "uint256",
         "name": "tokenId",
         "type": "uint256"
@@ -1338,6 +1381,59 @@ export const REPLATE_QUEST_ABI = [
   {
     "inputs": [
       {
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      },
+      {
+        "internalType": "uint8",
+        "name": "totalItems",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint8",
+        "name": "healthyItems",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint8",
+        "name": "unhealthyItems",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint16",
+        "name": "fruitVegGrams",
+        "type": "uint16"
+      },
+      {
+        "internalType": "uint8",
+        "name": "householdSize",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint8",
+        "name": "daysCovered",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint256",
+        "name": "deadline",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bytes",
+        "name": "signature",
+        "type": "bytes"
+      }
+    ],
+    "name": "submitReceiptWithSig",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "bytes4",
         "name": "interfaceId",
         "type": "bytes4"
@@ -1621,7 +1717,6 @@ export const REPLATE_QUEST_ABI = [
   }
 ] as const;
 
-// Contract constants
 export const CONTRACT_CONSTANTS = {
   FEE: 1e6, // 1 USDC (6 decimals)
   DAILY_FRUIT_VEG_PER_PERSON: 300, // grams

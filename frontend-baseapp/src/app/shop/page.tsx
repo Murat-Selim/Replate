@@ -6,6 +6,7 @@ import { Minus, Plus, Sparkles, Camera, Check, Loader2, X, Leaf, Star, Trophy, I
 import { useAccount } from "wagmi";
 import { getApiUrl } from "@/lib/api";
 import { compressImage } from "@/lib/image";
+import { useSubmitReceipt } from "@/lib/useTransaction";
 
 interface VerificationResult {
     txHash: string;
@@ -22,6 +23,7 @@ interface VerificationResult {
 
 export default function SmartShop() {
     const { address } = useAccount();
+    const { submitReceipt } = useSubmitReceipt();
     const [householdSize, setHouseholdSize] = useState(2);
     const [duration, setDuration] = useState(7);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -145,6 +147,7 @@ export default function SmartShop() {
 
         try {
             const base64Data = imagePreview.split(",")[1] || imagePreview;
+            // 1. Analyze receipt off-chain (no on-chain submission from relayer)
             const response = await fetch(getApiUrl("/api/verify-receipt"), {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -153,16 +156,35 @@ export default function SmartShop() {
                     userAddress: address,
                     householdSize,
                     daysCovered: duration,
+                    onlyAnalyze: true,
                 }),
             });
 
             const data = await response.json();
 
-            if (!data.success) {
+            if (!data.success || !data.data) {
                 throw new Error(data.error || "Verification failed");
             }
 
-            setResult(data.data);
+            // 2. Direct on-chain receipt submission from user's wallet
+            const txResult = await submitReceipt({
+                totalItems: data.data.totalItems,
+                healthyItems: data.data.healthyItems,
+                unhealthyItems: data.data.unhealthyItems,
+                fruitVegGrams: data.data.fruitVegGrams,
+                householdSize,
+                daysCovered: data.data.daysCovered,
+            });
+
+            if (!txResult.success) {
+                throw new Error(txResult.error || "Transaction failed");
+            }
+
+            // 3. Show successful result with user's direct txHash
+            setResult({
+                ...data.data,
+                txHash: txResult.txHash || "",
+            });
         } catch (err) {
             setError(err instanceof Error ? err.message : "An error occurred");
         } finally {

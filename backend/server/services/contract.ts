@@ -611,7 +611,7 @@ export async function getPoolStatus(): Promise<PoolStatus> {
 }
 
 // ─── Hesap yardımcıları ───────────────────────────────────────────────
-function calculateScores(data: ReceiptSubmission): ContractResult {
+export function calculateScores(data: ReceiptSubmission): ContractResult {
   const neutralItems = data.totalItems - data.healthyItems - data.unhealthyItems;
   const rawScore = data.healthyItems * 10 + neutralItems * 5;
   const maxScore = data.totalItems * 10;

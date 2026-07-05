@@ -6,6 +6,7 @@ import { Flame, Star, Leaf, Share2, Loader2, Check, Trophy, Receipt, CalendarChe
 import { useAccount, useReadContract } from "wagmi";
 import { CONTRACT_ADDRESS, REPLATE_QUEST_ABI } from "@/lib/contract";
 import { getApiUrl } from "@/lib/api";
+import { useCheckIn } from "@/lib/useTransaction";
 
 interface UserSummary {
     totalPoints: number;
@@ -27,6 +28,7 @@ interface WeekReport {
 
 export default function YourImpact() {
     const { address } = useAccount();
+    const { checkIn } = useCheckIn();
     const [isCheckingIn, setIsCheckingIn] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -100,22 +102,15 @@ export default function YourImpact() {
         setError(null);
 
         try {
-            const response = await fetch(getApiUrl("/api/check-in"), {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ userAddress: address }),
-            });
-
-            const data = await response.json();
-
-            if (data.success) {
+            const res = await checkIn();
+            if (res.success) {
                 refetchSummary();
                 refetchLastCheckInDay();
             } else {
-                throw new Error(data.error || "Check-in failed");
+                throw new Error(res.error || "Check-in failed");
             }
-        } catch (err) {
-            const message = err instanceof Error ? err.message : "Check-in failed";
+        } catch (err: any) {
+            const message = err?.message || "Check-in failed";
             if (message.includes("Already checked in today")) {
                 setError("You've already checked in today! ✨");
             } else {

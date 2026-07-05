@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
 import { processOCR } from "../services/ocr.js";
 import { classifyFoods, ClassificationResult } from "../services/classifier.js";
-import { submitReceiptToContract } from "../services/contract.js";
+import { submitReceiptToContract, calculateScores } from "../services/contract.js";
 import { clearLeaderboardCache } from "./leaderboard.js";
 
 const router = Router();
@@ -12,6 +12,7 @@ interface VerifyReceiptRequest {
   householdSize: number;
   daysCovered?: number;
   fid?: number; // Farcaster ID
+  onlyAnalyze?: boolean;
 }
 
 interface VerifyReceiptResponse {
@@ -34,7 +35,7 @@ interface VerifyReceiptResponse {
 
 router.post("/", async (req: Request, res: Response) => {
   try {
-    const { imageBase64, userAddress, householdSize, daysCovered, fid } = req.body as VerifyReceiptRequest;
+    const { imageBase64, userAddress, householdSize, daysCovered, fid, onlyAnalyze } = req.body as VerifyReceiptRequest;
 
     // Validation
     if (!imageBase64) {
@@ -50,7 +51,7 @@ router.post("/", async (req: Request, res: Response) => {
       return;
     }
 
-    console.log(`📸 Processing receipt for ${userAddress}...`);
+    console.log(`📸 Processing receipt for ${userAddress} (onlyAnalyze: ${!!onlyAnalyze})...`);
 
     // Step 1: OCR - Extract text from receipt
     const ocrResult = await processOCR(imageBase64);
@@ -60,7 +61,39 @@ router.post("/", async (req: Request, res: Response) => {
     const classification = await classifyFoods(ocrResult.lines);
     console.log(`🥗 Classification: ${classification.healthyItems} healthy, ${classification.unhealthyItems} unhealthy`);
 
-    // Step 3: Submit to smart contract
+    const targetDaysCovered = daysCovered || estimateDaysCovered(classification.totalItems, householdSize);
+
+    if (onlyAnalyze) {
+      const scores = calculateScores({
+        user: userAddress,
+        totalItems: classification.totalItems,
+        healthyItems: classification.healthyItems,
+        unhealthyItems: classification.unhealthyItems,
+        fruitVegGrams: classification.fruitVegGrams,
+        householdSize,
+        daysCovered: targetDaysCovered,
+      });
+
+      res.json({
+        success: true,
+        data: {
+          txHash: "",
+          healthScore: scores.healthScore,
+          nutritionScore: scores.nutritionScore,
+          totalItems: classification.totalItems,
+          healthyItems: classification.healthyItems,
+          unhealthyItems: classification.unhealthyItems,
+          fruitVegGrams: classification.fruitVegGrams,
+          daysCovered: targetDaysCovered,
+          pointsEarned: scores.pointsEarned,
+          badgeMinted: false,
+          products: classification.products,
+        },
+      } as VerifyReceiptResponse);
+      return;
+    }
+
+    // Step 3: Submit to smart contract (legacy fallback)
     const contractResult = await submitReceiptToContract({
       user: userAddress,
       totalItems: classification.totalItems,
@@ -68,7 +101,7 @@ router.post("/", async (req: Request, res: Response) => {
       unhealthyItems: classification.unhealthyItems,
       fruitVegGrams: classification.fruitVegGrams,
       householdSize,
-      daysCovered: daysCovered || estimateDaysCovered(classification.totalItems, householdSize),
+      daysCovered: targetDaysCovered,
     });
 
     // Clear leaderboard cache to reflect new points immediately

@@ -7,6 +7,7 @@ import { sdk } from "@farcaster/miniapp-sdk";
 import { useFarcasterAccount } from "@/hooks/useFarcasterAccount";
 import { getApiUrl } from "@/lib/api";
 import { useConnect } from "wagmi";
+import { useCheckIn } from "@/lib/useTransaction";
 
 interface UserSummary {
     totalPoints: number;
@@ -28,6 +29,7 @@ interface WeekReport {
 
 export default function YourImpact() {
     const { address } = useFarcasterAccount();
+    const { checkIn } = useCheckIn();
     const { connect, connectors } = useConnect();
     const [isLoading, setIsLoading] = useState(true);
     const [isCheckingIn, setIsCheckingIn] = useState(false);
@@ -117,32 +119,21 @@ export default function YourImpact() {
         setError(null);
 
         try {
-            const apiUrl = getApiUrl("/api/check-in");
-            console.log("🚀 Sending check-in to:", apiUrl);
-
-            const response = await fetch(apiUrl, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ userAddress: address }),
-            });
-
-            console.log("📡 Response status:", response.status);
-            const data = await response.json();
-
-            if (data.success) {
+            const res = await checkIn();
+            if (res.success) {
                 setUserData(prev => ({
                     ...prev,
-                    checkInStreak: data.data.newStreak,
+                    checkInStreak: prev.checkInStreak + 1,
                     totalCheckIns: prev.totalCheckIns + 1,
-                    totalPoints: prev.totalPoints + data.data.pointsEarned,
+                    totalPoints: prev.totalPoints + 10,
                     lastCheckInDay: Math.floor(Date.now() / 1000 / 86400),
                 }));
             } else {
-                throw new Error(data.error || "Check-in failed");
+                throw new Error(res.error || "Check-in failed");
             }
-        } catch (err) {
+        } catch (err: any) {
             console.error("❌ Check-in Detail:", err);
-            const message = err instanceof Error ? err.message : "Check-in failed";
+            const message = err?.message || "Check-in failed";
             if (message.includes("Already checked in today")) {
                 setError("You've already checked in today! See you tomorrow! ✨");
             } else {
