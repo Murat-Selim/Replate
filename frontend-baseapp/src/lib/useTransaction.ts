@@ -23,7 +23,7 @@ interface TransactionResult {
   error?: string;
 }
 
-// ─── Nonce Helper (from contract directly) ───────────────────────────
+// ─── Nonce Helper (from contract directly via backend metadata) ──────
 async function fetchNonceFromBackend(address: string): Promise<bigint> {
   const res = await fetch(getApiUrl(`/api/meta/nonce/${address}`));
   const data = await res.json();
@@ -53,76 +53,32 @@ export function useCheckIn() {
       const wType = await detectWalletType(address);
       setWalletType(wType);
 
-      if (wType === 'smart') {
-        // ── Smart Wallet → EIP-712 sign + direct contract call ──
-        // User's own Smart Wallet sends the tx, so Base App sees each user individually
-        console.log('🔷 Smart Wallet detected — using EIP-712 + direct call (user-attributed tx)');
+      console.log(`🔷 Wallet detected (${wType}) — using EIP-712 + direct contract call (user-attributed tx)`);
 
-        // 1. Get nonce from contract
-        const nonce = await fetchNonceFromBackend(address);
-        const deadline = createDeadline(5);
+      // 1. Get nonce from contract (via backend meta helper)
+      const nonce = await fetchNonceFromBackend(address);
+      const deadline = createDeadline(5);
 
-        // 2. Build & sign EIP-712 message
-        const message = buildCheckInMessage(address, nonce, deadline);
+      // 2. Build & sign EIP-712 message
+      const message = buildCheckInMessage(address, nonce, deadline);
 
-        const signature = await signTypedDataAsync({
-          domain: EIP712_DOMAIN,
-          types: CHECK_IN_TYPES,
-          primaryType: 'CheckIn',
-          message,
-        });
+      const signature = await signTypedDataAsync({
+        domain: EIP712_DOMAIN,
+        types: CHECK_IN_TYPES,
+        primaryType: 'CheckIn',
+        message,
+      });
 
-        // 3. User's Smart Wallet calls checkInWithSig directly
-        //    → from = user's wallet address → Base App counts as unique user ✅
-        const txHash = await writeContractAsync({
-          address: CONTRACT_ADDRESS,
-          abi: REPLATE_QUEST_ABI,
-          functionName: 'checkInWithSig',
-          args: [address, deadline, signature],
-        });
+      // 3. EOA or Smart Wallet calls checkInWithSig directly
+      //    → from = user's wallet address → Base App counts as unique user ✅
+      const txHash = await writeContractAsync({
+        address: CONTRACT_ADDRESS,
+        abi: REPLATE_QUEST_ABI,
+        functionName: 'checkInWithSig',
+        args: [address, deadline, signature],
+      });
 
-        return { success: true, txHash, pointsEarned: 10 };
-      } else {
-        // ── EOA → EIP-712 sign + backend relay ──
-        // EOAs can't use paymaster, so backend relays the tx
-        console.log('🔶 EOA detected — using EIP-712 + backend relay');
-
-        const nonce = await fetchNonceFromBackend(address);
-        const deadline = createDeadline(5);
-
-        const message = buildCheckInMessage(address, nonce, deadline);
-
-        const signature = await signTypedDataAsync({
-          domain: EIP712_DOMAIN,
-          types: CHECK_IN_TYPES,
-          primaryType: 'CheckIn',
-          message,
-        });
-
-        // Send to backend for relay
-        const res = await fetch(getApiUrl('/api/meta/checkin-sig'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            userAddress: address,
-            nonce: nonce.toString(),
-            deadline: deadline.toString(),
-            signature,
-          }),
-        });
-
-        const data = await res.json();
-
-        if (!res.ok || !data.success) {
-          throw new Error(data.error || 'Check-in failed');
-        }
-
-        return {
-          success: true,
-          txHash: data.data?.txHash,
-          pointsEarned: data.data?.pointsEarned || 10,
-        };
-      }
+      return { success: true, txHash, pointsEarned: 10 };
     } catch (err: any) {
       const errorMsg = err?.message || 'Check-in failed';
       setError(errorMsg);
@@ -160,86 +116,42 @@ export function useSubmitReceipt() {
         const wType = await detectWalletType(address);
         setWalletType(wType);
 
-        if (wType === 'smart') {
-          // ── Smart Wallet → EIP-712 sign + direct contract call ──
-          // User's own Smart Wallet sends the tx
-          console.log('🔷 Smart Wallet — using EIP-712 + direct call for receipt (user-attributed tx)');
+        console.log(`🔷 Wallet detected (${wType}) — using EIP-712 + direct contract call for receipt (user-attributed tx)`);
 
-          // 1. Get nonce from contract
-          const nonce = await fetchNonceFromBackend(address);
-          const deadline = createDeadline(5);
+        // 1. Get nonce from contract (via backend meta helper)
+        const nonce = await fetchNonceFromBackend(address);
+        const deadline = createDeadline(5);
 
-          // 2. Build & sign EIP-712 message
-          const message = buildReceiptMessage(address, receiptData, nonce, deadline);
+        // 2. Build & sign EIP-712 message
+        const message = buildReceiptMessage(address, receiptData, nonce, deadline);
 
-          const signature = await signTypedDataAsync({
-            domain: EIP712_DOMAIN,
-            types: RECEIPT_TYPES,
-            primaryType: 'SubmitReceipt',
-            message,
-          });
+        const signature = await signTypedDataAsync({
+          domain: EIP712_DOMAIN,
+          types: RECEIPT_TYPES,
+          primaryType: 'SubmitReceipt',
+          message,
+        });
 
-          // 3. User's Smart Wallet calls submitReceiptWithSig directly
-          //    → from = user's wallet address → Base App counts as unique user ✅
-          const txHash = await writeContractAsync({
-            address: CONTRACT_ADDRESS,
-            abi: REPLATE_QUEST_ABI,
-            functionName: 'submitReceiptWithSig',
-            args: [
-              address,
-              receiptData.totalItems,
-              receiptData.healthyItems,
-              receiptData.unhealthyItems,
-              receiptData.fruitVegGrams,
-              receiptData.householdSize,
-              receiptData.daysCovered,
-              deadline,
-              signature,
-            ],
-          });
+        // 3. EOA or Smart Wallet calls submitReceiptWithSig directly
+        //    → from = user's wallet address → Base App counts as unique user ✅
+        const txHash = await writeContractAsync({
+          address: CONTRACT_ADDRESS,
+          abi: REPLATE_QUEST_ABI,
+          functionName: 'submitReceiptWithSig',
+          args: [
+            address,
+            receiptData.totalItems,
+            receiptData.healthyItems,
+            receiptData.unhealthyItems,
+            receiptData.fruitVegGrams,
+            receiptData.householdSize,
+            receiptData.daysCovered,
+            deadline,
+            signature,
+          ],
+        });
 
-          return { success: true, txHash };
-        } else {
-          // ── EOA → EIP-712 sign + backend relay ──
-          console.log('🔶 EOA — using EIP-712 + backend relay for receipt');
-
-          const nonce = await fetchNonceFromBackend(address);
-          const deadline = createDeadline(5);
-
-          const message = buildReceiptMessage(address, receiptData, nonce, deadline);
-
-          const signature = await signTypedDataAsync({
-            domain: EIP712_DOMAIN,
-            types: RECEIPT_TYPES,
-            primaryType: 'SubmitReceipt',
-            message,
-          });
-
-          // Send to backend for relay
-          const res = await fetch(getApiUrl('/api/meta/receipt-sig'), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              userAddress: address,
-              ...receiptData,
-              nonce: nonce.toString(),
-              deadline: deadline.toString(),
-              signature,
-            }),
-          });
-
-          const data = await res.json();
-
-          if (!res.ok || !data.success) {
-            throw new Error(data.error || 'Receipt submission failed');
-          }
-
-          return {
-            success: true,
-            txHash: data.data?.txHash,
-            pointsEarned: data.data?.pointsEarned,
-          };
-        }
+        return { success: true, txHash };
       } catch (err: any) {
         const errorMsg = err?.message || 'Receipt submission failed';
         setError(errorMsg);
