@@ -1,4 +1,6 @@
 import { ethers, Wallet, Contract } from "ethers";
+import fs from "fs";
+import path from "path";
 import { REPLATE_QUEST_ABI, CONTRACT_ADDRESS } from "../../src/lib/contract.js";
 
 // ─── Sabitler ─────────────────────────────────────────────────────────
@@ -30,6 +32,29 @@ interface UsersCache {
 }
 let usersCache: UsersCache | null = null;
 const USERS_CACHE_TTL = 60 * 60 * 1000; // 1 saat
+
+const USERS_FILE = path.join(process.cwd(), "users.json");
+
+export function saveUser(address: string): void {
+  if (!address) return;
+  const normalized = address.toLowerCase();
+  try {
+    let list: string[] = [];
+    if (fs.existsSync(USERS_FILE)) {
+      const content = fs.readFileSync(USERS_FILE, "utf8");
+      list = JSON.parse(content);
+    }
+    if (!list.includes(normalized)) {
+      list.push(normalized);
+      fs.writeFileSync(USERS_FILE, JSON.stringify(list, null, 2), "utf8");
+      console.log(`👤 User saved to users.json: ${normalized}`);
+      // Cache'i geçersiz kıl ki yeni kullanıcı hemen leaderboard'a girsin
+      clearUsersCache();
+    }
+  } catch (error) {
+    console.warn("⚠️ Failed to save user to users.json:", error);
+  }
+}
 
 export function clearUsersCache(): void {
   usersCache = null;
@@ -168,6 +193,8 @@ export async function submitReceiptToContract(
   }
 
   try {
+    // Başarılı olursa diye hemen veri tabanına kaydet
+    saveUser(data.user);
     return await withRetry(async (c) => {
       console.log("📊 Submitting to contract:", {
         user: data.user,
@@ -254,6 +281,7 @@ export async function submitCheckIn(
   }
 
   try {
+    saveUser(userAddress);
     return await withRetry(async (c) => {
       let lastDay = 0;
       try {
@@ -416,6 +444,22 @@ async function discoverUsersFromLogs(): Promise<string[]> {
   const basescanKey = process.env.BASESCAN_API_KEY;
 
   const users = new Set<string>();
+
+  // ── 0. Local database (users.json) ───────────────────────────────────
+  try {
+    if (fs.existsSync(USERS_FILE)) {
+      const content = fs.readFileSync(USERS_FILE, "utf8");
+      const list = JSON.parse(content);
+      if (Array.isArray(list)) {
+        for (const addr of list) {
+          users.add(addr.toLowerCase());
+        }
+        console.log(`📋 Loaded ${list.length} users from users.json`);
+      }
+    }
+  } catch (err) {
+    console.warn("⚠️ Failed to read users.json:", err);
+  }
 
   // ── 1. Alchemy getAssetTransfers ─────────────────────────────────────
   // Kontraka gelen tüm dış tx'lerin from adresleri = kullanıcılar
@@ -770,6 +814,7 @@ export async function submitCheckInWithSig(
   signature: string
 ): Promise<{ success: boolean; pointsEarned: number; txHash: string }> {
   try {
+    saveUser(userAddress);
     return await withRetry(async (c) => {
       console.log(`🔗 CheckInWithSig for ${userAddress}...`);
 
@@ -813,6 +858,7 @@ export async function submitReceiptWithSig(
   signature: string
 ): Promise<ContractResult> {
   try {
+    saveUser(data.user);
     return await withRetry(async (c) => {
       console.log("📊 SubmitReceiptWithSig:", {
         user: data.user,

@@ -1,7 +1,8 @@
 import { base, baseSepolia, type Chain } from "wagmi/chains";
 
 const DEFAULT_CHAIN = "baseMainnet";
-const DEFAULT_CONTRACT_ADDRESS = "0xb9b7BD63E098ABd55605312933899fC4f3EF59F8";
+// Güncel kontrat adresi — env yoksa bu kullanılır
+const DEFAULT_CONTRACT_ADDRESS = "0x9d646D474ba0D1bF03E61453898c160b7f9e3E90";
 
 function resolveChain(): Chain {
   const chainName = process.env.NEXT_PUBLIC_CHAIN?.trim() || DEFAULT_CHAIN;
