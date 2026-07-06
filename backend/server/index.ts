@@ -22,8 +22,29 @@ const PORT = process.env.PORT || 3001;
 
 // Middleware
 app.use(helmet({ crossOriginResourcePolicy: false }));
+
+// CORS: env'den frontend URL'lerini al (virgülle ayrılmış liste desteklenir)
+// FRONTEND_URL="https://replate-app.vercel.app,http://localhost:3000"
+const rawOrigins = process.env.FRONTEND_URL || "";
+const allowedOrigins = rawOrigins
+  ? rawOrigins.split(",").map((o) => o.trim())
+  : [];
+
 app.use(cors({
-  origin: "*", // Allows any origin from the UI so you don't get CORS 'Failed to Fetch'
+  origin: (origin, callback) => {
+    // Same-origin veya sunucu-sunucu istekleri (origin yok)
+    if (!origin) return callback(null, true);
+    // Tanımlı liste varsa kontrol et
+    if (allowedOrigins.length > 0) {
+      if (allowedOrigins.some((allowed) => origin.startsWith(allowed))) {
+        return callback(null, true);
+      }
+      return callback(new Error("CORS: origin not allowed"));
+    }
+    // FRONTEND_URL set edilmemişse tüm origin'lere izin ver (geliştirme modu)
+    return callback(null, true);
+  },
+  credentials: true,
 }));
 
 // Request Logger

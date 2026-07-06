@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { useAccount, useSignTypedData, useWriteContract } from 'wagmi';
-import { useWalletType, type WalletType } from '@/lib/walletType';
+import { useAccount, useSignTypedData, useWriteContract, useSwitchChain, usePublicClient } from 'wagmi';
 import {
   EIP712_DOMAIN,
   CHECK_IN_TYPES,
@@ -14,8 +13,9 @@ import {
 } from '@/lib/eip712';
 import { REPLATE_QUEST_ABI, CONTRACT_ADDRESS } from '@/lib/contract';
 import { getApiUrl } from '@/lib/api';
+import { appChain } from '@/lib/network';
 
-// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ¦¦¦ Types ¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦
 interface TransactionResult {
   success: boolean;
   txHash?: string;
@@ -23,23 +23,16 @@ interface TransactionResult {
   error?: string;
 }
 
-// â”€â”€â”€ Nonce Helper (from contract directly via backend metadata) â”€â”€â”€â”€â”€â”€
-async function fetchNonceFromBackend(address: string): Promise<bigint> {
-  const res = await fetch(getApiUrl(`/api/meta/nonce/${address}`));
-  const data = await res.json();
-  return BigInt(data.nonce || 0);
-}
-
-// â”€â”€â”€ useCheckIn Hook â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ¦¦¦ useCheckIn Hook ¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦
 export function useCheckIn() {
-  const { address } = useAccount();
-  const { detectWalletType } = useWalletType();
+  const { address, chainId } = useAccount();
+  const publicClient = usePublicClient();
   const { signTypedDataAsync } = useSignTypedData();
   const { writeContractAsync } = useWriteContract();
+  const { switchChainAsync } = useSwitchChain();
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [walletType, setWalletType] = useState<WalletType | null>(null);
 
   const checkIn = useCallback(async (): Promise<TransactionResult> => {
     if (!address) {
@@ -50,14 +43,23 @@ export function useCheckIn() {
     setError(null);
 
     try {
-      const wType = await detectWalletType(address);
-      setWalletType(wType);
+      // Switch chain automatically if connected to wrong network
+      if (chainId !== appChain.id && switchChainAsync) {
+        console.log(`Switching network to ${appChain.name} (Chain ID: ${appChain.id})...`);
+        await switchChainAsync({ chainId: appChain.id });
+      }
 
-      console.log(`ğŸ”· Wallet detected (${wType}) â€” using EIP-712 + direct contract call (user-attributed tx)`);
-
-      // 1. Get nonce from contract (via backend meta helper)
-      const nonce = await fetchNonceFromBackend(address);
+      // 1. Nonce'u dogrudan kontrattan oku (backend roundtrip yok, race condition yok)
+      const rawNonce = await publicClient!.readContract({
+        address: CONTRACT_ADDRESS,
+        abi: REPLATE_QUEST_ABI,
+        functionName: 'nonces',
+        args: [address],
+      });
+      const nonce = rawNonce as bigint;
       const deadline = createDeadline(5);
+
+      console.log(`Check-in: nonce=${nonce}, deadline=${deadline}`);
 
       // 2. Build & sign EIP-712 message
       const message = buildCheckInMessage(address, nonce, deadline);
@@ -69,8 +71,8 @@ export function useCheckIn() {
         message,
       });
 
-      // 3. EOA or Smart Wallet calls checkInWithSig directly
-      //    â†’ from = user's wallet address â†’ Base App counts as unique user âœ…
+      // 3. Kullanici wallet'indan dogrudan checkInWithSig cagir
+      //    -> from = user's wallet address -> Base App counts as unique user
       const txHash = await writeContractAsync({
         address: CONTRACT_ADDRESS,
         abi: REPLATE_QUEST_ABI,
@@ -78,30 +80,37 @@ export function useCheckIn() {
         args: [address, deadline, signature],
       });
 
+      // Leaderboard cache'ini temizle
+      try {
+        await fetch(getApiUrl('/api/leaderboard/invalidate'));
+      } catch (cacheErr) {
+        console.warn('Failed to invalidate leaderboard cache:', cacheErr);
+      }
+
       return { success: true, txHash, pointsEarned: 10 };
     } catch (err: any) {
       const errorMsg = err?.message || 'Check-in failed';
       setError(errorMsg);
-      console.error('âŒ Check-in error:', err);
+      console.error('Check-in error:', err);
       return { success: false, error: errorMsg };
     } finally {
       setIsLoading(false);
     }
-  }, [address, detectWalletType, signTypedDataAsync, writeContractAsync]);
+  }, [address, chainId, switchChainAsync, publicClient, signTypedDataAsync, writeContractAsync]);
 
-  return { checkIn, isLoading, error, walletType };
+  return { checkIn, isLoading, error };
 }
 
-// â”€â”€â”€ useSubmitReceipt Hook â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ¦¦¦ useSubmitReceipt Hook ¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦
 export function useSubmitReceipt() {
-  const { address } = useAccount();
-  const { detectWalletType } = useWalletType();
+  const { address, chainId } = useAccount();
+  const publicClient = usePublicClient();
   const { signTypedDataAsync } = useSignTypedData();
   const { writeContractAsync } = useWriteContract();
+  const { switchChainAsync } = useSwitchChain();
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [walletType, setWalletType] = useState<WalletType | null>(null);
 
   const submitReceipt = useCallback(
     async (receiptData: ReceiptData): Promise<TransactionResult> => {
@@ -109,18 +118,32 @@ export function useSubmitReceipt() {
         return { success: false, error: 'Wallet not connected' };
       }
 
+      // fruitVegGrams uint16 oldugunden max 65535
+      if (receiptData.fruitVegGrams > 65535) {
+        return { success: false, error: 'fruitVegGrams degeri cok buyuk (max 65535g)' };
+      }
+
       setIsLoading(true);
       setError(null);
 
       try {
-        const wType = await detectWalletType(address);
-        setWalletType(wType);
+        // Switch chain automatically if connected to wrong network
+        if (chainId !== appChain.id && switchChainAsync) {
+          console.log(`Switching network to ${appChain.name} (Chain ID: ${appChain.id})...`);
+          await switchChainAsync({ chainId: appChain.id });
+        }
 
-        console.log(`ğŸ”· Wallet detected (${wType}) â€” using EIP-712 + direct contract call for receipt (user-attributed tx)`);
-
-        // 1. Get nonce from contract (via backend meta helper)
-        const nonce = await fetchNonceFromBackend(address);
+        // 1. Nonce'u dogrudan kontrattan oku
+        const rawNonce = await publicClient!.readContract({
+          address: CONTRACT_ADDRESS,
+          abi: REPLATE_QUEST_ABI,
+          functionName: 'nonces',
+          args: [address],
+        });
+        const nonce = rawNonce as bigint;
         const deadline = createDeadline(5);
+
+        console.log(`Submit receipt: nonce=${nonce}, deadline=${deadline}`);
 
         // 2. Build & sign EIP-712 message
         const message = buildReceiptMessage(address, receiptData, nonce, deadline);
@@ -132,8 +155,8 @@ export function useSubmitReceipt() {
           message,
         });
 
-        // 3. EOA or Smart Wallet calls submitReceiptWithSig directly
-        //    â†’ from = user's wallet address â†’ Base App counts as unique user âœ…
+        // 3. Kullanici wallet'indan dogrudan submitReceiptWithSig cagir
+        //    -> from = user's wallet address -> Base App counts as unique user
         const txHash = await writeContractAsync({
           address: CONTRACT_ADDRESS,
           abi: REPLATE_QUEST_ABI,
@@ -151,18 +174,25 @@ export function useSubmitReceipt() {
           ],
         });
 
+        // Leaderboard cache'ini temizle
+        try {
+          await fetch(getApiUrl('/api/leaderboard/invalidate'));
+        } catch (cacheErr) {
+          console.warn('Failed to invalidate leaderboard cache:', cacheErr);
+        }
+
         return { success: true, txHash };
       } catch (err: any) {
         const errorMsg = err?.message || 'Receipt submission failed';
         setError(errorMsg);
-        console.error('âŒ Receipt submission error:', err);
+        console.error('Receipt submission error:', err);
         return { success: false, error: errorMsg };
       } finally {
         setIsLoading(false);
       }
     },
-    [address, detectWalletType, signTypedDataAsync, writeContractAsync]
+    [address, chainId, switchChainAsync, publicClient, signTypedDataAsync, writeContractAsync]
   );
 
-  return { submitReceipt, isLoading, error, walletType };
+  return { submitReceipt, isLoading, error };
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { useAccount, useSignTypedData, useWriteContract } from 'wagmi';
+import { useAccount, useSignTypedData, useWriteContract, useSwitchChain } from 'wagmi';
 import { useWalletType, type WalletType } from '@/lib/walletType';
 import {
   EIP712_DOMAIN,
@@ -14,6 +14,7 @@ import {
 } from '@/lib/eip712';
 import { REPLATE_QUEST_ABI, CONTRACT_ADDRESS } from '@/lib/contract';
 import { getApiUrl } from '@/lib/api';
+import { appChain } from '@/lib/network';
 
 // ─── Types ───────────────────────────────────────────────────────────
 interface TransactionResult {
@@ -32,10 +33,11 @@ async function fetchNonceFromBackend(address: string): Promise<bigint> {
 
 // ─── useCheckIn Hook ─────────────────────────────────────────────────
 export function useCheckIn() {
-  const { address } = useAccount();
+  const { address, chainId } = useAccount();
   const { detectWalletType } = useWalletType();
   const { signTypedDataAsync } = useSignTypedData();
   const { writeContractAsync } = useWriteContract();
+  const { switchChainAsync } = useSwitchChain();
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,6 +52,12 @@ export function useCheckIn() {
     setError(null);
 
     try {
+      // 🔌 Switch chain automatically if connected to wrong network
+      if (chainId !== appChain.id && switchChainAsync) {
+        console.log(`🔌 Switching network to ${appChain.name} (Chain ID: ${appChain.id})...`);
+        await switchChainAsync({ chainId: appChain.id });
+      }
+
       const wType = await detectWalletType(address);
       setWalletType(wType);
 
@@ -78,6 +86,13 @@ export function useCheckIn() {
         args: [address, deadline, signature],
       });
 
+      // 🧹 Clear backend leaderboard cache so this user shows up immediately!
+      try {
+        await fetch(getApiUrl('/api/leaderboard/invalidate'));
+      } catch (cacheErr) {
+        console.warn('⚠️ Failed to invalidate leaderboard cache:', cacheErr);
+      }
+
       return { success: true, txHash, pointsEarned: 10 };
     } catch (err: any) {
       const errorMsg = err?.message || 'Check-in failed';
@@ -87,17 +102,18 @@ export function useCheckIn() {
     } finally {
       setIsLoading(false);
     }
-  }, [address, detectWalletType, signTypedDataAsync, writeContractAsync]);
+  }, [address, chainId, switchChainAsync, detectWalletType, signTypedDataAsync, writeContractAsync]);
 
   return { checkIn, isLoading, error, walletType };
 }
 
 // ─── useSubmitReceipt Hook ───────────────────────────────────────────
 export function useSubmitReceipt() {
-  const { address } = useAccount();
+  const { address, chainId } = useAccount();
   const { detectWalletType } = useWalletType();
   const { signTypedDataAsync } = useSignTypedData();
   const { writeContractAsync } = useWriteContract();
+  const { switchChainAsync } = useSwitchChain();
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -113,6 +129,12 @@ export function useSubmitReceipt() {
       setError(null);
 
       try {
+        // 🔌 Switch chain automatically if connected to wrong network
+        if (chainId !== appChain.id && switchChainAsync) {
+          console.log(`🔌 Switching network to ${appChain.name} (Chain ID: ${appChain.id})...`);
+          await switchChainAsync({ chainId: appChain.id });
+        }
+
         const wType = await detectWalletType(address);
         setWalletType(wType);
 
@@ -151,6 +173,13 @@ export function useSubmitReceipt() {
           ],
         });
 
+        // 🧹 Clear backend leaderboard cache so this user shows up immediately!
+        try {
+          await fetch(getApiUrl('/api/leaderboard/invalidate'));
+        } catch (cacheErr) {
+          console.warn('⚠️ Failed to invalidate leaderboard cache:', cacheErr);
+        }
+
         return { success: true, txHash };
       } catch (err: any) {
         const errorMsg = err?.message || 'Receipt submission failed';
@@ -161,7 +190,7 @@ export function useSubmitReceipt() {
         setIsLoading(false);
       }
     },
-    [address, detectWalletType, signTypedDataAsync, writeContractAsync]
+    [address, chainId, switchChainAsync, detectWalletType, signTypedDataAsync, writeContractAsync]
   );
 
   return { submitReceipt, isLoading, error, walletType };

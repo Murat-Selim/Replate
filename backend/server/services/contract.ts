@@ -31,6 +31,10 @@ interface UsersCache {
 let usersCache: UsersCache | null = null;
 const USERS_CACHE_TTL = 60 * 60 * 1000; // 1 saat
 
+export function clearUsersCache(): void {
+  usersCache = null;
+}
+
 // ─── Interfaces ───────────────────────────────────────────────────────
 interface ReceiptSubmission {
   user: string;
@@ -392,54 +396,78 @@ export async function getUserSummary(userAddress: string) {
   }
 }
 
-// ─── User discovery (Basescan) ────────────────────────────────────────
+// ─── User discovery (Basescan API + RPC fallback) ─────────────────────
 async function discoverUsersFromLogs(): Promise<string[]> {
-  // 1 saatlik cache — her leaderboard refresh'te RPC'ye gitmesin
+  // 1 saatlik cache — her leaderboard refresh'te API'ye gitmesin
   if (usersCache && Date.now() - usersCache.timestamp < USERS_CACHE_TTL) {
     console.log(`📋 User cache hit: ${usersCache.addresses.length} users`);
     return usersCache.addresses;
   }
 
-  const contractAddr = process.env.CONTRACT_ADDRESS || CONTRACT_ADDRESS;
+  const contractAddr = (process.env.CONTRACT_ADDRESS || CONTRACT_ADDRESS).toLowerCase();
+  const basescanKey = process.env.BASESCAN_API_KEY;
 
   const receiptTopic = ethers.id(
     "ReceiptSubmitted(address,uint8,uint8,uint256,uint16,uint16)"
   );
   const checkInTopic = ethers.id("CheckedIn(address,uint256,uint256,uint256)");
 
-  console.log(`📡 Discovering users from on-chain logs via Tenderly Archive RPC (from block ${CONTRACT_DEPLOY_BLOCK})...`);
-
   const users = new Set<string>();
 
-  try {
-    const provider = new ethers.JsonRpcProvider("https://base.gateway.tenderly.co");
-    const latestBlock = await provider.getBlockNumber();
+  // ── Primary: Basescan API ────────────────────────────────────────────
+  // Handles full block history in paginated 1000-log pages — no block range limits.
+  if (basescanKey) {
+    try {
+      console.log(`📡 Discovering users from Basescan API (from block ${CONTRACT_DEPLOY_BLOCK})...`);
 
-    const logs = await provider.getLogs({
-      address: contractAddr,
-      topics: [[receiptTopic, checkInTopic]],
-      fromBlock: CONTRACT_DEPLOY_BLOCK,
-      toBlock: latestBlock,
-    });
+      for (const topic0 of [receiptTopic, checkInTopic]) {
+        let page = 1;
+        while (true) {
+          const url =
+            `https://api.basescan.org/api` +
+            `?module=logs&action=getLogs` +
+            `&address=${contractAddr}` +
+            `&topic0=${topic0}` +
+            `&fromBlock=${CONTRACT_DEPLOY_BLOCK}` +
+            `&toBlock=latest` +
+            `&page=${page}` +
+            `&offset=1000` +
+            `&apikey=${basescanKey}`;
 
-    for (const log of logs) {
-      if (log.topics[1]) {
-        // topic[1] = indexed user address (padded to 32 bytes)
-        const addr = ethers.getAddress("0x" + log.topics[1].slice(26));
-        users.add(addr.toLowerCase());
+          const resp = await fetch(url);
+          const json = await resp.json() as { status: string; result: any[] };
+
+          if (json.status !== "1" || !Array.isArray(json.result) || json.result.length === 0) break;
+
+          for (const log of json.result) {
+            if (log.topics?.[1]) {
+              const addr = ethers.getAddress("0x" + log.topics[1].slice(26));
+              users.add(addr.toLowerCase());
+            }
+          }
+
+          if (json.result.length < 1000) break; // son sayfa
+          page++;
+        }
       }
+
+      console.log(`✅ Basescan discovered ${users.size} unique users`);
+    } catch (error: any) {
+      console.error("⚠️ Basescan user discovery failed:", error.message || error);
     }
-  } catch (error: any) {
-    console.error("⚠️ Failed to discover users from Tenderly RPC, trying fallback...", error.message || error);
-    
-    // Fallback: Use Alchemy RPC with chunking if Tenderly fails
+  }
+
+  // ── Fallback: Alchemy / Public RPC (chunked) ─────────────────────────
+  // Kullanılır sadece Basescan başarısız olursa veya key yoksa.
+  if (users.size === 0) {
     const rpcUrl = process.env.RPC_URL || process.env.BASE_RPC_URL;
     if (rpcUrl) {
       try {
+        console.log(`📡 Falling back to RPC chunked log scan...`);
         const readProvider = buildProvider(rpcUrl);
         const latestBlock = await readProvider.getBlockNumber();
-        const CHUNK = 1000; // Small chunk range fallback
-        
+        const CHUNK = 10_000; // Alchemy'de daha büyük chunk çalışıyor
+
         for (const topic0 of [receiptTopic, checkInTopic]) {
           for (let start = CONTRACT_DEPLOY_BLOCK; start <= latestBlock; start += CHUNK) {
             const end = Math.min(start + CHUNK - 1, latestBlock);
@@ -457,18 +485,19 @@ async function discoverUsersFromLogs(): Promise<string[]> {
                 }
               }
             } catch {
-              // Ignore chunk failures
+              // Hatalı chunk'ı geç, devam et
             }
           }
         }
+        console.log(`✅ RPC fallback discovered ${users.size} unique users`);
       } catch (fallbackError: any) {
-        console.error("❌ Fallback user discovery failed:", fallbackError.message || fallbackError);
+        console.error("❌ RPC fallback user discovery failed:", fallbackError.message || fallbackError);
       }
     }
   }
 
   const addresses = Array.from(users);
-  console.log(`✅ Discovered ${addresses.length} unique users`);
+  console.log(`✅ Total unique users discovered: ${addresses.length}`);
 
   // Cache'e yaz
   usersCache = { addresses, timestamp: Date.now() };

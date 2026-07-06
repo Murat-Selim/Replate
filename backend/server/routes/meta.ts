@@ -13,9 +13,9 @@ const router = Router();
 const EIP712_DOMAIN = {
   name: "ReplateQuest" as const,
   version: "1" as const,
-  chainId: 8453, // Base Mainnet
+  chainId: Number(process.env.CHAIN_ID) || 8453, // 8453 = Base Mainnet, 84532 = Base Sepolia
   verifyingContract: (process.env.CONTRACT_ADDRESS ||
-    "0xb9b7BD63E098ABd55605312933899fC4f3EF59F8") as `0x${string}`,
+    "0x9d646D474ba0D1bF03E61453898c160b7f9e3E90") as `0x${string}`,
 };
 
 // ─── EIP-712 Types ───────────────────────────────────────────────────

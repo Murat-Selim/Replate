@@ -4,6 +4,7 @@ import {
   getUserRank,
   getPoolStatus,
   LeaderboardEntry,
+  clearUsersCache,
 } from "../services/contract.js";
 
 const router = Router();
@@ -24,6 +25,7 @@ let isRefreshing = false;
 
 export function clearLeaderboardCache(): void {
   cache = null;
+  clearUsersCache();
 }
 
 function isCacheValid(): boolean {
@@ -172,6 +174,30 @@ router.get("/rank/:address", async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error("❌ User rank fetch failed:", error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : "Internal server error",
+    });
+  }
+});
+
+router.post("/invalidate", async (req: Request, res: Response) => {
+  try {
+    clearLeaderboardCache();
+    res.json({ success: true, message: "Leaderboard cache cleared" });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : "Internal server error",
+    });
+  }
+});
+
+router.get("/invalidate", async (req: Request, res: Response) => {
+  try {
+    clearLeaderboardCache();
+    res.json({ success: true, message: "Leaderboard cache cleared" });
+  } catch (error) {
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : "Internal server error",
