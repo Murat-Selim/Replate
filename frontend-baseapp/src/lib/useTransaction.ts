@@ -1,4 +1,4 @@
-'use client';
+ï»¿'use client';
 
 import { useState, useCallback } from 'react';
 import { useAccount, useSignTypedData, useWriteContract, useSwitchChain, usePublicClient } from 'wagmi';
@@ -15,7 +15,7 @@ import { REPLATE_QUEST_ABI, CONTRACT_ADDRESS } from '@/lib/contract';
 import { getApiUrl } from '@/lib/api';
 import { appChain } from '@/lib/network';
 
-// ¦¦¦ Types ¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦
+// Types
 interface TransactionResult {
   success: boolean;
   txHash?: string;
@@ -23,7 +23,7 @@ interface TransactionResult {
   error?: string;
 }
 
-// ¦¦¦ useCheckIn Hook ¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦
+// useCheckIn Hook
 export function useCheckIn() {
   const { address, chainId } = useAccount();
   const publicClient = usePublicClient();
@@ -49,7 +49,7 @@ export function useCheckIn() {
         await switchChainAsync({ chainId: appChain.id });
       }
 
-      // 1. Nonce'u dogrudan kontrattan oku (backend roundtrip yok, race condition yok)
+      // 1. Nonce directly from contract
       const rawNonce = await publicClient!.readContract({
         address: CONTRACT_ADDRESS,
         abi: REPLATE_QUEST_ABI,
@@ -71,8 +71,7 @@ export function useCheckIn() {
         message,
       });
 
-      // 3. Kullanici wallet'indan dogrudan checkInWithSig cagir
-      //    -> from = user's wallet address -> Base App counts as unique user
+      // 3. Call checkInWithSig directly
       const txHash = await writeContractAsync({
         address: CONTRACT_ADDRESS,
         abi: REPLATE_QUEST_ABI,
@@ -80,7 +79,7 @@ export function useCheckIn() {
         args: [address, deadline, signature],
       });
 
-      // Leaderboard cache'ini temizle
+      // Clear leaderboard cache
       try {
         await fetch(getApiUrl('/api/leaderboard/invalidate'));
       } catch (cacheErr) {
@@ -101,7 +100,7 @@ export function useCheckIn() {
   return { checkIn, isLoading, error };
 }
 
-// ¦¦¦ useSubmitReceipt Hook ¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦
+// useSubmitReceipt Hook
 export function useSubmitReceipt() {
   const { address, chainId } = useAccount();
   const publicClient = usePublicClient();
@@ -118,9 +117,9 @@ export function useSubmitReceipt() {
         return { success: false, error: 'Wallet not connected' };
       }
 
-      // fruitVegGrams uint16 oldugunden max 65535
+      // fruitVegGrams limit check for uint16
       if (receiptData.fruitVegGrams > 65535) {
-        return { success: false, error: 'fruitVegGrams degeri cok buyuk (max 65535g)' };
+        return { success: false, error: 'fruitVegGrams too large (max 65535g)' };
       }
 
       setIsLoading(true);
@@ -133,7 +132,7 @@ export function useSubmitReceipt() {
           await switchChainAsync({ chainId: appChain.id });
         }
 
-        // 1. Nonce'u dogrudan kontrattan oku
+        // 1. Nonce directly from contract
         const rawNonce = await publicClient!.readContract({
           address: CONTRACT_ADDRESS,
           abi: REPLATE_QUEST_ABI,
@@ -155,8 +154,7 @@ export function useSubmitReceipt() {
           message,
         });
 
-        // 3. Kullanici wallet'indan dogrudan submitReceiptWithSig cagir
-        //    -> from = user's wallet address -> Base App counts as unique user
+        // 3. Call submitReceiptWithSig directly
         const txHash = await writeContractAsync({
           address: CONTRACT_ADDRESS,
           abi: REPLATE_QUEST_ABI,
@@ -174,7 +172,7 @@ export function useSubmitReceipt() {
           ],
         });
 
-        // Leaderboard cache'ini temizle
+        // Clear leaderboard cache
         try {
           await fetch(getApiUrl('/api/leaderboard/invalidate'));
         } catch (cacheErr) {
