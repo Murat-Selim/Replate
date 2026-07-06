@@ -427,10 +427,9 @@ export async function getUserSummary(userAddress: string) {
 // ─── User discovery ────────────────────────────────────────────────────
 //
 // Strateji:
-//  1) alchemy_getAssetTransfers → kontratta gönderilen tüm tx'lerin from adreslerini toplar
-//     Sayfalama destekler, block range sınırı yoktur, free tier'da çalışır.
-//  2) Etherscan V2 API (getLogs) → Basescan key'i api.etherscan.io/v2 üzerinden çalışır
-//  3) Fallback: Son tarama bloğundan itibaren küçük chunk'larla RPC (en az verimli)
+//  1) users.json (Local cache) → Kaydedilmiş kullanıcıları anında okur
+//  2) Tenderly Public RPC (getLogs) → Ücretsiz ve limitsiz büyük aralık sorgular
+//  3) Alchemy / Public RPC fallback (Daha küçük aralıklar)
 //
 async function discoverUsersFromLogs(): Promise<string[]> {
   // 1 saatlik cache
@@ -440,12 +439,12 @@ async function discoverUsersFromLogs(): Promise<string[]> {
   }
 
   const contractAddr = (process.env.CONTRACT_ADDRESS || CONTRACT_ADDRESS).toLowerCase();
-  const alchemyUrl = process.env.RPC_URL || process.env.BASE_RPC_URL || "";
-  const basescanKey = process.env.BASESCAN_API_KEY;
-
   const users = new Set<string>();
 
-  // ── 0. Local database (users.json) ───────────────────────────────────
+  const receiptTopic = ethers.id("ReceiptSubmitted(address,uint8,uint8,uint256,uint16,uint16)");
+  const checkInTopic = ethers.id("CheckedIn(address,uint256,uint256,uint256)");
+
+  // ── 0. Local database (users.json) ──
   try {
     if (fs.existsSync(USERS_FILE)) {
       const content = fs.readFileSync(USERS_FILE, "utf8");
@@ -461,120 +460,37 @@ async function discoverUsersFromLogs(): Promise<string[]> {
     console.warn("⚠️ Failed to read users.json:", err);
   }
 
-  // ── 1. Alchemy getAssetTransfers ─────────────────────────────────────
-  // Kontraka gelen tüm dış tx'lerin from adresleri = kullanıcılar
-  if (alchemyUrl && alchemyUrl.includes("alchemy.com")) {
-    try {
-      console.log("📡 Discovering users via alchemy_getAssetTransfers...");
-      let pageKey: string | undefined = undefined;
-      let totalPages = 0;
+  // ── 1. Tenderly Public RPC getLogs (limitsiz ve ücretsiz) ──
+  try {
+    console.log("📡 Discovering users via Tenderly public RPC getLogs...");
+    const readProvider = new ethers.JsonRpcProvider("https://base.gateway.tenderly.co");
+    const latestBlock = await readProvider.getBlockNumber();
+    
+    const logs = await readProvider.getLogs({
+      address: contractAddr,
+      topics: [[receiptTopic, checkInTopic]],
+      fromBlock: CONTRACT_DEPLOY_BLOCK,
+      toBlock: latestBlock,
+    });
 
-      do {
-        const body: any = {
-          jsonrpc: "2.0", id: 1,
-          method: "alchemy_getAssetTransfers",
-          params: [{
-            fromBlock: "0x" + CONTRACT_DEPLOY_BLOCK.toString(16),
-            toBlock: "latest",
-            toAddress: contractAddr,
-            category: ["external"],
-            withMetadata: false,
-            excludeZeroValue: false,
-            maxCount: "0x3E8", // 1000
-            ...(pageKey ? { pageKey } : {}),
-          }],
-        };
+    console.log(`📡 Tenderly returned ${logs.length} logs`);
 
-        const res = await fetch(alchemyUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-        const json = await res.json() as any;
-
-        if (json.error) {
-          console.warn("⚠️ alchemy_getAssetTransfers error:", json.error.message);
-          break;
-        }
-
-        const transfers: any[] = json.result?.transfers || [];
-        for (const tx of transfers) {
-          if (tx.from) users.add(tx.from.toLowerCase());
-        }
-
-        pageKey = json.result?.pageKey;
-        totalPages++;
-
-        // Rate limit koruması
-        if (pageKey) await new Promise((r) => setTimeout(r, 200));
-      } while (pageKey && totalPages < 50); // max 50 sayfa = 50k tx
-
-      console.log(`✅ Alchemy transfers discovered ${users.size} unique senders (${totalPages} page(s))`);
-    } catch (e: any) {
-      console.warn("⚠️ alchemy_getAssetTransfers failed:", e.message || e);
-    }
-  }
-
-  // ── 2. Etherscan V2 API (getLogs) — Basescan key çalışıyor ───────────
-  if (users.size === 0 && basescanKey) {
-    const receiptTopic = ethers.id("ReceiptSubmitted(address,uint8,uint8,uint256,uint16,uint16)");
-    const checkInTopic = ethers.id("CheckedIn(address,uint256,uint256,uint256)");
-
-    try {
-      console.log("📡 Discovering users via Etherscan V2 getLogs...");
-
-      for (const topic0 of [receiptTopic, checkInTopic]) {
-        let page = 1;
-        while (true) {
-          const url =
-            `https://api.etherscan.io/v2/api` +
-            `?chainid=8453` +
-            `&module=logs&action=getLogs` +
-            `&address=${contractAddr}` +
-            `&topic0=${topic0}` +
-            `&fromBlock=${CONTRACT_DEPLOY_BLOCK}` +
-            `&toBlock=latest` +
-            `&page=${page}` +
-            `&offset=1000` +
-            `&apikey=${basescanKey}`;
-
-          const resp = await fetch(url);
-          const json = await resp.json() as { status: string; message: string; result: any };
-
-          if (json.status !== "1" || !Array.isArray(json.result) || json.result.length === 0) {
-            if (json.message && json.message !== "No records found") {
-              console.warn("⚠️ Etherscan V2 getLogs:", json.message);
-            }
-            break;
-          }
-
-          for (const log of json.result) {
-            if (log.topics?.[1]) {
-              const addr = ethers.getAddress("0x" + log.topics[1].slice(26));
-              users.add(addr.toLowerCase());
-            }
-          }
-
-          if (json.result.length < 1000) break;
-          page++;
-          await new Promise((r) => setTimeout(r, 300)); // rate limit
-        }
+    for (const log of logs) {
+      if (log.topics[1]) {
+        const addr = ethers.getAddress("0x" + log.topics[1].slice(26)).toLowerCase();
+        users.add(addr);
+        // Yeni bulunan kullanıcıyı lokal veritabanına kaydet
+        saveUser(addr);
       }
-
-      console.log(`✅ Etherscan V2 discovered ${users.size} unique users`);
-    } catch (e: any) {
-      console.warn("⚠️ Etherscan V2 getLogs failed:", e.message || e);
     }
-  }
-
-  // ── 3. Son çare: public RPC filtresiz (sadece son birkaç blok) ────────
-  if (users.size === 0) {
+    console.log(`✅ Tenderly discovered ${users.size} total unique users`);
+  } catch (e: any) {
+    console.warn("⚠️ Tenderly log discovery failed, trying fallback...", e.message || e);
+    
+    // Fallback: public RPC (sadece son bloklar)
     const rpcUrl = process.env.RPC_URL || process.env.BASE_RPC_URL;
     if (rpcUrl) {
-      const receiptTopic = ethers.id("ReceiptSubmitted(address,uint8,uint8,uint256,uint16,uint16)");
-      const checkInTopic = ethers.id("CheckedIn(address,uint256,uint256,uint256)");
       try {
-        console.log("📡 Last resort: public RPC getLogs (no block filter)...");
         const readProvider = buildProvider(rpcUrl);
         const logs = await readProvider.getLogs({
           address: contractAddr,
@@ -585,9 +501,8 @@ async function discoverUsersFromLogs(): Promise<string[]> {
             users.add(ethers.getAddress("0x" + log.topics[1].slice(26)).toLowerCase());
           }
         }
-        console.log(`✅ Public RPC discovered ${users.size} unique users`);
-      } catch (e: any) {
-        console.error("❌ All discovery methods failed:", e.message || e);
+      } catch (fallbackErr) {
+        // noop
       }
     }
   }
