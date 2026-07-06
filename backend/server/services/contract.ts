@@ -396,36 +396,96 @@ export async function getUserSummary(userAddress: string) {
   }
 }
 
-// ─── User discovery (Basescan API + RPC fallback) ─────────────────────
+// ─── User discovery ────────────────────────────────────────────────────
+//
+// Strateji:
+//  1) alchemy_getAssetTransfers → kontratta gönderilen tüm tx'lerin from adreslerini toplar
+//     Sayfalama destekler, block range sınırı yoktur, free tier'da çalışır.
+//  2) Etherscan V2 API (getLogs) → Basescan key'i api.etherscan.io/v2 üzerinden çalışır
+//  3) Fallback: Son tarama bloğundan itibaren küçük chunk'larla RPC (en az verimli)
+//
 async function discoverUsersFromLogs(): Promise<string[]> {
-  // 1 saatlik cache — her leaderboard refresh'te API'ye gitmesin
+  // 1 saatlik cache
   if (usersCache && Date.now() - usersCache.timestamp < USERS_CACHE_TTL) {
     console.log(`📋 User cache hit: ${usersCache.addresses.length} users`);
     return usersCache.addresses;
   }
 
   const contractAddr = (process.env.CONTRACT_ADDRESS || CONTRACT_ADDRESS).toLowerCase();
+  const alchemyUrl = process.env.RPC_URL || process.env.BASE_RPC_URL || "";
   const basescanKey = process.env.BASESCAN_API_KEY;
-
-  const receiptTopic = ethers.id(
-    "ReceiptSubmitted(address,uint8,uint8,uint256,uint16,uint16)"
-  );
-  const checkInTopic = ethers.id("CheckedIn(address,uint256,uint256,uint256)");
 
   const users = new Set<string>();
 
-  // ── Primary: Basescan API ────────────────────────────────────────────
-  // Handles full block history in paginated 1000-log pages — no block range limits.
-  if (basescanKey) {
+  // ── 1. Alchemy getAssetTransfers ─────────────────────────────────────
+  // Kontraka gelen tüm dış tx'lerin from adresleri = kullanıcılar
+  if (alchemyUrl && alchemyUrl.includes("alchemy.com")) {
     try {
-      console.log(`📡 Discovering users from Basescan API (from block ${CONTRACT_DEPLOY_BLOCK})...`);
+      console.log("📡 Discovering users via alchemy_getAssetTransfers...");
+      let pageKey: string | undefined = undefined;
+      let totalPages = 0;
+
+      do {
+        const body: any = {
+          jsonrpc: "2.0", id: 1,
+          method: "alchemy_getAssetTransfers",
+          params: [{
+            fromBlock: "0x" + CONTRACT_DEPLOY_BLOCK.toString(16),
+            toBlock: "latest",
+            toAddress: contractAddr,
+            category: ["external"],
+            withMetadata: false,
+            excludeZeroValue: false,
+            maxCount: "0x3E8", // 1000
+            ...(pageKey ? { pageKey } : {}),
+          }],
+        };
+
+        const res = await fetch(alchemyUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const json = await res.json() as any;
+
+        if (json.error) {
+          console.warn("⚠️ alchemy_getAssetTransfers error:", json.error.message);
+          break;
+        }
+
+        const transfers: any[] = json.result?.transfers || [];
+        for (const tx of transfers) {
+          if (tx.from) users.add(tx.from.toLowerCase());
+        }
+
+        pageKey = json.result?.pageKey;
+        totalPages++;
+
+        // Rate limit koruması
+        if (pageKey) await new Promise((r) => setTimeout(r, 200));
+      } while (pageKey && totalPages < 50); // max 50 sayfa = 50k tx
+
+      console.log(`✅ Alchemy transfers discovered ${users.size} unique senders (${totalPages} page(s))`);
+    } catch (e: any) {
+      console.warn("⚠️ alchemy_getAssetTransfers failed:", e.message || e);
+    }
+  }
+
+  // ── 2. Etherscan V2 API (getLogs) — Basescan key çalışıyor ───────────
+  if (users.size === 0 && basescanKey) {
+    const receiptTopic = ethers.id("ReceiptSubmitted(address,uint8,uint8,uint256,uint16,uint16)");
+    const checkInTopic = ethers.id("CheckedIn(address,uint256,uint256,uint256)");
+
+    try {
+      console.log("📡 Discovering users via Etherscan V2 getLogs...");
 
       for (const topic0 of [receiptTopic, checkInTopic]) {
         let page = 1;
         while (true) {
           const url =
-            `https://api.basescan.org/api` +
-            `?module=logs&action=getLogs` +
+            `https://api.etherscan.io/v2/api` +
+            `?chainid=8453` +
+            `&module=logs&action=getLogs` +
             `&address=${contractAddr}` +
             `&topic0=${topic0}` +
             `&fromBlock=${CONTRACT_DEPLOY_BLOCK}` +
@@ -435,9 +495,14 @@ async function discoverUsersFromLogs(): Promise<string[]> {
             `&apikey=${basescanKey}`;
 
           const resp = await fetch(url);
-          const json = await resp.json() as { status: string; result: any[] };
+          const json = await resp.json() as { status: string; message: string; result: any };
 
-          if (json.status !== "1" || !Array.isArray(json.result) || json.result.length === 0) break;
+          if (json.status !== "1" || !Array.isArray(json.result) || json.result.length === 0) {
+            if (json.message && json.message !== "No records found") {
+              console.warn("⚠️ Etherscan V2 getLogs:", json.message);
+            }
+            break;
+          }
 
           for (const log of json.result) {
             if (log.topics?.[1]) {
@@ -446,52 +511,39 @@ async function discoverUsersFromLogs(): Promise<string[]> {
             }
           }
 
-          if (json.result.length < 1000) break; // son sayfa
+          if (json.result.length < 1000) break;
           page++;
+          await new Promise((r) => setTimeout(r, 300)); // rate limit
         }
       }
 
-      console.log(`✅ Basescan discovered ${users.size} unique users`);
-    } catch (error: any) {
-      console.error("⚠️ Basescan user discovery failed:", error.message || error);
+      console.log(`✅ Etherscan V2 discovered ${users.size} unique users`);
+    } catch (e: any) {
+      console.warn("⚠️ Etherscan V2 getLogs failed:", e.message || e);
     }
   }
 
-  // ── Fallback: Alchemy / Public RPC (chunked) ─────────────────────────
-  // Kullanılır sadece Basescan başarısız olursa veya key yoksa.
+  // ── 3. Son çare: public RPC filtresiz (sadece son birkaç blok) ────────
   if (users.size === 0) {
     const rpcUrl = process.env.RPC_URL || process.env.BASE_RPC_URL;
     if (rpcUrl) {
+      const receiptTopic = ethers.id("ReceiptSubmitted(address,uint8,uint8,uint256,uint16,uint16)");
+      const checkInTopic = ethers.id("CheckedIn(address,uint256,uint256,uint256)");
       try {
-        console.log(`📡 Falling back to RPC chunked log scan...`);
+        console.log("📡 Last resort: public RPC getLogs (no block filter)...");
         const readProvider = buildProvider(rpcUrl);
-        const latestBlock = await readProvider.getBlockNumber();
-        const CHUNK = 10_000; // Alchemy'de daha büyük chunk çalışıyor
-
-        for (const topic0 of [receiptTopic, checkInTopic]) {
-          for (let start = CONTRACT_DEPLOY_BLOCK; start <= latestBlock; start += CHUNK) {
-            const end = Math.min(start + CHUNK - 1, latestBlock);
-            try {
-              const logs = await readProvider.getLogs({
-                address: contractAddr,
-                topics: [topic0],
-                fromBlock: start,
-                toBlock: end,
-              });
-              for (const log of logs) {
-                if (log.topics[1]) {
-                  const addr = ethers.getAddress("0x" + log.topics[1].slice(26));
-                  users.add(addr.toLowerCase());
-                }
-              }
-            } catch {
-              // Hatalı chunk'ı geç, devam et
-            }
+        const logs = await readProvider.getLogs({
+          address: contractAddr,
+          topics: [[receiptTopic, checkInTopic]],
+        }).catch(() => []);
+        for (const log of logs) {
+          if (log.topics[1]) {
+            users.add(ethers.getAddress("0x" + log.topics[1].slice(26)).toLowerCase());
           }
         }
-        console.log(`✅ RPC fallback discovered ${users.size} unique users`);
-      } catch (fallbackError: any) {
-        console.error("❌ RPC fallback user discovery failed:", fallbackError.message || fallbackError);
+        console.log(`✅ Public RPC discovered ${users.size} unique users`);
+      } catch (e: any) {
+        console.error("❌ All discovery methods failed:", e.message || e);
       }
     }
   }
@@ -499,9 +551,7 @@ async function discoverUsersFromLogs(): Promise<string[]> {
   const addresses = Array.from(users);
   console.log(`✅ Total unique users discovered: ${addresses.length}`);
 
-  // Cache'e yaz
   usersCache = { addresses, timestamp: Date.now() };
-
   return addresses;
 }
 
