@@ -19,6 +19,5 @@ export const wagmiConfig = createConfig({
     farcasterMiniApp(),
     injected(),
   ],
-  dataSuffix: DATA_SUFFIX,
 });
 

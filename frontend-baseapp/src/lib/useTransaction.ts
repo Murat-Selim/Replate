@@ -27,7 +27,7 @@ interface TransactionResult {
 // useCheckIn Hook
 export function useCheckIn() {
   const { address, chainId } = useAccount();
-  const publicClient = usePublicClient();
+  const publicClient = usePublicClient({ chainId: appChain.id });
   const { signTypedDataAsync } = useSignTypedData();
   const { writeContractAsync } = useWriteContract();
   const { switchChainAsync } = useSwitchChain();
@@ -42,6 +42,10 @@ export function useCheckIn() {
 
     setIsLoading(true);
     setError(null);
+
+    if (!publicClient) {
+      return { success: false, error: 'RPC Provider not available' };
+    }
 
     try {
       // Switch chain automatically if connected to wrong network
@@ -105,7 +109,7 @@ export function useCheckIn() {
 // useSubmitReceipt Hook
 export function useSubmitReceipt() {
   const { address, chainId } = useAccount();
-  const publicClient = usePublicClient();
+  const publicClient = usePublicClient({ chainId: appChain.id });
   const { signTypedDataAsync } = useSignTypedData();
   const { writeContractAsync } = useWriteContract();
   const { switchChainAsync } = useSwitchChain();
@@ -126,6 +130,10 @@ export function useSubmitReceipt() {
 
       setIsLoading(true);
       setError(null);
+
+      if (!publicClient) {
+        return { success: false, error: 'RPC Provider not available' };
+      }
 
       try {
         // Switch chain automatically if connected to wrong network

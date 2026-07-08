@@ -20,5 +20,4 @@ export const config = createConfig({
   transports: {
     [appChain.id]: http(),
   },
-  dataSuffix: DATA_SUFFIX,
 });
