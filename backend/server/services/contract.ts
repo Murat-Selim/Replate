@@ -487,14 +487,17 @@ async function discoverUsersFromLogs(): Promise<string[]> {
   } catch (e: any) {
     console.warn("⚠️ Tenderly log discovery failed, trying fallback...", e.message || e);
     
-    // Fallback: public RPC (sadece son bloklar)
+    // Fallback: public RPC
     const rpcUrl = process.env.RPC_URL || process.env.BASE_RPC_URL;
     if (rpcUrl) {
       try {
         const readProvider = buildProvider(rpcUrl);
+        const latestBlock = await readProvider.getBlockNumber();
         const logs = await readProvider.getLogs({
           address: contractAddr,
           topics: [[receiptTopic, checkInTopic]],
+          fromBlock: CONTRACT_DEPLOY_BLOCK,
+          toBlock: latestBlock,
         }).catch(() => []);
         for (const log of logs) {
           if (log.topics[1]) {
