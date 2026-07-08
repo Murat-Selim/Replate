@@ -6,7 +6,7 @@ import { injected } from "wagmi/connectors";
 import { appChain } from "@/lib/network";
 import { Attribution } from 'ox/erc8021';
 
-const DATA_SUFFIX = Attribution.toDataSuffix({
+export const DATA_SUFFIX = Attribution.toDataSuffix({
   codes: ['bc_7to91eav'],
 });
 

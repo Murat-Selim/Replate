@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useCallback } from 'react';
 import { useAccount, useSignTypedData, useWriteContract, useSwitchChain, usePublicClient } from 'wagmi';
@@ -14,6 +14,7 @@ import {
 import { REPLATE_QUEST_ABI, CONTRACT_ADDRESS } from '@/lib/contract';
 import { getApiUrl } from '@/lib/api';
 import { appChain } from '@/lib/network';
+import { DATA_SUFFIX } from '@/lib/config';
 
 // Types
 interface TransactionResult {
@@ -77,6 +78,7 @@ export function useCheckIn() {
         abi: REPLATE_QUEST_ABI,
         functionName: 'checkInWithSig',
         args: [address, deadline, signature],
+        dataSuffix: DATA_SUFFIX,
       });
 
       // Clear leaderboard cache
@@ -170,6 +172,7 @@ export function useSubmitReceipt() {
             deadline,
             signature,
           ],
+          dataSuffix: DATA_SUFFIX,
         });
 
         // Clear leaderboard cache
