@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { processOCR } from "../services/ocr.js";
+import { processOCR, assertUsableOCR, OCRError } from "../services/ocr.js";
 import { classifyFoods, ClassificationResult } from "../services/classifier.js";
 import { submitReceiptToContract, calculateScores } from "../services/contract.js";
 import { clearLeaderboardCache } from "./leaderboard.js";
@@ -29,8 +29,11 @@ interface VerifyReceiptResponse {
     pointsEarned: number;
     badgeMinted: boolean;
     products: ClassificationResult[];
+    /** Vision OCR page confidence (0–1); useful for client UX */
+    ocrConfidence: number;
   };
   error?: string;
+  errorCode?: string;
 }
 
 router.post("/", async (req: Request, res: Response) => {
@@ -39,7 +42,7 @@ router.post("/", async (req: Request, res: Response) => {
 
     // Validation
     if (!imageBase64) {
-      res.status(400).json({ success: false, error: "Image is required" } as VerifyReceiptResponse);
+      res.status(400).json({ success: false, error: "Image is required", errorCode: "OCR_INVALID_INPUT" } as VerifyReceiptResponse);
       return;
     }
     if (!userAddress || !/^0x[a-fA-F0-9]{40}$/.test(userAddress)) {
@@ -55,11 +58,25 @@ router.post("/", async (req: Request, res: Response) => {
 
     // Step 1: OCR - Extract text from receipt
     const ocrResult = await processOCR(imageBase64);
-    console.log(`📝 OCR found ${ocrResult.lines.length} lines`);
+    console.log(
+      `📝 OCR found ${ocrResult.lines.length} lines (confidence: ${ocrResult.confidence.toFixed(2)})`
+    );
+
+    // Gate: reject empty / low-quality scans before classification or on-chain submit
+    assertUsableOCR(ocrResult);
 
     // Step 2: Classify food items
     const classification = await classifyFoods(ocrResult.lines);
     console.log(`🥗 Classification: ${classification.healthyItems} healthy, ${classification.unhealthyItems} unhealthy`);
+
+    if (classification.totalItems === 0) {
+      res.status(400).json({
+        success: false,
+        error: "No food products found on this receipt. Try a full grocery receipt photo.",
+        errorCode: "NO_PRODUCTS",
+      } as VerifyReceiptResponse);
+      return;
+    }
 
     const targetDaysCovered = daysCovered || estimateDaysCovered(classification.totalItems, householdSize);
 
@@ -88,6 +105,7 @@ router.post("/", async (req: Request, res: Response) => {
           pointsEarned: scores.pointsEarned,
           badgeMinted: false,
           products: classification.products,
+          ocrConfidence: ocrResult.confidence,
         },
       } as VerifyReceiptResponse);
       return;
@@ -121,12 +139,24 @@ router.post("/", async (req: Request, res: Response) => {
         pointsEarned: contractResult.pointsEarned,
         badgeMinted: contractResult.badgeMinted,
         products: classification.products,
+        ocrConfidence: ocrResult.confidence,
       },
     };
 
     res.json(response);
   } catch (error) {
     console.error("❌ Receipt verification failed:", error);
+
+    if (error instanceof OCRError) {
+      const status = error.code === "OCR_API_ERROR" ? 502 : 400;
+      res.status(status).json({
+        success: false,
+        error: error.message,
+        errorCode: error.code,
+      } as VerifyReceiptResponse);
+      return;
+    }
+
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : "Internal server error",

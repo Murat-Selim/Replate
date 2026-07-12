@@ -10,6 +10,10 @@
     "deploy": "cross-env TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat run scripts/deploy.cts --network baseSepolia",
     "deploy:mainnet": "cross-env TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat run scripts/deploy.cts --network baseMainnet",
     "test:contracts": "cross-env TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat test",
+    "test:classifier": "tsx scripts/test-classifier.ts",
+    "test:receipt": "tsx scripts/test-receipt-e2e.ts",
+    "test:receipt:mock": "tsx scripts/test-receipt-e2e.ts --mock --strict",
+    "test:receipt:fixture": "tsx scripts/test-receipt-e2e.ts --lines fixtures/receipts/migros-sample.json --strict",
     "verify": "cross-env TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat verify",
     "export-abi": "cross-env TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat run scripts/export-abi.cts"
   },
