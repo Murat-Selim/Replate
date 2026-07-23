@@ -31,7 +31,7 @@ export default function Leaderboard() {
     const [leaders, setLeaders] = useState<LeaderboardEntry[]>(cachedLeaders || []);
     const [poolStatus, setPoolStatus] = useState<PoolStatus | null>(cachedPoolStatus);
     const [isLoading, setIsLoading] = useState(cachedLeaders === null);
-    const [activeTab, setActiveTab] = useState<"week" | "month" | "all">("week");
+
     const { address } = useFarcasterAccount();
     const userAddress = address?.toLowerCase() || null;
 
@@ -109,7 +109,7 @@ export default function Leaderboard() {
         }
 
         return leaders.map((user) => {
-            const points = activeTab === "week" ? user.weeklyPoints : user.totalPoints;
+            const points = user.totalPoints;
             return {
                 ...user,
                 displayPoints: points,
@@ -148,39 +148,7 @@ export default function Leaderboard() {
                     <p className="text-[#A6B0B5] text-xs font-medium">Climb the leaderboard and earn weekly USDC rewards!</p>
                 </div>
 
-                {/* Tab Switcher */}
-                <div className="bg-[#131C20] p-1 rounded-full flex border border-[#22D97A]/5 max-w-sm">
-                    <button
-                        onClick={() => setActiveTab("week")}
-                        className={`flex-1 py-2.5 rounded-full text-xs font-extrabold transition-all uppercase tracking-wider ${
-                            activeTab === "week"
-                                ? "bg-[#22D97A] text-[#0B1114] shadow-[0_0_15px_rgba(34,217,122,0.3)]"
-                                : "text-[#A6B0B5] hover:text-white bg-transparent"
-                        }`}
-                    >
-                        This Week
-                    </button>
-                    <button
-                        onClick={() => setActiveTab("month")}
-                        className={`flex-1 py-2.5 rounded-full text-xs font-extrabold transition-all uppercase tracking-wider ${
-                            activeTab === "month"
-                                ? "bg-[#22D97A] text-[#0B1114] shadow-[0_0_15px_rgba(34,217,122,0.3)]"
-                                : "text-[#A6B0B5] hover:text-white bg-transparent"
-                        }`}
-                    >
-                        This Month
-                    </button>
-                    <button
-                        onClick={() => setActiveTab("all")}
-                        className={`flex-1 py-2.5 rounded-full text-xs font-extrabold transition-all uppercase tracking-wider ${
-                            activeTab === "all"
-                                ? "bg-[#22D97A] text-[#0B1114] shadow-[0_0_15px_rgba(34,217,122,0.3)]"
-                                : "text-[#A6B0B5] hover:text-white bg-transparent"
-                        }`}
-                    >
-                        All Time
-                    </button>
-                </div>
+
 
                 {/* Part 1: Top Earners list */}
                 {isLoading ? (

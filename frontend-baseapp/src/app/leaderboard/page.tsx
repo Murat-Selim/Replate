@@ -31,20 +31,17 @@ let cachedLeaders: LeaderboardEntry[] | null = null;
 export default function Leaderboard() {
     const [leaders, setLeaders] = useState<LeaderboardEntry[]>(cachedLeaders || []);
     const [isLoading, setIsLoading] = useState(cachedLeaders === null);
-    const [activeTab, setActiveTab] = useState<"week" | "month" | "all">("week");
+
     const { address } = useAccount();
     const userAddress = address?.toLowerCase() || null;
 
     const getTabLeaders = () => {
-        return leaders.map((user) => {
-            const points = activeTab === "week" ? user.weeklyPoints : user.totalPoints;
-            return {
-                ...user,
-                displayPoints: points,
-                displayStreak: user.streak,
-                displayLevel: user.level,
-            };
-        }).sort((a, b) => b.displayPoints - a.displayPoints)
+        return leaders.map((user) => ({
+            ...user,
+            displayPoints: user.totalPoints,
+            displayStreak: user.streak,
+            displayLevel: user.level,
+        })).sort((a, b) => b.displayPoints - a.displayPoints)
           .map((user, index) => ({ ...user, displayRank: index + 1 }));
     };
 
@@ -148,23 +145,7 @@ export default function Leaderboard() {
                     </div>
                 </div>
 
-                {/* Tab Switcher */}
-                <div className="flex p-1 bg-[#0c1310]/80 border border-[#00E36E]/10 rounded-2xl max-w-md mx-auto lg:mx-0">
-                    {(["week", "month", "all"] as const).map((tab) => (
-                        <button
-                            key={tab}
-                            onClick={() => setActiveTab(tab)}
-                            type="button"
-                            className={`flex-1 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer uppercase tracking-wider ${
-                                activeTab === tab
-                                    ? "bg-[#00E36E] text-[#050806] shadow-[0_0_12px_rgba(0,227,110,0.3)]"
-                                    : "text-[#8c9790] hover:text-white"
-                            }`}
-                        >
-                            {tab === "week" ? "This Week" : tab === "month" ? "This Month" : "All Time"}
-                        </button>
-                    ))}
-                </div>
+
 
                 {/* Leaderboard List */}
                 {isLoading ? (
