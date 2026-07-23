@@ -2,8 +2,10 @@
 
 import React, { useState, useEffect } from "react";
 import Shell from "@/components/Shell";
-import { Trophy, Medal, Award, Loader2, DollarSign } from "lucide-react";
+import { Trophy, Medal, Award, Loader2, TrendingUp } from "lucide-react";
 import { useFarcasterAccount } from "@/hooks/useFarcasterAccount";
+import { useReadContract } from "wagmi";
+import { CONTRACT_ADDRESS, REPLATE_QUEST_ABI } from "@/lib/contract";
 import { getApiUrl } from "@/lib/api";
 
 interface PoolStatus {
@@ -19,21 +21,45 @@ interface LeaderboardEntry {
     level: number;
     streak: number;
     hasBadge: boolean;
+    totalCheckIns: number;
+    receiptCount: number;
     weeklyPoints: number;
-    avatarUrl?: string;
 }
 
 // Module-level cache — persists across navigations (no spinner on revisit)
 let cachedLeaders: LeaderboardEntry[] | null = null;
-let cachedPoolStatus: PoolStatus | null = null;
 
 export default function Leaderboard() {
     const [leaders, setLeaders] = useState<LeaderboardEntry[]>(cachedLeaders || []);
-    const [poolStatus, setPoolStatus] = useState<PoolStatus | null>(cachedPoolStatus);
     const [isLoading, setIsLoading] = useState(cachedLeaders === null);
 
     const { address } = useFarcasterAccount();
     const userAddress = address?.toLowerCase() || null;
+
+    const getTabLeaders = () => {
+        return leaders.map((user) => ({
+            ...user,
+            displayPoints: user.totalPoints,
+            displayStreak: user.streak,
+            displayLevel: user.level,
+        })).sort((a, b) => b.displayPoints - a.displayPoints)
+          .map((user, index) => ({ ...user, displayRank: index + 1 }));
+    };
+
+    const currentLeaders = getTabLeaders();
+
+    // Contract Read for Pool Status
+    const { data: poolData } = useReadContract({
+        address: CONTRACT_ADDRESS,
+        abi: REPLATE_QUEST_ABI,
+        functionName: 'getPoolStatus',
+    });
+
+    const poolStatus: PoolStatus | null = poolData ? {
+        weeklyPool: Number(poolData[0]),
+        devFund: Number(poolData[1]),
+        currentPhase: Number(poolData[2]),
+    } : null;
 
     useEffect(() => {
         const fetchLeaderboard = async () => {
@@ -42,10 +68,8 @@ export default function Leaderboard() {
                 const data = await response.json();
 
                 if (data.success) {
-                    cachedLeaders = data.data;
-                    cachedPoolStatus = data.poolStatus;
+                    cachedLeaders = data.data; // Update module-level cache
                     setLeaders(data.data);
-                    setPoolStatus(data.poolStatus);
                 }
             } catch (err) {
                 console.error("Failed to fetch leaderboard:", err);
@@ -64,210 +88,135 @@ export default function Leaderboard() {
         return address;
     };
 
-    // Get Mock/Static entries for zero-state representation matching mockup
-    const getTabLeaders = () => {
-        if (leaders.length === 0) {
-            // Fallback placeholder data with zeroed statistics and empty indicators
-            return [
-                {
-                    rank: 1,
-                    address: "-",
-                    totalPoints: 0,
-                    weeklyPoints: 0,
-                    level: 0,
-                    streak: 0,
-                    hasBadge: false,
-                    displayPoints: 0,
-                    displayRank: 1,
-                    avatarUrl: "https://api.dicebear.com/7.x/bottts/svg?seed=placeholder1"
-                },
-                {
-                    rank: 2,
-                    address: "-",
-                    totalPoints: 0,
-                    weeklyPoints: 0,
-                    level: 0,
-                    streak: 0,
-                    hasBadge: false,
-                    displayPoints: 0,
-                    displayRank: 2,
-                    avatarUrl: "https://api.dicebear.com/7.x/bottts/svg?seed=placeholder2"
-                },
-                {
-                    rank: 3,
-                    address: "-",
-                    totalPoints: 0,
-                    weeklyPoints: 0,
-                    level: 0,
-                    streak: 0,
-                    hasBadge: false,
-                    displayPoints: 0,
-                    displayRank: 3,
-                    avatarUrl: "https://api.dicebear.com/7.x/bottts/svg?seed=placeholder3"
-                }
-            ];
-        }
-
-        return leaders.map((user) => {
-            const points = user.totalPoints;
-            return {
-                ...user,
-                displayPoints: points,
-            };
-        }).sort((a, b) => b.displayPoints - a.displayPoints)
-          .map((user, index) => ({
-              ...user,
-              displayRank: index + 1,
-          }));
-    };
-
     const getRankIcon = (rank: number) => {
         switch (rank) {
             case 1:
-                return <span className="w-6 h-6 rounded-full bg-[#FFB800] text-black flex items-center justify-center font-black text-xs font-heading">1</span>;
+                return <Trophy size={20} className="text-yellow-500" />;
             case 2:
-                return <span className="w-6 h-6 rounded-full bg-[#A6B0B5] text-black flex items-center justify-center font-black text-xs font-heading">2</span>;
+                return <Medal size={20} className="text-gray-400" />;
             case 3:
-                return <span className="w-6 h-6 rounded-full bg-[#CD7F32] text-black flex items-center justify-center font-black text-xs font-heading">3</span>;
+                return <Award size={20} className="text-amber-600" />;
             default:
-                return <span className="w-6 h-6 rounded-full bg-[#1E2A2F] border border-white/5 text-[#A6B0B5]/40 flex items-center justify-center font-black text-xs font-heading">{rank}</span>;
+                return <span className="w-5 text-center font-black text-sm text-brand-text/30">{rank}</span>;
         }
     };
 
-    const currentTabLeaders = getTabLeaders();
-
-    // Check if the current user is ranked in our current list
-    const myRankEntry = currentTabLeaders.find(l => l.address.toLowerCase() === userAddress);
+    const getRankBg = (rank: number) => {
+        switch (rank) {
+            case 1: return "bg-gradient-to-r from-yellow-500/10 to-amber-500/5 border-yellow-500/20 text-white";
+            case 2: return "bg-gradient-to-r from-gray-400/10 to-slate-400/5 border-gray-400/20 text-white";
+            case 3: return "bg-gradient-to-r from-amber-700/10 to-orange-700/5 border-amber-700/20 text-white";
+            default: return "bg-[#00E36E]/4 border-[#00E36E]/12 text-white";
+        }
+    };
 
     return (
         <Shell>
             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                {/* Header Area */}
-                <div className="text-left space-y-2 pt-4">
-                    <h1 className="text-3xl font-black text-white font-heading uppercase tracking-wide">Top Earners</h1>
-                    <p className="text-[#A6B0B5] text-xs font-medium">Climb the leaderboard and earn weekly USDC rewards!</p>
+                <div className="text-center lg:text-left space-y-2">
+                    <h1 className="text-3xl sm:text-4xl font-black text-[#00E36E] drop-shadow-[0_0_10px_rgba(0,227,110,0.15)]">Leaderboard</h1>
+                    <p className="text-[#8c9790]">Top Nutrition Scores on Base</p>
+                </div>
+
+                {/* Pool Status + Stats Row */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {poolStatus && (
+                        <div className="sm:col-span-2 lg:col-span-2 bg-gradient-to-r from-[#00E36E]/15 to-[#05CE67]/5 border border-[#00E36E]/20 rounded-3xl p-6 text-white shadow-xl shadow-[#00E36E]/5">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                <div className="space-y-1">
+                                    <span className="text-[#8c9790] text-sm font-semibold">Weekly Prize Pool</span>
+                                    <p className="text-3xl font-black text-white drop-shadow-[0_0_12px_rgba(255,255,255,0.1)]">${(poolStatus.weeklyPool / 1e6).toFixed(2)} USDC</p>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <div className="px-4 py-2 bg-[#00E36E]/15 border border-[#00E36E]/20 rounded-xl backdrop-blur-sm">
+                                        <span className="text-sm font-bold text-[#00E36E]">{poolStatus.currentPhase === 0 ? "🟢 FREE" : "💎 PAID"}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                    <div className="bg-[#0c1310]/90 border border-[#00E36E]/12 backdrop-blur-2xl rounded-3xl p-6 flex items-center gap-4 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+                        <div className="w-12 h-12 rounded-2xl bg-[#00E36E]/10 border border-[#00E36E]/20 flex items-center justify-center text-[#00E36E]">
+                            <TrendingUp size={22} />
+                        </div>
+                        <div>
+                            <p className="text-2xl font-black text-white">{leaders.length}</p>
+                            <p className="text-xs font-bold text-[#8c9790]/70 uppercase tracking-wider">Total Players</p>
+                        </div>
+                    </div>
                 </div>
 
 
 
-                {/* Part 1: Top Earners list */}
+                {/* Leaderboard List */}
                 {isLoading ? (
-                    <div className="flex items-center justify-center py-10">
-                        <Loader2 size={32} className="animate-spin text-[#22D97A]" />
+                    <div className="flex items-center justify-center py-20">
+                        <Loader2 size={40} className="animate-spin text-brand-primary" />
+                    </div>
+                ) : leaders.length === 0 ? (
+                    <div className="bg-[#0c1310]/90 border border-[#00E36E]/12 backdrop-blur-2xl rounded-3xl flex flex-col items-center justify-center py-20 space-y-3 text-center shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+                        <Trophy size={48} className="text-brand-primary/20" />
+                        <p className="text-brand-text/50 font-bold text-lg">No entries yet</p>
+                        <p className="text-brand-text/30 text-sm max-w-sm">Be the first to submit a receipt and claim the top spot!</p>
                     </div>
                 ) : (
-                    <div className="space-y-3">
-                        {currentTabLeaders.slice(0, 3).map((user) => (
-                            <div
-                                key={user.address}
-                                className="flex items-center justify-between p-4 rounded-[22px] glass-card border border-[#22D97A]/10 hover:border-[#22D97A]/25 transition-all"
-                            >
-                                <div className="flex items-center gap-3.5">
-                                    {/* Rank badge */}
-                                    {getRankIcon(user.displayRank || user.rank)}
-                                    
-                                    {/* Avatar */}
-                                    <div className="w-10 h-10 rounded-full overflow-hidden border border-[#22D97A]/10 bg-[#131C20]">
-                                        <img 
-                                            src={user.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${user.address}`} 
-                                            alt={user.address} 
-                                            className="w-full h-full object-cover" 
-                                        />
+                    <div className="space-y-2">
+                        {currentLeaders.map((user) => {
+                            const isCurrentUser = userAddress && user.address.toLowerCase() === userAddress;
+                            return (
+                                <div
+                                    key={user.address}
+                                    className={`flex items-center justify-between p-4 sm:p-5 rounded-2xl transition-all border ${
+                                        isCurrentUser
+                                            ? "bg-[#00E36E] text-[#050806] shadow-lg shadow-[#00E36E]/20 scale-[1.01] border-transparent font-extrabold"
+                                            : getRankBg(user.displayRank)
+                                    }`}
+                                >
+                                    <div className="flex items-center gap-3 sm:gap-4">
+                                        <div className="w-8 flex justify-center shrink-0">
+                                            {isCurrentUser ? (
+                                                <span className="text-[#050806] font-black text-sm">#{user.displayRank}</span>
+                                            ) : (
+                                                getRankIcon(user.displayRank)
+                                            )}
+                                        </div>
+                                        <div
+                                            className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-xl sm:text-2xl shrink-0 ${
+                                                isCurrentUser ? "bg-[#050806]/15" : "bg-brand-accent"
+                                            }`}
+                                        >
+                                            {user.hasBadge ? "🏆" : "👤"}
+                                        </div>
+                                        <div className="min-w-0">
+                                            <h3 className="font-black text-sm sm:text-base truncate">
+                                                {isCurrentUser ? "You" : formatAddress(user.address)}
+                                            </h3>
+                                            <p
+                                                className={`text-xs ${
+                                                    isCurrentUser ? "text-[#050806]/70 font-semibold" : "text-[#8c9790]"
+                                                }`}
+                                            >
+                                                🔥 {user.displayStreak} streak · 📋 {user.receiptCount || 0} · ✅ {user.totalCheckIns || 0}
+                                            </p>
+                                        </div>
                                     </div>
-                                    
-                                    {/* User Details */}
-                                    <div className="flex flex-col text-left">
-                                        <span className="font-extrabold text-white text-sm font-heading">
-                                            {user.address.includes("#") ? user.address : formatAddress(user.address)}
+                                    <div className="text-right shrink-0">
+                                        <span className="font-black text-lg sm:text-xl tabular-nums">
+                                            {user.displayPoints.toLocaleString()}
                                         </span>
-                                        <span className="text-[10px] text-[#22D97A] font-extrabold tracking-wider">
-                                            {user.displayPoints !== undefined ? user.displayPoints : user.totalPoints} XP
-                                        </span>
+                                        <p
+                                            className={`text-[10px] font-bold uppercase tracking-widest ${
+                                                isCurrentUser ? "text-[#050806]/55" : "text-brand-text/20"
+                                            }`}
+                                        >
+                                            XP
+                                        </p>
                                     </div>
                                 </div>
-
-                                {/* Reward USDC tag */}
-                                <div className="flex items-center gap-1.5 bg-[#131C20]/60 border border-[#22D97A]/15 py-1.5 px-3 rounded-full">
-                                    <div className="w-4 h-4 rounded-full bg-[#1877F2]/20 border border-[#1877F2]/30 flex items-center justify-center text-[#1877F2] font-black text-[9px] shadow-[0_0_8px_rgba(24,119,242,0.4)]">
-                                        $
-                                    </div>
-                                    <span className="text-[11px] font-black text-white uppercase tracking-wider font-heading leading-none">
-                                        0 <span className="text-[9px] text-[#A6B0B5] font-semibold">USDC</span>
-                                    </span>
-                                </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
-
-                {/* Part 2: Your Rank Panel */}
-                <div className="space-y-3 pt-2">
-                    <h2 className="text-lg font-black text-white font-heading uppercase tracking-wide text-left">Your Rank</h2>
-                    
-                    <div className="flex items-center justify-between p-5 rounded-[22px] glass-card border border-[#22D97A]/10 bg-gradient-to-br from-[#131C20] to-[#1E2A2F]">
-                        <div className="flex items-center gap-4">
-                            {/* Rank badge */}
-                            <div className="w-6 h-6 rounded-full bg-[#1E2A2F] border border-white/5 text-[#A6B0B5] flex items-center justify-center font-black text-xs font-heading">
-                                {myRankEntry ? (myRankEntry.displayRank || myRankEntry.rank) : "-"}
-                            </div>
-                            
-                            {/* User details */}
-                            <div className="flex flex-col text-left">
-                                <span className="font-extrabold text-white text-sm font-heading">
-                                    {myRankEntry ? formatAddress(myRankEntry.address) : "-"}
-                                </span>
-                                <span className="text-[10px] text-[#A6B0B5] font-bold">
-                                    {myRankEntry ? `${myRankEntry.displayPoints !== undefined ? myRankEntry.displayPoints : myRankEntry.totalPoints} XP` : "0 XP"}
-                                </span>
-                            </div>
-                        </div>
-
-                        {/* Reward */}
-                        <div className="flex items-center gap-1.5 bg-[#131C20]/80 border border-[#22D97A]/15 py-1.5 px-3 rounded-full">
-                            <div className="w-4 h-4 rounded-full bg-[#1877F2]/20 flex items-center justify-center text-[#1877F2] font-black text-[9px]">
-                                $
-                            </div>
-                            <span className="text-[11px] font-black text-white uppercase tracking-wider font-heading leading-none">
-                                0 <span className="text-[9px] text-[#A6B0B5] font-semibold">USDC</span>
-                            </span>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Part 3: Weekly Rewards Pool panel */}
-                <div className="glass-card rounded-[32px] p-6 border border-[#22D97A]/20 bg-gradient-to-r from-[#131C20] to-[#1E2A2F] flex items-center justify-between overflow-hidden relative shadow-[0_0_30px_rgba(34,217,122,0.04)]">
-                    {/* Background glow behind coin */}
-                    <div className="absolute right-6 top-1/2 -translate-y-1/2 w-28 h-28 bg-[#22D97A]/10 rounded-full blur-xl pointer-events-none"></div>
-
-                    <div className="space-y-1 z-10 text-left">
-                        <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#22D97A] font-heading">
-                            Weekly Rewards Pool
-                        </span>
-                        <div className="flex items-baseline gap-1.5 pt-1">
-                            <span className="text-4xl font-black text-white font-heading leading-none">
-                                {poolStatus ? (poolStatus.weeklyPool / 1e6).toFixed(0) : "0"}
-                            </span>
-                            <span className="text-lg font-black text-white font-heading">USDC</span>
-                        </div>
-                        <p className="text-[10px] text-[#A6B0B5] font-bold uppercase tracking-wider">Total Rewards</p>
-                    </div>
-
-                    {/* Glowing Spin Dollar Graphic */}
-                    <div className="relative w-20 h-20 flex items-center justify-center z-10 mr-2">
-                        {/* Outer Orbit Rings */}
-                        <div className="absolute w-20 h-20 border border-[#22D97A]/20 rounded-full animate-[spin_6s_linear_infinite]"></div>
-                        <div className="absolute w-16 h-16 border border-dashed border-[#22D97A]/40 rounded-full animate-[spin_4s_linear_infinite_reverse]"></div>
-                        
-                        {/* Coin Body */}
-                        <div className="w-12 h-12 rounded-full bg-[#131C20] border-2 border-[#22D97A] flex items-center justify-center text-[#22D97A] shadow-[0_0_20px_rgba(34,217,122,0.5)]">
-                            <DollarSign size={20} strokeWidth={3} />
-                        </div>
-                        
-                        {/* Floating sparks */}
-                        <div className="absolute top-1 left-2 w-1.5 h-1.5 bg-[#22D97A] rounded-full blur-[1px] animate-ping"></div>
-                        <div className="absolute bottom-2 right-1 w-1 h-1 bg-[#22D97A] rounded-full blur-[1px] animate-pulse"></div>
-                    </div>
-                </div>
             </div>
         </Shell>
     );
