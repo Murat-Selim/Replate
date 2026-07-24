@@ -62,7 +62,6 @@ contract ReplateQuest is
     uint256 public devFund;     // 50% → developer fund
 
     // ─── Constants ───────────────────────────────────────────────────
-    uint256 constant FEE                        = 1e6;  // 1 USDC (6 decimals)
     uint16  constant DAILY_FRUIT_VEG_PER_PERSON = 300;
     uint8   constant MIN_HEALTHY_SCORE          = 60;
     uint256 constant BASE_POINTS                = 50;
@@ -94,6 +93,9 @@ contract ReplateQuest is
     mapping(address => uint256)                          public checkInStreak;
     mapping(address => uint256)                          public totalCheckIns;
 
+    // ─── Dynamic Fee Variable (V3) ──────────────────────────────────
+    uint256 public FEE;
+
     // ─── Events ──────────────────────────────────────────────────────
     event ReceiptSubmitted(
         address indexed user,
@@ -113,6 +115,7 @@ contract ReplateQuest is
     event DevWalletTransferAccepted(address indexed oldWallet, address indexed newWallet);
     event USDCAddressUpdated(address indexed oldAddress, address indexed newAddress);
     event CheckedIn(address indexed user, uint256 day, uint256 checkInStreak, uint256 pointsEarned);
+    event FeeUpdated(uint256 oldFee, uint256 newFee);
 
     // ─── Modifiers ───────────────────────────────────────────────────
     modifier onlyValidator() {
@@ -144,6 +147,11 @@ contract ReplateQuest is
     function initializeV2() public reinitializer(2) {
         __EIP712_init("ReplateQuest", "1");
         __Nonces_init();
+    }
+
+    /// @notice V3 initializer — sets initial fee amount as a mutable state variable
+    function initializeV3() public reinitializer(3) {
+        FEE = 5e5; // 0.50 USDC (6 decimals)
     }
 
     // ─── UUPS Upgrade Authorization ──────────────────────────────────
@@ -685,5 +693,11 @@ contract ReplateQuest is
         require(_newUsdc != address(0), "Invalid address");
         emit USDCAddressUpdated(address(usdc), _newUsdc);
         usdc = IERC20(_newUsdc);
+    }
+
+    /// @notice Update the per-receipt fee (in USDC's smallest unit, 6 decimals)
+    function setFee(uint256 _newFee) external onlyValidator {
+        emit FeeUpdated(FEE, _newFee);
+        FEE = _newFee;
     }
 }

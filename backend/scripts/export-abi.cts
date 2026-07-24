@@ -24,15 +24,15 @@ async function main() {
   // Write TypeScript config file
   const outputPath = path.join(libDir, "contract.ts");
   const fileContent = `// Auto-generated from ReplateQuest.sol
-// Run: npm run export-abi to regenerate
+// Run: npx hardhat run scripts/export-abi.cts to regenerate
 
 export { CONTRACT_ADDRESS } from "./network.js";
 
 export const REPLATE_QUEST_ABI = ${JSON.stringify(contractConfig.abi, null, 2)} as const;
 
-// Contract constants
+// Contract constants / initial values
 export const CONTRACT_CONSTANTS = {
-  FEE: 1e6, // 1 USDC (6 decimals)
+  INITIAL_FEE: 5e5, // Initial fee in V3: 0.50 USDC (6 decimals), dynamic state variable
   DAILY_FRUIT_VEG_PER_PERSON: 300, // grams
   MIN_HEALTHY_SCORE: 60,
   BASE_POINTS: 50,
@@ -43,7 +43,7 @@ export const CONTRACT_CONSTANTS = {
 
   fs.writeFileSync(outputPath, fileContent);
   console.log("✅ ABI exported to src/lib/contract.ts");
-  console.log("   Contract address source: src/lib/network.ts (env + fallback)");
+  console.log("   Contract address source: src/lib/network.js (env + fallback)");
 }
 
 main()

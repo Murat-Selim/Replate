@@ -15,6 +15,8 @@
     "test:receipt:mock": "tsx scripts/test-receipt-e2e.ts --mock --strict",
     "test:receipt:fixture": "tsx scripts/test-receipt-e2e.ts --lines fixtures/receipts/migros-sample.json --strict",
     "verify": "cross-env TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat verify",
+    "upgrade:sepolia": "cross-env TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat run scripts/upgradeV3.cts --network baseSepolia",
+    "upgrade:mainnet": "cross-env TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat run scripts/upgradeV3.cts --network baseMainnet",
     "export-abi": "cross-env TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat run scripts/export-abi.cts"
   },
   "dependencies": {

@@ -1,5 +1,5 @@
 // Auto-generated from ReplateQuest.sol
-// Run: npm run export-abi to regenerate
+// Run: npx hardhat run scripts/export-abi.cts to regenerate
 
 export { CONTRACT_ADDRESS } from "./network.js";
 
@@ -377,6 +377,25 @@ export const REPLATE_QUEST_ABI = [
     "inputs": [
       {
         "indexed": false,
+        "internalType": "uint256",
+        "name": "oldFee",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "newFee",
+        "type": "uint256"
+      }
+    ],
+    "name": "FeeUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
         "internalType": "uint64",
         "name": "version",
         "type": "uint64"
@@ -617,6 +636,19 @@ export const REPLATE_QUEST_ABI = [
     ],
     "name": "WeeklyRewardsDistributed",
     "type": "event"
+  },
+  {
+    "inputs": [],
+    "name": "FEE",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
   },
   {
     "inputs": [],
@@ -1079,6 +1111,13 @@ export const REPLATE_QUEST_ABI = [
     "type": "function"
   },
   {
+    "inputs": [],
+    "name": "initializeV3",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
     "inputs": [
       {
         "internalType": "address",
@@ -1384,6 +1423,19 @@ export const REPLATE_QUEST_ABI = [
       }
     ],
     "name": "setApprovalForAll",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_newFee",
+        "type": "uint256"
+      }
+    ],
+    "name": "setFee",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -1815,9 +1867,9 @@ export const REPLATE_QUEST_ABI = [
   }
 ] as const;
 
-// Contract constants
+// Contract constants / initial values
 export const CONTRACT_CONSTANTS = {
-  FEE: 1e6, // 1 USDC (6 decimals)
+  INITIAL_FEE: 5e5, // Initial fee in V3: 0.50 USDC (6 decimals), dynamic state variable
   DAILY_FRUIT_VEG_PER_PERSON: 300, // grams
   MIN_HEALTHY_SCORE: 60,
   BASE_POINTS: 50,
