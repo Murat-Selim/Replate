@@ -3,13 +3,14 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutGrid, ShoppingBag, BarChart3, User } from "lucide-react";
+import { LayoutGrid, ShoppingBag, BarChart3, Target, User } from "lucide-react";
 
 const navItems = [
     { icon: LayoutGrid, href: "/", label: "Home" },
-    { icon: ShoppingBag, href: "/shop", label: "Shop" },
-    { icon: BarChart3, href: "/leaderboard", label: "Ranks" },
-    { icon: User, href: "/impact", label: "Profile" },
+    { icon: ShoppingBag, href: "/verify-receipt", label: "Verify Receipt" },
+    { icon: BarChart3, href: "/leaderboard", label: "Leaderboard" },
+    { icon: Target, href: "/quests", label: "Quests" },
+    { icon: User, href: "/profile", label: "Profile" },
 ];
 
 export default function BottomNav() {

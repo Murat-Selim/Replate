@@ -171,6 +171,7 @@ export function useSubmitReceipt() {
           functionName: 'submitReceiptWithSig',
           args: [
             address,
+            receiptData.receiptHash,
             receiptData.totalItems,
             receiptData.healthyItems,
             receiptData.unhealthyItems,

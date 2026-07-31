@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
+
 import Shell from "@/components/Shell";
 import { 
     Camera, 
@@ -26,24 +26,24 @@ export default function Home() {
                     <div className="flex-1 text-left space-y-6 animate-fade-in-up">
                         <div className="space-y-4">
                             <h1 className="text-5xl sm:text-6xl lg:text-7.5xl font-black tracking-tight leading-[1.05] text-white">
-                                Buy groceries.
+                                Turn receipts into
                                 <br />
                                 <span className="text-[#00E36E] drop-shadow-[0_0_20px_rgba(0,227,110,0.35)]">
-                                    Earn crypto
+                                    healthier insights
                                 </span>{" "}
-                                rewards.
+                                you can verify.
                             </h1>
                             <p className="text-base sm:text-lg text-[#8c9790] max-w-lg leading-relaxed">
-                                Upload your grocery receipts, get AI-powered analysis, and earn USDC rewards.
+                                Scan a grocery receipt to understand your basket&apos;s health and nutrition balance, then save the proof onchain.
                             </p>
                         </div>
 
                         <div className="pt-2">
                             <Link
-                                href="/shop"
-                                className="inline-flex items-center gap-3 bg-[#00E36E] hover:bg-[#00FF66] text-[#050806] py-4 px-8 rounded-2xl font-black text-lg shadow-[0_0_20px_rgba(0,227,110,0.3)] hover:shadow-[0_0_30px_rgba(0,227,110,0.5)] transition-all hover:scale-[1.02] active:scale-[0.98] group"
+                                href="/verify-receipt"
+                                className="flex sm:inline-flex w-full sm:w-auto items-center justify-center gap-3 bg-[#00E36E] hover:bg-[#00FF66] text-[#050806] py-4 px-8 rounded-2xl font-black text-lg shadow-[0_0_20px_rgba(0,227,110,0.3)] hover:shadow-[0_0_30px_rgba(0,227,110,0.5)] transition-all hover:scale-[1.02] active:scale-[0.98] group"
                             >
-                                Start Earning
+                                Verify Receipt
                                 <ArrowRight size={20} className="transition-transform group-hover:translate-x-1" strokeWidth={2.5} />
                             </Link>
                         </div>
@@ -81,17 +81,7 @@ export default function Home() {
                         <div className="absolute w-72 h-72 bg-[#00E36E]/10 rounded-full blur-[100px] animate-pulse-glow" />
                         <div className="absolute w-96 h-96 bg-[#00E36E]/5 rounded-full blur-[120px]" />
                         
-                        {/* Main Image container using user's background-image.png */}
-                        <div className="relative w-full aspect-[4/3] rounded-3xl overflow-hidden">
-                            <Image
-                                src="/background-image.png"
-                                alt="Replate Core Platform Mockup"
-                                fill
-                                className="object-contain"
-                                priority
-                                sizes="(max-w-768px) 100vw, 50vw"
-                            />
-                        </div>
+
                     </div>
                 </section>
 
@@ -107,13 +97,13 @@ export default function Home() {
                         {
                             icon: Sparkles,
                             title: "AI Analyzes It",
-                            desc: "We score your basket's health & nutrition balance.",
+                            desc: "We score your basket health and nutrition balance.",
                             stepNum: "02"
                         },
                         {
                             icon: Trophy,
-                            title: "Earn Rewards",
-                            desc: "Get XP, climb the leaderboard, and win USDC prizes.",
+                            title: "Get Verifiable Insight",
+                            desc: "Review your scores and keep a verifiable record of your progress.",
                             stepNum: "03"
                         }
                     ].map((step, index) => {
@@ -144,7 +134,7 @@ export default function Home() {
                     })}
                 </section>
 
-                {/* Dashboard Grid (Dashboard, Leaderboard, Rewards Pool) */}
+                {/* Dashboard Grid (Dashboard, Leaderboard, Weekly XP) */}
                 <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in-up-delay-3">
                     {/* Card 1: Your Dashboard */}
                     <div className="bg-[#0c1310]/90 border border-[#00E36E]/12 backdrop-blur-2xl rounded-2xl p-6 flex flex-col justify-between h-80 relative overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
@@ -157,9 +147,9 @@ export default function Home() {
                         </div>
 
                         <div className="my-auto space-y-2 pt-2">
-                            <span className="text-xs text-[#8c9790] font-bold uppercase tracking-wider block">Total Earned</span>
+                            <span className="text-xs text-[#8c9790] font-bold uppercase tracking-wider block">Community XP</span>
                             <span className="text-4xl font-black text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.1)]">
-                                0 <span className="text-sm font-bold text-white ml-1">USDC</span>
+                                420 XP
                             </span>
                             
                             {/* Mock line chart */}
@@ -180,15 +170,15 @@ export default function Home() {
                         <div className="grid grid-cols-3 gap-2 border-t border-[rgba(0,227,110,0.06)] pt-4 mt-2">
                             <div>
                                 <span className="text-[10px] text-[#8c9790] block font-bold">Receipts</span>
-                                <span className="text-sm font-extrabold text-white">0</span>
+                                <span className="text-sm font-extrabold text-white">18</span>
                             </div>
                             <div>
                                 <span className="text-[10px] text-[#8c9790] block font-bold">XP Earned</span>
-                                <span className="text-sm font-extrabold text-white">0</span>
+                                <span className="text-sm font-extrabold text-white">420 XP</span>
                             </div>
                             <div>
                                 <span className="text-[10px] text-[#8c9790] block font-bold">Avg. Score</span>
-                                <span className="text-sm font-extrabold text-white">0 <span className="text-[10px] text-[#8c9790]">/100</span></span>
+                                <span className="text-sm font-extrabold text-white">78 <span className="text-[10px] text-[#8c9790]">/100</span></span>
                             </div>
                         </div>
                     </div>
@@ -204,9 +194,9 @@ export default function Home() {
 
                         <div className="space-y-3.5 my-auto pt-2">
                             {[
-                                { rank: 1, name: "User#1234", xp: "0 XP", color: "bg-amber-500", text: "text-black" },
-                                { rank: 2, name: "User#5678", xp: "0 XP", color: "bg-gray-400", text: "text-black" },
-                                { rank: 3, name: "User#9101", xp: "0 XP", color: "bg-amber-700", text: "text-white" }
+                                { rank: 1, name: "Alex Carter", xp: "40 XP", color: "bg-amber-500", text: "text-black" },
+                                { rank: 2, name: "Jamie Rivera", xp: "35 XP", color: "bg-gray-400", text: "text-black" },
+                                { rank: 3, name: "Taylor Morgan", xp: "30 XP", color: "bg-amber-700", text: "text-white" }
                             ].map((user) => (
                                 <div key={user.rank} className="flex items-center justify-between bg-white/[0.02] border border-white/[0.04] p-2.5 rounded-xl">
                                     <div className="flex items-center gap-3">
@@ -223,22 +213,16 @@ export default function Home() {
                                             <span className="text-[10px] text-[#8c9790] font-semibold">{user.xp}</span>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-1.5 px-3 py-1 bg-[#00E36E]/10 border border-[#00E36E]/15 rounded-lg">
-                                        <svg className="w-3.5 h-3.5 text-[#00E36E]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                            <circle cx="12" cy="12" r="10" />
-                                            <path d="M12 6v12M9 12h6" />
-                                        </svg>
-                                        <span className="text-[10px] font-black text-[#00E36E]">0 USDC</span>
-                                    </div>
+
                                 </div>
                             ))}
                         </div>
                     </div>
 
-                    {/* Card 3: Rewards Pool */}
+                    {/* Card 3: Weekly XP */}
                     <div className="bg-[#0c1310]/90 border border-[#00E36E]/12 backdrop-blur-2xl rounded-2xl p-6 flex flex-col justify-between h-80 relative overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
                         <div className="flex items-center justify-between">
-                            <h3 className="font-bold text-white text-base">Rewards Pool</h3>
+                            <h3 className="font-bold text-white text-base">Weekly XP</h3>
                             <button className="flex items-center gap-1.5 text-xs text-[#8c9790] font-bold hover:text-white transition-colors">
                                 This Week
                                 <ChevronDown size={14} />
@@ -247,12 +231,12 @@ export default function Home() {
 
                         <div className="flex items-center justify-between my-auto pt-2">
                             <div className="space-y-2">
-                                <span className="text-xs text-[#8c9790] font-bold uppercase tracking-wider block">Total Rewards</span>
+                                <span className="text-xs text-[#8c9790] font-bold uppercase tracking-wider block">Weekly XP</span>
                                 <span className="text-4xl font-black text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.1)] block">
-                                    0 <span className="text-sm font-bold text-white ml-1">USDC</span>
+                                    420 XP
                                 </span>
                                 <span className="text-[11px] text-[#8c9790] font-semibold block leading-none">
-                                    Distributed to top performers
+                                    Earned through verified progress
                                 </span>
                             </div>
 
@@ -269,15 +253,15 @@ export default function Home() {
                         <div className="grid grid-cols-3 gap-2 border-t border-[rgba(0,227,110,0.06)] pt-4 mt-2">
                             <div>
                                 <span className="text-[10px] text-[#8c9790] block font-bold">Participants</span>
-                                <span className="text-sm font-extrabold text-white">0</span>
+                                <span className="text-sm font-extrabold text-white">42</span>
                             </div>
                             <div>
                                 <span className="text-[10px] text-[#8c9790] block font-bold">Receipts Submitted</span>
-                                <span className="text-sm font-extrabold text-white">0</span>
+                                <span className="text-sm font-extrabold text-white">186</span>
                             </div>
                             <div>
-                                <span className="text-[10px] text-[#8c9790] block font-bold">Avg. Reward</span>
-                                <span className="text-sm font-extrabold text-white">0 <span className="text-[10px] text-[#8c9790]">USDC</span></span>
+                                <span className="text-[10px] text-[#8c9790] block font-bold">Avg. XP</span>
+                                <span className="text-sm font-extrabold text-white">35 XP</span>
                             </div>
                         </div>
                     </div>
@@ -290,7 +274,7 @@ export default function Home() {
                             { icon: Shield, title: "AI-Powered", desc: "Smarter analysis for healthier choices" },
                             { icon: Lock, title: "Secure & Private", desc: "Your data is encrypted and never shared" },
                             { icon: Users, title: "Community Driven", desc: "Join a growing movement of smart shoppers" },
-                            { icon: Gift, title: "Real Rewards", desc: "Earn USDC for doing what you already do" }
+                            { icon: Gift, title: "XP Progress", desc: "Build your weekly streak and health score" }
                         ].map((item, i) => {
                             const Icon = item.icon;
                             return (

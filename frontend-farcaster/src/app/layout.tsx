@@ -17,6 +17,10 @@ const outfit = Outfit({
 export async function generateMetadata(): Promise<Metadata> {
     const URL = process.env.NEXT_PUBLIC_URL || process.env.NEXT_PUBLIC_APP_URL || "https://replate-farcaster.vercel.app";
     return {
+        icons: {
+            icon: "/replate-logo.png",
+            shortcut: "/replate-logo.png",
+        },
         other: {
             'fc:miniapp': JSON.stringify({
                 version: 'next',

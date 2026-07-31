@@ -68,6 +68,7 @@ describe("ReplateQuest", function () {
 
     it("should start in FREE phase", async function () {
       expect(await replate.currentPhase()).to.equal(0);
+      expect(await (replate as any).FEE()).to.equal(500_000);
     });
   });
 
@@ -239,6 +240,7 @@ describe("ReplateQuest", function () {
     const RECEIPT_TYPES = {
       SubmitReceipt: [
         { name: "user", type: "address" },
+        { name: "receiptHash", type: "bytes32" },
         { name: "totalItems", type: "uint8" },
         { name: "healthyItems", type: "uint8" },
         { name: "unhealthyItems", type: "uint8" },
@@ -366,6 +368,7 @@ describe("ReplateQuest", function () {
     });
 
     describe("submitReceiptWithSig", function () {
+      const TEST_RECEIPT_HASH = ethers.id("test-receipt");
       it("should accept valid EIP-712 signature for receipt", async function () {
         const nonce = await (replateV2 as any).nonces(user1.address);
         const block = await ethers.provider.getBlock("latest");
@@ -373,6 +376,7 @@ describe("ReplateQuest", function () {
 
         const message = {
           user: user1.address,
+          receiptHash: TEST_RECEIPT_HASH,
           totalItems: 10,
           healthyItems: 6,
           unhealthyItems: 2,
@@ -387,11 +391,13 @@ describe("ReplateQuest", function () {
 
         await (replateV2 as any).submitReceiptWithSig(
           user1.address,
+          TEST_RECEIPT_HASH,
           10, 6, 2, 600, 2, 1,
           deadline,
           signature
         );
 
+        expect(await (replateV2 as any).usedReceiptHashes(TEST_RECEIPT_HASH)).to.be.true;
         const summary = await replateV2.getUserSummary(user1.address);
         expect(summary._receiptCount).to.equal(1);
         expect(summary._totalPoints).to.be.gt(0);
@@ -404,6 +410,7 @@ describe("ReplateQuest", function () {
 
         const message = {
           user: user1.address,
+          receiptHash: TEST_RECEIPT_HASH,
           totalItems: 10,
           healthyItems: 6,
           unhealthyItems: 2,
@@ -420,6 +427,7 @@ describe("ReplateQuest", function () {
         await expect(
           (replateV2 as any).submitReceiptWithSig(
             user1.address,
+            TEST_RECEIPT_HASH,
             10, 6, 2, 600, 2, 1,
             deadline,
             signature
@@ -427,13 +435,14 @@ describe("ReplateQuest", function () {
         ).to.be.revertedWith("Invalid signature");
       });
 
-      it("should prevent nonce replay for receipts", async function () {
+      it("should prevent receipt hash replay even after a day", async function () {
         const nonce = await (replateV2 as any).nonces(user1.address);
         const block = await ethers.provider.getBlock("latest");
         const deadline = block!.timestamp + 86400 * 2; // 2 days
 
         const message = {
           user: user1.address,
+          receiptHash: TEST_RECEIPT_HASH,
           totalItems: 10,
           healthyItems: 6,
           unhealthyItems: 2,
@@ -449,6 +458,7 @@ describe("ReplateQuest", function () {
         // First call succeeds
         await (replateV2 as any).submitReceiptWithSig(
           user1.address,
+          TEST_RECEIPT_HASH,
           10, 6, 2, 600, 2, 1,
           deadline,
           signature
@@ -462,11 +472,12 @@ describe("ReplateQuest", function () {
         await expect(
           (replateV2 as any).submitReceiptWithSig(
             user1.address,
+            TEST_RECEIPT_HASH,
             10, 6, 2, 600, 2, 1,
             deadline,
             signature
           )
-        ).to.be.revertedWith("Invalid signature");
+        ).to.be.revertedWith("Receipt already used");
       });
     });
 

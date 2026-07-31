@@ -23,6 +23,7 @@ export const CHECK_IN_TYPES = {
 export const RECEIPT_TYPES = {
   SubmitReceipt: [
     { name: 'user', type: 'address' },
+    { name: 'receiptHash', type: 'bytes32' },
     { name: 'totalItems', type: 'uint8' },
     { name: 'healthyItems', type: 'uint8' },
     { name: 'unhealthyItems', type: 'uint8' },
@@ -54,6 +55,7 @@ export function buildCheckInMessage(user: `0x${string}`, nonce: bigint, deadline
 }
 
 export interface ReceiptData {
+  receiptHash: `0x${string}`;
   totalItems: number;
   healthyItems: number;
   unhealthyItems: number;
@@ -70,6 +72,7 @@ export function buildReceiptMessage(
 ) {
   return {
     user,
+    receiptHash: data.receiptHash,
     totalItems: data.totalItems,
     healthyItems: data.healthyItems,
     unhealthyItems: data.unhealthyItems,

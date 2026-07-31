@@ -151,13 +151,18 @@ export async function processOCR(imageBase64: string): Promise<OCRResult> {
     process.env.GOOGLE_APPLICATION_CREDENTIALS ||
     process.env.GOOGLE_CREDENTIALS_JSON;
 
-  if (process.env.USE_MOCK_OCR === "true" || !hasCredentials) {
+  const mockRequested =
+    process.env.NODE_ENV !== "production" && process.env.USE_MOCK_OCR === "true";
+  if (mockRequested) {
     console.log(
       `⚠️ ${
-        !hasCredentials ? "No Google Cloud credentials" : "Mock OCR requested"
+        "Mock OCR requested"
       }, using mock OCR`
     );
     return mockOCR();
+  }
+  if (!hasCredentials) {
+    throw new OCRError("Receipt OCR service is not configured", "OCR_API_ERROR");
   }
 
   const base64 = validateImageBase64(imageBase64);
@@ -184,9 +189,12 @@ export async function processOCR(imageBase64: string): Promise<OCRResult> {
       .map((l) => l.trim())
       .filter((l) => l.length > 0);
 
-    // Page-level confidence from fullTextAnnotation (word-level is often undefined)
+    // textDetection may return confidence 0 even when usable text exists.
+    const pageConfidence = result.fullTextAnnotation?.pages?.[0]?.confidence;
     const confidence =
-      result.fullTextAnnotation?.pages?.[0]?.confidence ?? 0.9;
+      typeof pageConfidence === "number" && pageConfidence > 0
+        ? pageConfidence
+        : 0.9;
 
     return { fullText, lines, confidence };
   } catch (error) {

@@ -6,6 +6,7 @@ import {
 } from "../services/contract.js";
 import { clearLeaderboardCache } from "./leaderboard.js";
 import { verifyTypedData } from "viem";
+import { BASE_MAINNET_CHAIN_ID, CONTRACT_ADDRESS } from "../../src/lib/network.js";
 
 const router = Router();
 
@@ -13,9 +14,8 @@ const router = Router();
 const EIP712_DOMAIN = {
   name: "ReplateQuest" as const,
   version: "1" as const,
-  chainId: Number(process.env.CHAIN_ID) || 8453, // 8453 = Base Mainnet, 84532 = Base Sepolia
-  verifyingContract: (process.env.CONTRACT_ADDRESS ||
-    "0x9d646D474ba0D1bF03E61453898c160b7f9e3E90") as `0x${string}`,
+  chainId: BASE_MAINNET_CHAIN_ID,
+  verifyingContract: CONTRACT_ADDRESS,
 };
 
 // ─── EIP-712 Types ───────────────────────────────────────────────────
@@ -30,6 +30,7 @@ const CHECK_IN_TYPES = {
 const RECEIPT_TYPES = {
   SubmitReceipt: [
     { name: "user", type: "address" },
+    { name: "receiptHash", type: "bytes32" },
     { name: "totalItems", type: "uint8" },
     { name: "healthyItems", type: "uint8" },
     { name: "unhealthyItems", type: "uint8" },
@@ -142,6 +143,7 @@ router.post("/receipt-sig", async (req: Request, res: Response) => {
   try {
     const {
       userAddress,
+      receiptHash,
       totalItems,
       healthyItems,
       unhealthyItems,
@@ -156,6 +158,10 @@ router.post("/receipt-sig", async (req: Request, res: Response) => {
     // Validation
     if (!userAddress || !/^0x[a-fA-F0-9]{40}$/.test(userAddress)) {
       res.status(400).json({ error: "Valid user address is required" });
+      return;
+    }
+    if (!/^0x[a-fA-F0-9]{64}$/.test(receiptHash || "")) {
+      res.status(400).json({ error: "Valid receipt hash is required" });
       return;
     }
     if (!totalItems || totalItems < 1) {
@@ -186,6 +192,7 @@ router.post("/receipt-sig", async (req: Request, res: Response) => {
       primaryType: "SubmitReceipt",
       message: {
         user: userAddress as `0x${string}`,
+        receiptHash: receiptHash as `0x${string}`,
         totalItems,
         healthyItems,
         unhealthyItems,
@@ -215,6 +222,7 @@ router.post("/receipt-sig", async (req: Request, res: Response) => {
         householdSize,
         daysCovered: daysCovered || 1,
       },
+      receiptHash,
       Number(deadline),
       signature
     );

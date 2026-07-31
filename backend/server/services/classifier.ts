@@ -126,6 +126,8 @@ const NON_FOOD_PATTERNS = [
   /\b(MOLPED|HOLPED|ORK[Iİ]D|KOTEX|ALWAYS|PR[Iİ]MA|PAMPERS|HUGGIES)\b/i,
   /\b([CÇ][OÖ]P\s*PO[SŞ]ET|TORBA|FIRIN TORBASI)\b/i,
   /\b(AMPUL|P[Iİ]L|BATARYA|LAMBA|DEODORANT|KREM|LOSYON|TIRNAK|D[Iİ][SŞ]\s*FIR[CÇ]ASI|D[Iİ][SŞ]\s*MACUNU|DIPMACUNU|TRA[SŞ])\b/i,
+  /SAKLAMA\s*KABI/i,
+  /MENTOR.*(?:BIC|BI[CÇ]|TIRA[SŞ])/i,
 ];
 
 /**
@@ -206,6 +208,13 @@ function extractProductLines(lines: string[]): ExtractedProduct[] {
     const hasUnitPrice = /TL\/(kg|ad|lt|adet)/i.test(trimmed);
     const hasQuantityPrefix = /\bx\d+[.,]?\d*/i.test(trimmed);
 
+    // Turkish supermarket receipts often print product, tax and price on
+    // separate lines: "KAŞAR 1 KG TARABYA" / "%08" / "*34,95".
+    const nextLine = lines[i + 1]?.trim() ?? "";
+    const lineAfterNext = lines[i + 2]?.trim() ?? "";
+    const hasSplitReceiptPrice =
+      /^%\d{1,2}$/.test(nextLine) && /^\*?\d+[.,]\d{2}$/.test(lineAfterNext);
+
     let hasWeightLineBelow = false;
     let actualWeightGrams = 0;
     let quantity = 1;
@@ -245,7 +254,8 @@ function extractProductLines(lines: string[]): ExtractedProduct[] {
       hasProductCode ||
       hasUnitPrice ||
       hasQuantityPrefix ||
-      hasWeightLineBelow;
+      hasWeightLineBelow ||
+      hasSplitReceiptPrice;
 
     let matchesKnownFood = false;
     if (!hasProductSignal) {

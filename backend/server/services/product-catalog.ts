@@ -101,6 +101,7 @@ export const PRODUCT_CATALOG: CatalogEntry[] = [
   { id: "yogurt", category: "healthy", healthyProcessed: true, aliases: ["yogurt"] },
   { id: "ayran", category: "healthy", healthyProcessed: true },
   { id: "kefir", category: "healthy", healthyProcessed: true },
+  { id: "kasar", category: "healthy", healthyProcessed: true, aliases: ["kaşar"] },
   { id: "lor", category: "healthy", healthyProcessed: true },
   { id: "peynir", category: "healthy", healthyProcessed: true },
   { id: "tulum", category: "healthy", healthyProcessed: true },
@@ -143,6 +144,8 @@ export const PRODUCT_CATALOG: CatalogEntry[] = [
   { id: "pasta", category: "unhealthy" }, // sweet pastry sense on TR receipts often cakes; also neutral pasta handled separately by makarna
   { id: "gofret", category: "unhealthy", aliases: ["goofret"] },
   { id: "cips", category: "unhealthy", aliases: ["chips"] },
+  { id: "doritos", category: "unhealthy", aliases: ["hot doritos"] },
+  { id: "pepsi", category: "unhealthy" },
   { id: "seker", category: "unhealthy", aliases: ["seker toz", "candy"] },
   { id: "dondurma", category: "unhealthy", aliases: ["ice cream"] },
   { id: "lokum", category: "unhealthy" },

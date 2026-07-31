@@ -16,6 +16,10 @@ const outfit = Outfit({
 export const metadata: Metadata = {
   title: "Replate",
   description: "Shop smart. Nourish well. Earn onchain.",
+  icons: {
+    icon: "/replate-image.png",
+    shortcut: "/replate-image.png",
+  },
   other: {
     'base:app_id': '69a867e33dc3043730868ccb',
   }

@@ -3,18 +3,22 @@ import cors from "cors";
 import helmet from "helmet";
 import * as cron from "node-cron";
 import * as dotenv from "dotenv";
+import { timingSafeEqual } from "crypto";
+import { runtimeConfig, validateRuntimeConfig } from "./config.js";
 
 import verifyReceiptRouter from "./routes/verify-receipt.js";
 import leaderboardRouter from "./routes/leaderboard.js";
 import userRouter from "./routes/user.js";
 import checkInRouter from "./routes/check-in.js";
 import metaRouter from "./routes/meta.js";
+import questsRouter from "./routes/quests.js";
 import { runWeeklyFinalization } from "./cron/weekly.js";
 import { setupEventListeners, invalidateLeaderboardCache } from "./services/events.js";
 import { warmLeaderboardCache } from "./routes/leaderboard.js";
 
 
 dotenv.config();
+validateRuntimeConfig();
 
 // Trigger reload dummy comment 1
 const app = express();
@@ -36,7 +40,7 @@ app.use(cors({
     if (!origin) return callback(null, true);
     // Tanımlı liste varsa kontrol et
     if (allowedOrigins.length > 0) {
-      if (allowedOrigins.some((allowed) => origin.startsWith(allowed))) {
+      if (allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
       return callback(new Error("CORS: origin not allowed"));
@@ -70,15 +74,25 @@ app.use("/api/leaderboard", leaderboardRouter);
 app.use("/api/user", userRouter);
 app.use("/api/check-in", checkInRouter);
 app.use("/api/meta", metaRouter);
+app.use("/api/quests", questsRouter);
+
+let weeklyFinalizationRunning = false;
 
 // Cron endpoint for Vercel
 app.get("/api/cron/weekly", async (req, res) => {
-  // Check for Vercel Cron Secret (highly recommended for production)
   const authHeader = req.headers.authorization;
-  if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  const expected = `Bearer ${runtimeConfig.cronSecret}`;
+  const authorized = !!runtimeConfig.cronSecret &&
+    typeof authHeader === "string" && authHeader.length === expected.length &&
+    timingSafeEqual(Buffer.from(authHeader), Buffer.from(expected));
+  if (!authorized) {
     return res.status(401).json({ error: "Unauthorized" });
   }
   
+  if (weeklyFinalizationRunning) {
+    return res.status(409).json({ error: "Weekly finalization already running" });
+  }
+  weeklyFinalizationRunning = true;
   console.log("🕐 Running weekly finalization via API call...");
   try {
     await runWeeklyFinalization();
@@ -86,19 +100,27 @@ app.get("/api/cron/weekly", async (req, res) => {
   } catch (error) {
     console.error("❌ Weekly finalization failed:", error);
     res.status(500).json({ success: false, error: "Weekly finalization failed" });
+  } finally {
+    weeklyFinalizationRunning = false;
   }
 });
 
 // Weekly cron job - runs every Sunday at 00:00 UTC
-cron.schedule("0 0 * * 0", async () => {
+if (!process.env.VERCEL && process.env.ENABLE_INTERNAL_CRON === "true") {
+  cron.schedule("0 0 * * 0", async () => {
+    if (weeklyFinalizationRunning) return;
+    weeklyFinalizationRunning = true;
   console.log("🕐 Running weekly finalization cron job...");
   try {
     await runWeeklyFinalization();
     console.log("✅ Weekly finalization complete");
   } catch (error) {
     console.error("❌ Weekly finalization failed:", error);
+  } finally {
+    weeklyFinalizationRunning = false;
   }
-});
+  });
+}
 
 // Start server - only if not running on Vercel
 if (process.env.NODE_ENV !== "production" || !process.env.VERCEL) {

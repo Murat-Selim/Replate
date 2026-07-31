@@ -2,6 +2,7 @@ import { ethers, Wallet, Contract } from "ethers";
 import fs from "fs";
 import path from "path";
 import { REPLATE_QUEST_ABI, CONTRACT_ADDRESS } from "../../src/lib/contract.js";
+import { runtimeConfig } from "../config.js";
 
 // ─── Sabitler ─────────────────────────────────────────────────────────
 // FIX: Duplicate'di, modül seviyesine taşındı
@@ -16,6 +17,10 @@ const RPC_LIST: string[] = [
 ].filter(Boolean) as string[];
 
 const CONTRACT_DEPLOY_BLOCK = 47849426;
+
+function assertWriteConfiguration(): never {
+  throw new Error("Blockchain write service is not configured");
+}
 
 // ─── Singleton state ──────────────────────────────────────────────────
 let provider: ethers.JsonRpcProvider | null = null;
@@ -188,8 +193,8 @@ export async function submitReceiptToContract(
   const privateKey = process.env.VALIDATOR_PRIVATE_KEY || process.env.PRIVATE_KEY;
 
   if (!rpcUrl || !privateKey) {
-    console.log("⚠️ Contract not configured, using mock response");
-    return mockContractResponse(data);
+    if (runtimeConfig.allowMockContract) return mockContractResponse(data);
+    assertWriteConfiguration();
   }
 
   try {
@@ -277,7 +282,7 @@ export async function submitCheckIn(
   const privateKey = process.env.VALIDATOR_PRIVATE_KEY || process.env.PRIVATE_KEY;
 
   if (!rpcUrl || !privateKey) {
-    return { success: true, pointsEarned: 10 };
+    assertWriteConfiguration();
   }
 
   try {
@@ -326,7 +331,7 @@ export async function finalizeUserWeek(
   const rpcUrl = process.env.RPC_URL || process.env.BASE_RPC_URL;
   const privateKey = process.env.VALIDATOR_PRIVATE_KEY || process.env.PRIVATE_KEY;
 
-  if (!rpcUrl || !privateKey) return { success: true, newStreak: 1 };
+  if (!rpcUrl || !privateKey) assertWriteConfiguration();
 
   try {
     return await withRetry(async (c) => {
@@ -364,7 +369,7 @@ export async function distributeWeeklyRewards(
   const privateKey = process.env.VALIDATOR_PRIVATE_KEY || process.env.PRIVATE_KEY;
 
   if (!rpcUrl || !privateKey) {
-    return { success: true, totalDistributed: BigInt(0) };
+    assertWriteConfiguration();
   }
 
   try {
@@ -524,8 +529,8 @@ export async function getLeaderboard(
   const rpcUrl = process.env.RPC_URL || process.env.BASE_RPC_URL;
 
   if (!rpcUrl) {
-    console.log("⚠️ No RPC_URL, returning mock leaderboard");
-    return getMockLeaderboard(limit);
+    if (runtimeConfig.allowMockContract) return getMockLeaderboard(limit);
+    throw new Error("Blockchain read service is not configured");
   }
 
   try {
@@ -772,6 +777,7 @@ export async function submitCheckInWithSig(
  */
 export async function submitReceiptWithSig(
   data: ReceiptSubmission,
+  receiptHash: string,
   deadline: number,
   signature: string
 ): Promise<ContractResult> {
@@ -786,6 +792,7 @@ export async function submitReceiptWithSig(
 
       const txRequest = await c.submitReceiptWithSig.populateTransaction(
         data.user,
+        receiptHash,
         data.totalItems,
         data.healthyItems,
         data.unhealthyItems,

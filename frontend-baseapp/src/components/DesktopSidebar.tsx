@@ -4,14 +4,16 @@ import React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { LayoutGrid, ShoppingBag, BarChart3, User, Wallet } from "lucide-react";
+import { LayoutGrid, ShoppingBag, BarChart3, Target, BookOpen, User, Wallet } from "lucide-react";
 import { useAccount, useConnect, useDisconnect } from "wagmi";
 
 const navItems = [
     { icon: LayoutGrid, href: "/", label: "Home", desc: "Overview & start" },
-    { icon: ShoppingBag, href: "/shop", label: "Shop & Verify", desc: "Upload receipts" },
+    { icon: ShoppingBag, href: "/verify-receipt", label: "Verify Receipt", desc: "Scan or upload" },
+    { icon: Target, href: "/quests", label: "Quests", desc: "Challenges & progress" },
     { icon: BarChart3, href: "/leaderboard", label: "Leaderboard", desc: "Rankings & prizes" },
-    { icon: User, href: "/impact", label: "Your Impact", desc: "Stats & streaks" },
+    { icon: User, href: "/profile", label: "Profile", desc: "Stats & streaks" },
+    { icon: BookOpen, href: "/whitepaper", label: "Whitepaper", desc: "Project overview" },
 ];
 
 export default function DesktopSidebar() {

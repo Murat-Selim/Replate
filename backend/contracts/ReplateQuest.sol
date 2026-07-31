@@ -73,7 +73,7 @@ contract ReplateQuest is
         "CheckIn(address user,uint256 nonce,uint256 deadline)"
     );
     bytes32 constant RECEIPT_TYPEHASH = keccak256(
-        "SubmitReceipt(address user,uint8 totalItems,uint8 healthyItems,uint8 unhealthyItems,uint16 fruitVegGrams,uint8 householdSize,uint8 daysCovered,uint256 nonce,uint256 deadline)"
+        "SubmitReceipt(address user,bytes32 receiptHash,uint8 totalItems,uint8 healthyItems,uint8 unhealthyItems,uint16 fruitVegGrams,uint8 householdSize,uint8 daysCovered,uint256 nonce,uint256 deadline)"
     );
 
     // ─── Mappings ────────────────────────────────────────────────────
@@ -95,6 +95,8 @@ contract ReplateQuest is
 
     // ─── Dynamic Fee Variable (V3) ──────────────────────────────────
     uint256 public FEE;
+    // Appended after all V3 storage to preserve the upgradeable layout.
+    mapping(bytes32 => bool) public usedReceiptHashes;
 
     // ─── Events ──────────────────────────────────────────────────────
     event ReceiptSubmitted(
@@ -116,6 +118,7 @@ contract ReplateQuest is
     event USDCAddressUpdated(address indexed oldAddress, address indexed newAddress);
     event CheckedIn(address indexed user, uint256 day, uint256 checkInStreak, uint256 pointsEarned);
     event FeeUpdated(uint256 oldFee, uint256 newFee);
+    event ReceiptHashConsumed(address indexed user, bytes32 indexed receiptHash);
 
     // ─── Modifiers ───────────────────────────────────────────────────
     modifier onlyValidator() {
@@ -141,6 +144,7 @@ contract ReplateQuest is
         devWallet    = _devWallet;
         usdc         = IERC20(_usdc);
         currentPhase = Phase.FREE;
+        FEE          = 5e5;
     }
 
     /// @notice V2 initializer — adds EIP-712 support for meta-transactions
@@ -403,6 +407,7 @@ contract ReplateQuest is
     /// @notice Meta-transaction receipt submission: user signs EIP-712 message, anyone can relay
     function submitReceiptWithSig(
         address user,
+        bytes32 receiptHash,
         uint8   totalItems,
         uint8   healthyItems,
         uint8   unhealthyItems,
@@ -414,6 +419,8 @@ contract ReplateQuest is
     ) external whenNotPaused nonReentrant {
 
         require(user != address(0),                             "Invalid user address");
+        require(receiptHash != bytes32(0),                      "Invalid receipt hash");
+        require(!usedReceiptHashes[receiptHash],                "Receipt already used");
         require(block.timestamp <= deadline,                    "Signature expired");
         require(totalItems > 0,                                 "Empty receipt");
         require(healthyItems + unhealthyItems <= totalItems,    "Item count mismatch");
@@ -422,17 +429,21 @@ contract ReplateQuest is
 
         // Verify EIP-712 signature in a separate scope to avoid stack-too-deep
         _verifyReceiptSig(
-            user, totalItems, healthyItems, unhealthyItems,
+            user, receiptHash, totalItems, healthyItems, unhealthyItems,
             fruitVegGrams, householdSize, daysCovered, deadline, signature
         );
 
         // ── Same logic as submitReceipt (without onlyValidator) ──
+        usedReceiptHashes[receiptHash] = true;
+        emit ReceiptHashConsumed(user, receiptHash);
+
         _processReceipt(user, totalItems, healthyItems, unhealthyItems, fruitVegGrams, householdSize, daysCovered);
     }
 
     /// @dev Internal: verify EIP-712 receipt signature
     function _verifyReceiptSig(
         address user,
+        bytes32 receiptHash,
         uint8   totalItems,
         uint8   healthyItems,
         uint8   unhealthyItems,
@@ -447,6 +458,7 @@ contract ReplateQuest is
         bytes32 structHash = keccak256(abi.encode(
             RECEIPT_TYPEHASH,
             user,
+            receiptHash,
             totalItems,
             healthyItems,
             unhealthyItems,

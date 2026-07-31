@@ -3,13 +3,14 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Circle, BarChart3, User } from "lucide-react";
+import { Home, Circle, BarChart3, Target, User } from "lucide-react";
 
 const navItems = [
     { icon: Home, href: "/", label: "Home" },
-    { icon: Circle, href: "/shop", label: "Shop" },
+    { icon: Circle, href: "/verify-receipt", label: "Verify Receipt" },
     { icon: BarChart3, href: "/leaderboard", label: "Leaderboard" },
-    { icon: User, href: "/impact", label: "Profile" },
+    { icon: Target, href: "/quests", label: "Quests" },
+    { icon: User, href: "/profile", label: "Profile" },
 ];
 
 export default function BottomNav() {

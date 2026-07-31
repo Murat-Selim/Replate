@@ -3,13 +3,16 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { X, LayoutGrid, ShoppingBag, BarChart3, User } from "lucide-react";
+import { X, LayoutGrid, ShoppingBag, BarChart3, Target, ShieldCheck, BookOpen, User } from "lucide-react";
 
 const menuItems = [
     { icon: LayoutGrid, href: "/", label: "Home" },
-    { icon: ShoppingBag, href: "/shop", label: "Shop & Verify" },
+    { icon: ShoppingBag, href: "/verify-receipt", label: "Verify Receipt" },
+    { icon: Target, href: "/quests", label: "Quests" },
     { icon: BarChart3, href: "/leaderboard", label: "Leaderboard" },
-    { icon: User, href: "/impact", label: "Your Impact" },
+    { icon: User, href: "/profile", label: "Profile" },
+    { icon: ShieldCheck, href: "/privacy", label: "Privacy" },
+    { icon: BookOpen, href: "/whitepaper", label: "Whitepaper" },
 ];
 
 interface SideMenuProps {

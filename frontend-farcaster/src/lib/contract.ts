@@ -1386,6 +1386,11 @@ export const REPLATE_QUEST_ABI = [
         "type": "address"
       },
       {
+        "internalType": "bytes32",
+        "name": "receiptHash",
+        "type": "bytes32"
+      },
+      {
         "internalType": "uint8",
         "name": "totalItems",
         "type": "uint8"

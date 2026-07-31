@@ -10,6 +10,7 @@ import { useSubmitReceipt } from "@/lib/useTransaction";
 
 interface VerificationResult {
     txHash: string;
+    receiptHash: `0x${string}`;
     healthScore: number;
     nutritionScore: number;
     totalItems: number;
@@ -21,6 +22,21 @@ interface VerificationResult {
     badgeMinted: boolean;
 }
 
+function getBasketFeedback(result: VerificationResult) {
+    const positive = result.healthyItems > result.unhealthyItems
+        ? `${result.healthyItems} of ${result.totalItems} detected items support a more balanced basket.`
+        : result.fruitVegGrams > 0
+            ? `Your receipt includes about ${result.fruitVegGrams}g of fruit and vegetables.`
+            : "You have created a clear baseline for improving your next grocery basket.";
+
+    const improvement = result.unhealthyItems > 0
+        ? `Next time, try replacing one of the ${result.unhealthyItems} less-balanced items with a minimally processed option.`
+        : result.fruitVegGrams < 400
+            ? "Next time, consider adding another fruit or vegetable option for more variety."
+            : "Keep the mix varied by rotating fruit, vegetables, and whole-food staples.";
+
+    return { positive, improvement };
+}
 export default function SmartShop() {
     const { address } = useAccount();
     const { submitReceipt } = useSubmitReceipt();
@@ -168,6 +184,7 @@ export default function SmartShop() {
 
             // 2. Direct on-chain receipt submission from user's wallet
             const txResult = await submitReceipt({
+                receiptHash: data.data.receiptHash as `0x${string}`,
                 totalItems: data.data.totalItems,
                 healthyItems: data.data.healthyItems,
                 unhealthyItems: data.data.unhealthyItems,
@@ -216,8 +233,8 @@ export default function SmartShop() {
             <div className="space-y-8 animate-fade-in-up">
                 {/* Page Header */}
                 <div className="text-center lg:text-left space-y-2">
-                    <h1 className="text-3xl sm:text-4xl font-black text-[#00E36E] drop-shadow-[0_0_10px_rgba(0,227,110,0.15)]">Shop & Verify</h1>
-                    <p className="text-[#8c9790]">Upload your receipt and earn XP rewards.</p>
+                    <h1 className="text-3xl sm:text-4xl font-black text-[#00E36E] drop-shadow-[0_0_10px_rgba(0,227,110,0.15)]">Verify Your Receipt</h1>
+                    <p className="text-[#8c9790]">Scan or upload a grocery receipt to understand and verify your basket.</p>
                 </div>
 
                 {/* Main Content — 2 column on desktop */}
@@ -343,7 +360,7 @@ export default function SmartShop() {
                             ) : (
                                 <>
                                     <Sparkles size={22} />
-                                    Verify & Earn
+                                    Analyze & Verify
                                 </>
                             )}
                         </button>
@@ -397,6 +414,18 @@ export default function SmartShop() {
                                     </div>
                                 </div>
 
+
+                                <div className="bg-[#00E36E]/5 border border-[#00E36E]/15 rounded-2xl p-4 space-y-3">
+                                    <div>
+                                        <p className="text-xs font-black uppercase tracking-wider text-[#00E36E]">What went well</p>
+                                        <p className="text-sm text-brand-text/70 mt-1">{getBasketFeedback(result).positive}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs font-black uppercase tracking-wider text-amber-500">One next step</p>
+                                        <p className="text-sm text-brand-text/70 mt-1">{getBasketFeedback(result).improvement}</p>
+                                    </div>
+                                    <p className="text-[10px] text-brand-text/40 border-t border-[#00E36E]/10 pt-3">General informational feedback only; this is not medical advice.</p>
+                                </div>
                                 {result.badgeMinted && (
                                     <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-4 text-center">
                                         <p className="text-lg font-black text-yellow-600">🏆 Badge Earned!</p>
@@ -453,7 +482,7 @@ export default function SmartShop() {
                                         <div>
                                             <p className="font-extrabold text-sm text-[#00E36E]">Nutrition Score</p>
                                             <p className="text-xs text-[#8c9790] leading-relaxed">
-                                                Based on WHO's 300g/day fruit & veg recommendation. We check if you're buying enough for your household.
+                                                Based on an average target of around 300g of fruit and vegetables per person per day. We check if your basket provides enough for your household.
                                             </p>
                                         </div>
                                     </div>

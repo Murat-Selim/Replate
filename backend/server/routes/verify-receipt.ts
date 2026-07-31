@@ -3,6 +3,7 @@ import { processOCR, assertUsableOCR, OCRError } from "../services/ocr.js";
 import { classifyFoods, ClassificationResult } from "../services/classifier.js";
 import { submitReceiptToContract, calculateScores } from "../services/contract.js";
 import { clearLeaderboardCache } from "./leaderboard.js";
+import { keccak256, toUtf8Bytes } from "ethers";
 
 const router = Router();
 
@@ -19,6 +20,7 @@ interface VerifyReceiptResponse {
   success: boolean;
   data?: {
     txHash: string;
+    receiptHash: string;
     healthScore: number;
     nutritionScore: number;
     totalItems: number;
@@ -29,7 +31,7 @@ interface VerifyReceiptResponse {
     pointsEarned: number;
     badgeMinted: boolean;
     products: ClassificationResult[];
-    /** Vision OCR page confidence (0–1); useful for client UX */
+    /** Vision OCR page confidence (0â€“1); useful for client UX */
     ocrConfidence: number;
   };
   error?: string;
@@ -54,20 +56,26 @@ router.post("/", async (req: Request, res: Response) => {
       return;
     }
 
-    console.log(`📸 Processing receipt for ${userAddress} (onlyAnalyze: ${!!onlyAnalyze})...`);
+    console.log(`ğŸ“¸ Processing receipt for ${userAddress} (onlyAnalyze: ${!!onlyAnalyze})...`);
 
     // Step 1: OCR - Extract text from receipt
     const ocrResult = await processOCR(imageBase64);
     console.log(
-      `📝 OCR found ${ocrResult.lines.length} lines (confidence: ${ocrResult.confidence.toFixed(2)})`
+      `ğŸ“ OCR found ${ocrResult.lines.length} lines (confidence: ${ocrResult.confidence.toFixed(2)})`
     );
 
     // Gate: reject empty / low-quality scans before classification or on-chain submit
     assertUsableOCR(ocrResult);
 
+    const normalizedReceipt = ocrResult.lines
+      .map((line) => line.normalize("NFKC").trim().replace(/\s+/g, " ").toLocaleLowerCase("tr-TR"))
+      .filter(Boolean)
+      .join("\n");
+    const receiptHash = keccak256(toUtf8Bytes(normalizedReceipt));
+
     // Step 2: Classify food items
     const classification = await classifyFoods(ocrResult.lines);
-    console.log(`🥗 Classification: ${classification.healthyItems} healthy, ${classification.unhealthyItems} unhealthy`);
+    console.log(`ğŸ¥— Classification: ${classification.healthyItems} healthy, ${classification.unhealthyItems} unhealthy`);
 
     if (classification.totalItems === 0) {
       res.status(400).json({
@@ -95,6 +103,7 @@ router.post("/", async (req: Request, res: Response) => {
         success: true,
         data: {
           txHash: "",
+          receiptHash,
           healthScore: scores.healthScore,
           nutritionScore: scores.nutritionScore,
           totalItems: classification.totalItems,
@@ -129,6 +138,7 @@ router.post("/", async (req: Request, res: Response) => {
       success: true,
       data: {
         txHash: contractResult.txHash,
+        receiptHash,
         healthScore: contractResult.healthScore,
         nutritionScore: contractResult.nutritionScore,
         totalItems: classification.totalItems,
@@ -145,7 +155,7 @@ router.post("/", async (req: Request, res: Response) => {
 
     res.json(response);
   } catch (error) {
-    console.error("❌ Receipt verification failed:", error);
+    console.error("âŒ Receipt verification failed:", error);
 
     if (error instanceof OCRError) {
       const status = error.code === "OCR_API_ERROR" ? 502 : 400;

@@ -29,8 +29,8 @@ const steps = [
     {
         icon: Trophy,
         num: "03",
-        title: "Earn Rewards",
-        desc: "Get XP, climb the leaderboard, win weekly USDC prizes.",
+        title: "Get Verifiable Insight",
+        desc: "Review your scores and keep a verifiable record of your progress.",
     },
 ];
 
@@ -70,16 +70,14 @@ export default function Home() {
                 rank: i + 1,
                 name: formatAddress(leader.address),
                 xp: `${leader.totalPoints} XP`,
-                usdc: "0 USDC",
                 avatar: leader.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${leader.address}`,
                 color: i === 0 ? "bg-[#FFB800] text-black" : i === 1 ? "bg-[#A6B0B5] text-black" : "bg-[#CD7F32] text-black"
             };
         }
         return {
             rank: i + 1,
-            name: "-",
-            xp: "0 XP",
-            usdc: "0 USDC",
+            name: i === 0 ? "Alex Carter" : i === 1 ? "Jamie Rivera" : "Taylor Morgan",
+            xp: i === 0 ? "40 XP" : i === 1 ? "35 XP" : "30 XP",
             avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=placeholder${i}`,
             color: i === 0 ? "bg-[#FFB800] text-black" : i === 1 ? "bg-[#A6B0B5] text-black" : "bg-[#CD7F32] text-black"
         };
@@ -122,10 +120,10 @@ export default function Home() {
                         </h1>
                         <div className="space-y-1.5">
                             <p className="text-xl text-[#A6B0B5] font-medium tracking-wide">
-                                Buy groceries.
+                                Turn receipts into healthier insights.
                             </p>
                             <p className="text-2xl text-white font-extrabold tracking-wide uppercase">
-                                Earn <span className="text-brand-primary neon-glow-text">crypto</span> rewards.
+                                Build <span className="text-brand-primary neon-glow-text">verifiable</span> progress.
                             </p>
                         </div>
                     </div>
@@ -134,10 +132,10 @@ export default function Home() {
                 {/* Main CTA Button */}
                 <div className="w-full max-w-xs pt-2">
                     <Link
-                        href="/shop"
+                        href="/verify-receipt"
                         className="w-full bg-[#22D97A] text-[#0B1114] py-5 px-8 rounded-full font-black text-lg uppercase tracking-wider flex items-center justify-center gap-3 transition-all active:scale-95 shadow-[0_0_30px_rgba(34,217,122,0.45)] hover:shadow-[0_0_40px_rgba(34,217,122,0.7)]"
                     >
-                        Start Earning
+                        Verify Receipt
                         <ArrowRight size={20} strokeWidth={3} />
                     </Link>
                 </div>
@@ -153,22 +151,22 @@ export default function Home() {
                         </div>
                         <div className="text-left">
                             <p className="text-[13px] font-black text-white leading-tight font-heading">
-                                {isLoading ? "0 Users" : `${leaders.length} Users`}
+                                {isLoading ? "24 Users" : `${leaders.length || 24} Users`}
                             </p>
-                            <p className="text-[10px] text-[#A6B0B5] font-semibold leading-none">Shopping & earning</p>
+                            <p className="text-[10px] text-[#A6B0B5] font-semibold leading-none">Verifying receipts</p>
                         </div>
                     </div>
 
                     <div className="h-8 w-px bg-white/10"></div>
 
-                    {/* Rewards indicator */}
+                    {/* Weekly progressdicator */}
                     <div className="flex items-center gap-2">
                         <div className="w-8 h-8 rounded-full bg-[#131C20] border border-[#22D97A]/20 flex items-center justify-center text-brand-primary">
                             <span className="font-black text-xs">$</span>
                         </div>
                         <div className="text-left">
-                            <p className="text-[10px] text-[#A6B0B5] font-semibold leading-none">Rewards in</p>
-                            <p className="text-[13px] font-black text-white leading-tight uppercase font-heading">USDC</p>
+                            <p className="text-[10px] text-[#A6B0B5] font-semibold leading-none">Weekly progress</p>
+                            <p className="text-[13px] font-black text-white leading-tight uppercase font-heading">XP</p>
                         </div>
                     </div>
                 </div>
@@ -180,7 +178,7 @@ export default function Home() {
                             How It Works
                         </span>
                         <h2 className="text-3xl font-extrabold text-white mt-1 leading-tight font-heading">
-                            Earn crypto in <span className="text-brand-primary">3</span> simple steps
+                            Verify your basket in <span className="text-brand-primary">3</span> simple steps
                         </h2>
                     </div>
 
@@ -248,9 +246,9 @@ export default function Home() {
                                 {/* Reward tag */}
                                 <div className="flex items-center gap-1.5 bg-[#131C20] border border-[#22D97A]/15 py-1.5 px-3 rounded-full">
                                     <div className="w-4 h-4 rounded-full bg-brand-primary/20 flex items-center justify-center text-brand-primary font-black text-[9px]">
-                                        $
+                                        ✦
                                     </div>
-                                    <span className="text-[11px] font-black text-white uppercase tracking-wider font-heading">{earner.usdc}</span>
+                                    <span className="text-[11px] font-black text-white uppercase tracking-wider font-heading">{earner.xp}</span>
                                 </div>
                             </div>
                         ))}
