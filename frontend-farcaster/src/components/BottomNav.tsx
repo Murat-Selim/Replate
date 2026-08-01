@@ -37,7 +37,7 @@ export default function BottomNav() {
                                     <div className="absolute inset-0 bg-brand-primary/20 blur-md rounded-full -z-10"></div>
                                 )}
                             </div>
-                            <span className={`text-[9px] font-black uppercase tracking-wider transition-colors ${isActive ? "text-brand-primary" : "text-[#A6B0B5]"
+                            <span className={`flex min-h-6 items-center justify-center text-center leading-3 text-[9px] font-black uppercase tracking-wider transition-colors ${isActive ? "text-brand-primary" : "text-[#A6B0B5]"
                                 }`}>
                                 {item.label}
                             </span>

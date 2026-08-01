@@ -33,7 +33,7 @@ export default function SideMenu({ isOpen, onClose }: SideMenuProps) {
             />
 
             {/* Drawer */}
-            <div className={`lg:hidden fixed top-0 right-0 h-full w-72 bg-[#0a0e0c] border-l border-[rgba(0,227,110,0.1)] z-[70] shadow-2xl transition-transform duration-500 ease-out transform ${isOpen ? "translate-x-0" : "translate-x-full"
+            <div className={`lg:hidden fixed top-0 right-0 h-full w-72 bg-[#0a0e0c] border-l border-[rgba(0,227,110,0.1)] z-[70] shadow-2xl overflow-y-auto overscroll-contain transition-transform duration-500 ease-out transform ${isOpen ? "translate-x-0" : "translate-x-full"
                 }`}>
                 <div className="p-6 space-y-8 h-full flex flex-col">
                     <div className="flex justify-between items-center">
