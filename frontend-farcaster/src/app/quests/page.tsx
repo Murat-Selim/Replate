@@ -6,7 +6,7 @@ import { Gift, Loader2, Lock, Sparkles } from "lucide-react";
 import Shell from "@/components/Shell";
 import { getApiUrl } from "@/lib/api";
 
-interface Quest { id: string; title: string; progress: number; target: number; completed: boolean; bonusSeasonalXp: number }
+interface Quest { id: string; title: string; description: string; progress: number; target: number; completed: boolean; bonusSeasonalXp: number }
 interface QuestData {
   weekKey: string;
   quests: Quest[];
@@ -64,6 +64,7 @@ export default function QuestsPage() {
                       <span className="text-xs font-black text-yellow-400">+{quest.bonusSeasonalXp} seasonal XP</span>
                     </div>
                     <h2 className="min-h-12 text-lg font-black text-white">{quest.title}</h2>
+                    <p className="mt-2 min-h-10 text-sm leading-5 text-brand-text/55">{quest.description}</p>
                     <div className="mt-5 h-3 overflow-hidden rounded-full bg-white/5">
                       <div className="h-full rounded-full bg-gradient-to-r from-brand-primary to-lime-300 transition-all duration-700" style={{ width: `${percent}%` }} />
                     </div>
@@ -93,9 +94,9 @@ export default function QuestsPage() {
 
 function createOfflineQuestData(): QuestData {
   const quests = [
-    { id: "receipts-2", title: "Submit 2 grocery receipts", progress: 0, target: 2, completed: false, bonusSeasonalXp: 80 },
-    { id: "health-65", title: "Reach a 65 weekly health average", progress: 0, target: 65, completed: false, bonusSeasonalXp: 100 },
-    { id: "checkin-streak-3", title: "Build a 3-day check-in streak", progress: 0, target: 3, completed: false, bonusSeasonalXp: 70 },
+    { id: "receipts-2", title: "Receipt Combo", description: "Verify two grocery receipts this week.", progress: 0, target: 2, completed: false, bonusSeasonalXp: 80 },
+    { id: "health-65", title: "Smart Swap", description: "Make one healthier swap in your next basket.", progress: 0, target: 65, completed: false, bonusSeasonalXp: 100 },
+    { id: "checkin-streak-3", title: "Streak Run", description: "Check in three days in a row.", progress: 0, target: 3, completed: false, bonusSeasonalXp: 70 },
   ];
   return { weekKey: new Date().toISOString().slice(0, 10), quests, mysteryBox: { eligible: false, preview: { type: "seasonal_xp", amount: 25 } }, note: "Offline preview: progress will sync when the quest service is available." };
 }

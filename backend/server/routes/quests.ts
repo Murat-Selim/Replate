@@ -16,14 +16,15 @@ interface QuestTemplate {
   metric: QuestMetric;
   target: number;
   bonusSeasonalXp: number;
+  description: string;
 }
 
 const QUEST_POOL: QuestTemplate[] = [
-  { id: "receipts-2", title: "Submit 2 grocery receipts", metric: "receiptCount", target: 2, bonusSeasonalXp: 80 },
-  { id: "health-65", title: "Reach a 65 weekly health average", metric: "avgHealthScore", target: 65, bonusSeasonalXp: 100 },
-  { id: "nutrition-70", title: "Reach a 70 weekly nutrition average", metric: "avgNutritionScore", target: 70, bonusSeasonalXp: 100 },
-  { id: "checkin-streak-3", title: "Build a 3-day check-in streak", metric: "checkInStreak", target: 3, bonusSeasonalXp: 70 },
-  { id: "week-points-300", title: "Earn 300 weekly points", metric: "weekPoints", target: 300, bonusSeasonalXp: 120 },
+  { id: "receipts-2", title: "Receipt Combo", metric: "receiptCount", target: 2, bonusSeasonalXp: 80, description: "Verify two grocery receipts this week." },
+  { id: "health-65", title: "Smart Swap", metric: "avgHealthScore", target: 65, bonusSeasonalXp: 100, description: "Make one healthier swap in your next basket." },
+  { id: "nutrition-70", title: "Green Basket", metric: "avgNutritionScore", target: 70, bonusSeasonalXp: 100, description: "Add fruit or leafy greens to your next basket." },
+  { id: "checkin-streak-3", title: "Streak Run", metric: "checkInStreak", target: 3, bonusSeasonalXp: 70, description: "Check in three days in a row." },
+  { id: "week-points-300", title: "XP Sprint", metric: "weekPoints", target: 300, bonusSeasonalXp: 120, description: "Stack receipt and check-in points this week." },
 ];
 
 function getUtcWeekKey(now = new Date()): string {
@@ -79,6 +80,7 @@ router.get("/:address", async (req: Request, res: Response) => {
         target: quest.target,
         completed: metrics[quest.metric] >= quest.target,
         bonusSeasonalXp: quest.bonusSeasonalXp,
+        description: quest.description,
       })),
       mysteryBox: {
         eligible: mysteryEligible,
