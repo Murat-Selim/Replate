@@ -88,11 +88,6 @@ The core logic resides on-chain to ensure transparency and trust.
     ```
 
 3.  **Environment Setup**:
-    Use the example files in each app:
-
-    - `backend/.env.example` -> copy to `backend/.env`
-    - `frontend-baseapp/.env.example` -> copy to `frontend-baseapp/.env.local`
-    - `frontend-farcaster/.env.example` -> copy to `frontend-farcaster/.env.local`
 
     Frontend apps use `NEXT_PUBLIC_API_URL` to talk to the backend.
     For local development, set it to `http://localhost:3001`.
