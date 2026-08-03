@@ -25,44 +25,44 @@ const sections: Section[] = [
     body: "A paid reward system may increase fake receipt and Sybil attempts. Small rewards may not be sufficient without strong community and game mechanics. Product coverage and OCR accuracy vary by retailer and image quality. The sustainability of the reward pool depends on real receipt activity. Privacy, consumer rewards, and future token plans require appropriate legal and compliance review before expansion.",
   },
   {
-    title: "5. Reward economy",
-    status: "Planned",
-    body: "The contract supports FREE and PAID phases. The current onboarding strategy is FREE; the validator can activate the PAID phase when usage and retention justify it. The configured fee is 0.50 USDC per verified receipt in the PAID phase, split equally between the weekly reward pool and the developer fund. The current distribution implementation uses validator-submitted point shares, based on total points. A multi-factor formula combining nutrition, health, streak, and consistency is proposed for a future upgrade and is not yet the active distribution rule.",
-  },
-  {
-    title: "6. Future utility and monetization",
-    status: "Planned",
-    body: "Future experiments may include badge-holder participation rewards, sponsored quests, premium analytics, founder or utility NFTs, marketplace fees, and other partner-funded programs. These are roadmap possibilities, not current guarantees. The proposed badge sign pool and mystery-box rewards are not implemented onchain today; current quest previews are offchain and do not promise tokens, XP, or USDC.",
-  },
-  {
-    title: "7. Roadmap",
-    status: "Planned",
-    body: "Near-term work includes better retailer parsing, stronger product aliases, clearer OCR confidence signals, simpler mobile UX, and improved feedback. The next economic phase may include PAID activation and a multi-factor reward formula. Medium-term possibilities include badge utility, sponsored quests, premium features, and partner programs. A native token or mass-market wallet-abstracted experience remains conditional on proven product-market fit and community health.",
-  },
-  {
-    title: "8. Product flow",
+    title: "5. Product flow",
     status: "Live",
     body: "A user uploads or captures a grocery receipt and provides household context. Google Cloud Vision extracts the receipt text. Replate removes totals, payment lines, and recognized non-food items, then normalizes and classifies product lines as healthy, unhealthy, or neutral. Optional Open Food Facts enrichment can support product analysis. The first analysis happens offchain. After reviewing the result, the user signs an EIP-712 message and submits the verification transaction from the connected wallet. A validator-relayed gasless path exists in the backend, but it is not the default frontend flow today.",
   },
   {
-    title: "9. Scoring model",
+    title: "6. Scoring model",
     status: "Live",
     body: "The Health Score gives full weight to recognized healthy products, partial weight to neutral products, and zero weight to unhealthy products. The Nutrition Score compares fruit-and-vegetable grams with an average reference target of approximately 300g per person per day, multiplied by household size and the period covered. The current model rewards an ideal range and reduces the score for both severe under-purchasing and possible over-purchasing. This is informational feedback, not medical advice.",
   },
   {
-    title: "10. Onchain verification",
+    title: "7. Onchain verification",
     status: "Live",
     body: "The blockchain record contains aggregate receipt data such as item counts, scores, fruit-and-vegetable grams, household size, days covered, points, and timestamp. The raw image, OCR text, product names, and store name are not written to the contract. A one-way receipt hash prevents the same receipt hash from being reused. Onchain activity is pseudonymous, not fully anonymous: the wallet address and aggregate activity are publicly visible on Base.",
   },
   {
-    title: "11. XP, streaks, and badges",
+    title: "8. XP, streaks, and badges",
     status: "Live",
     body: "Verified receipts can produce XP and update weekly reports. Daily check-ins provide a separate 10 XP mechanic. Receipt health streaks and daily check-in streaks are tracked separately. A Replate Badge NFT can be minted when the required health and nutrition thresholds are reached. These mechanics are designed to reward consistency rather than perfection.",
   },
   {
-    title: "12. Privacy and responsible AI",
+    title: "9. Privacy and responsible AI",
     status: "Live",
     body: "Replate does not intend to retain raw receipt images or full OCR text in application storage. Third-party OCR providers may process submitted images under their own service terms. OCR and product classification can be wrong, especially with blurry, angled, damaged, or unusual receipts. Replate outputs are assistive and informational and should not be treated as medical, financial, or legal advice.",
+  },
+  {
+    title: "10. Reward economy",
+    status: "Planned",
+    body: "The contract supports FREE and PAID phases. The current onboarding strategy is FREE; the validator can activate the PAID phase when usage and retention justify it. The configured fee is 0.50 USDC per verified receipt in the PAID phase, split equally between the weekly reward pool and the developer fund. The current distribution implementation uses validator-submitted point shares, based on total points. A multi-factor formula combining nutrition, health, streak, and consistency is proposed for a future upgrade and is not yet the active distribution rule.",
+  },
+  {
+    title: "11. Future utility and monetization",
+    status: "Planned",
+    body: "Future experiments may include badge-holder participation rewards, sponsored quests, premium analytics, founder or utility NFTs, marketplace fees, and other partner-funded programs. These are roadmap possibilities, not current guarantees. The proposed badge sign pool and mystery-box rewards are not implemented onchain today; current quest previews are offchain and do not promise tokens, XP, or USDC.",
+  },
+  {
+    title: "12. Roadmap",
+    status: "Planned",
+    body: "Near-term work includes better retailer parsing, stronger product aliases, clearer OCR confidence signals, simpler mobile UX, and improved feedback. The next economic phase may include PAID activation and a multi-factor reward formula. Medium-term possibilities include badge utility, sponsored quests, premium features, and partner programs. A native token or mass-market wallet-abstracted experience remains conditional on proven product-market fit and community health.",
   },
 ];
 
