@@ -29,7 +29,6 @@ export function validateRuntimeConfig(): void {
   if (isProduction) {
     if (!runtimeConfig.rpcUrl) errors.push("RPC_URL or BASE_RPC_URL is required");
     if (!runtimeConfig.validatorPrivateKey) errors.push("VALIDATOR_PRIVATE_KEY is required");
-    if (!runtimeConfig.cronSecret) errors.push("CRON_SECRET is required");
     if (!process.env.GOOGLE_APPLICATION_CREDENTIALS && !process.env.GOOGLE_CREDENTIALS_JSON) errors.push("Google Vision credentials are required");
     if (!(process.env.FRONTEND_URL || "").trim()) errors.push("FRONTEND_URL is required");
   }
