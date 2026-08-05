@@ -24,6 +24,8 @@ interface VerifyReceiptResponse {
     healthScore: number;
     nutritionScore: number;
     totalItems: number;
+    detectedItems: number;
+    excludedItems: number;
     healthyItems: number;
     unhealthyItems: number;
     fruitVegGrams: number;
@@ -107,6 +109,8 @@ router.post("/", async (req: Request, res: Response) => {
           healthScore: scores.healthScore,
           nutritionScore: scores.nutritionScore,
           totalItems: classification.totalItems,
+          detectedItems: classification.detectedItems,
+          excludedItems: classification.excludedItems,
           healthyItems: classification.healthyItems,
           unhealthyItems: classification.unhealthyItems,
           fruitVegGrams: classification.fruitVegGrams,
@@ -142,6 +146,8 @@ router.post("/", async (req: Request, res: Response) => {
         healthScore: contractResult.healthScore,
         nutritionScore: contractResult.nutritionScore,
         totalItems: classification.totalItems,
+        detectedItems: classification.detectedItems,
+        excludedItems: classification.excludedItems,
         healthyItems: classification.healthyItems,
         unhealthyItems: classification.unhealthyItems,
         fruitVegGrams: classification.fruitVegGrams,

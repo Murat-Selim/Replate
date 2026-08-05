@@ -16,12 +16,15 @@ interface VerificationResult {
     healthScore: number;
     nutritionScore: number;
     totalItems: number;
+    detectedItems?: number;
+    excludedItems?: number;
     healthyItems: number;
     unhealthyItems: number;
     fruitVegGrams: number;
     daysCovered: number;
     pointsEarned: number;
     badgeMinted: boolean;
+    products?: { name: string; category: "healthy" | "unhealthy" | "neutral" | "excluded" }[];
 }
 
 interface UserContext {
@@ -464,6 +467,18 @@ Join me in reducing food waste!`,
 
 
                                     <p className="text-[10px] text-[#A6B0B5] leading-relaxed">Based on an average target of around 300g of fruit and vegetables per person per day. We check if your basket provides enough for your household.</p>
+
+                                    {result.products?.length ? (
+                                        <div className="rounded-[22px] border border-[#22D97A]/10 bg-[#22D97A]/5 p-4 space-y-2">
+                                            <p className="text-[10px] font-black uppercase tracking-wider text-[#22D97A]">Detected products ({result.detectedItems ?? result.products.length})</p>
+                                            {result.products.map((product, index) => (
+                                                <div key={`${product.name}-${index}`} className="flex items-center justify-between gap-3 text-xs">
+                                                    <span className="text-[#A6B0B5]">{product.name}</span>
+                                                    <span className="shrink-0 text-[9px] font-black uppercase text-[#A6B0B5]/60">{product.category}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : null}
 
                                     <div className="bg-[#22D97A]/5 border border-[#22D97A]/15 rounded-[22px] p-4 space-y-3">
                                         <div>

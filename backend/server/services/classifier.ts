@@ -59,7 +59,7 @@ const matchKeyword = (text: string, keyword: string): boolean => {
 
 export interface ClassificationResult {
   name: string;
-  category: "healthy" | "unhealthy" | "neutral";
+  category: "healthy" | "unhealthy" | "neutral" | "excluded";
   nutriscore?: string;
   fruitVegGrams: number;
   confidence: number;
@@ -70,10 +70,13 @@ interface ExtractedProduct {
   actualWeightGrams: number; // 0 = use estimate
   /** Piece count when sold by adet (default 1) */
   quantity: number;
+  excluded: boolean;
 }
 
 export interface FoodClassification {
   totalItems: number;
+  detectedItems: number;
+  excludedItems: number;
   healthyItems: number;
   unhealthyItems: number;
   fruitVegGrams: number;
@@ -128,6 +131,7 @@ const NON_FOOD_PATTERNS = [
   /\b(AMPUL|P[Iİ]L|BATARYA|LAMBA|DEODORANT|KREM|LOSYON|TIRNAK|D[Iİ][SŞ]\s*FIR[CÇ]ASI|D[Iİ][SŞ]\s*MACUNU|DIPMACUNU|TRA[SŞ])\b/i,
   /SAKLAMA\s*KABI/i,
   /MENTOR.*(?:BIC|BI[CÇ]|TIRA[SŞ])/i,
+  /\bMISTRAL\b.*\bK\.?\s*H\b/i,
 ];
 
 /**
@@ -148,10 +152,11 @@ export async function classifyFoods(
   // Parallel classification (helps when USE_OFF_API=true)
   const products = await Promise.all(
     productLines.map((item) =>
-      classifyProduct(item.name, item.actualWeightGrams, item.quantity)
+      classifyProduct(item.name, item.actualWeightGrams, item.quantity, item.excluded)
     )
   );
 
+  const scoreableProducts = products.filter((product) => product.category !== "excluded");
   let healthyItems = 0;
   let unhealthyItems = 0;
   let fruitVegGrams = 0;
@@ -167,15 +172,17 @@ export async function classifyFoods(
 
     if (classification.category === "healthy") healthyItems++;
     else if (classification.category === "unhealthy") unhealthyItems++;
-    fruitVegGrams += classification.fruitVegGrams;
+    if (classification.category !== "excluded") fruitVegGrams += classification.fruitVegGrams;
   }
 
   debugLog(
-    `📊 Final: ${productLines.length} total, ${healthyItems} healthy, ${unhealthyItems} unhealthy, ${fruitVegGrams}g fruit/veg`
+    `📊 Final: ${scoreableProducts.length} food, ${products.length} detected, ${healthyItems} healthy, ${unhealthyItems} unhealthy, ${fruitVegGrams}g fruit/veg`
   );
 
   return {
-    totalItems: productLines.length,
+    totalItems: scoreableProducts.length,
+    detectedItems: products.length,
+    excludedItems: products.length - scoreableProducts.length,
     healthyItems,
     unhealthyItems,
     fruitVegGrams,
@@ -282,9 +289,9 @@ function extractProductLines(lines: string[]): ExtractedProduct[] {
 
     if (!cleaned || cleaned.length < 2) continue;
     if (cleaned.match(/^[\d\s\/\-:,.]+$/)) continue;
-    if (NON_FOOD_PATTERNS.some((p) => p.test(cleaned))) continue;
+    const excluded = NON_FOOD_PATTERNS.some((p) => p.test(cleaned));
 
-    products.push({ name: cleaned, actualWeightGrams, quantity });
+    products.push({ name: cleaned, actualWeightGrams, quantity, excluded });
 
     if (hasWeightLineBelow) i++;
   }
@@ -381,8 +388,18 @@ export function cleanProductLine(
 async function classifyProduct(
   productName: string,
   actualWeightGrams: number = 0,
-  quantity: number = 1
+  quantity: number = 1,
+  excluded = false
 ): Promise<ClassificationResult> {
+  if (excluded) {
+    return {
+      name: productName,
+      category: "excluded",
+      fruitVegGrams: 0,
+      confidence: 0.95,
+    };
+  }
+
   const normalized = normalizeTurkish(productName.trim());
   const qty = quantity > 0 ? quantity : 1;
 

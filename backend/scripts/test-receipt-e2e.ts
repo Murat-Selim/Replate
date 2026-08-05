@@ -44,6 +44,7 @@ interface E2EResult {
   ocrConfidence: number;
   lineCount: number;
   totalItems: number;
+  detectedItems: number;
   healthyItems: number;
   unhealthyItems: number;
   neutralItems: number;
@@ -135,7 +136,8 @@ function printResult(result: E2EResult) {
   console.log(`Mode:          ${result.mode}`);
   console.log(`OCR lines:     ${result.lineCount}`);
   console.log(`OCR conf:      ${result.ocrConfidence.toFixed(3)}`);
-  console.log(`Products:      ${result.totalItems}`);
+  console.log("Food products: " + result.totalItems);
+  console.log("Detected:      " + result.detectedItems);
   console.log(`  healthy:     ${result.healthyItems}`);
   console.log(`  unhealthy:   ${result.unhealthyItems}`);
   console.log(`  neutral:     ${result.neutralItems}`);
@@ -285,6 +287,7 @@ async function run(): Promise<number> {
     ocrConfidence: confidence,
     lineCount: lines.length,
     totalItems: classification.totalItems,
+    detectedItems: classification.detectedItems,
     healthyItems: classification.healthyItems,
     unhealthyItems: classification.unhealthyItems,
     neutralItems,

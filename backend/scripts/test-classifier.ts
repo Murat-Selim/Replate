@@ -264,6 +264,14 @@ async function testReceiptGolden() {
     `adet x2 elma estimates multi-piece grams (got ${elma?.fruitVegGrams ?? 0})`
   );
 
+  const nonFood = await classifyFoods(["MISTRAL DELUXE 6 K.H %18 *18,50"]);
+  assert(
+    nonFood.detectedItems === 1 &&
+      nonFood.totalItems === 0 &&
+      nonFood.products[0]?.category === "excluded",
+    "non-food item is detected but excluded from scoring"
+  );
+
   // Neutral staple
   const bread = await classifyFoods(["EKMEK BEYAZ 500 G %01 *15,00"]);
   assert(
