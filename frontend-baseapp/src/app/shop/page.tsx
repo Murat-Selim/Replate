@@ -14,15 +14,12 @@ interface VerificationResult {
     healthScore: number;
     nutritionScore: number;
     totalItems: number;
-    detectedItems?: number;
-    excludedItems?: number;
     healthyItems: number;
     unhealthyItems: number;
     fruitVegGrams: number;
     daysCovered: number;
     pointsEarned: number;
     badgeMinted: boolean;
-    products?: { name: string; category: "healthy" | "unhealthy" | "neutral" | "excluded" }[];
 }
 
 function getBasketFeedback(result: VerificationResult) {
@@ -416,19 +413,6 @@ export default function SmartShop() {
                                         <p className="text-[10px] font-bold text-brand-text/50 uppercase tracking-wider">Fruits & Veg</p>
                                     </div>
                                 </div>
-
-
-                                {result.products?.length ? (
-                                    <div className="rounded-2xl border border-brand-primary/10 bg-brand-accent/10 p-4 space-y-2">
-                                        <p className="text-xs font-black uppercase tracking-wider text-brand-primary">Detected products ({result.detectedItems ?? result.products.length})</p>
-                                        {result.products.map((product, index) => (
-                                            <div key={`${product.name}-${index}`} className="flex items-center justify-between gap-3 text-sm">
-                                                <span className="text-brand-text/75">{product.name}</span>
-                                                <span className="shrink-0 text-[10px] font-black uppercase text-brand-text/45">{product.category}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : null}
 
                                 <div className="bg-[#00E36E]/5 border border-[#00E36E]/15 rounded-2xl p-4 space-y-3">
                                     <div>
