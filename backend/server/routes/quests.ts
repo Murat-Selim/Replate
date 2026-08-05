@@ -58,7 +58,7 @@ router.get("/:address", async (req: Request, res: Response) => {
       getUserWeekReport(address),
     ]);
     const weekKey = getUtcWeekKey();
-    const offset = deterministicOffset(`${address.toLowerCase()}:${weekKey}`, QUEST_POOL.length);
+    const offset = deterministicOffset(weekKey, QUEST_POOL.length);
     const selected = Array.from({ length: 3 }, (_, index) => QUEST_POOL[(offset + index) % QUEST_POOL.length]);
     const metrics: Record<QuestMetric, number> = {
       receiptCount: report.receiptCount,
