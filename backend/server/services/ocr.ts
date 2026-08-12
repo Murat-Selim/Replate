@@ -171,25 +171,25 @@ export async function processOCR(imageBase64: string): Promise<OCRResult> {
     const client = getVisionClient();
 
     // languageHints improve Turkish receipt accuracy (ş, ğ, ı, etc.)
-    const [result] = await client.textDetection({
+    const [result] = await client.documentTextDetection({
       image: { content: base64 },
       imageContext: { languageHints: ["tr", "en"] },
     });
 
     const detections = result.textAnnotations;
 
-    if (!detections || detections.length === 0) {
+    const fullText = result.fullTextAnnotation?.text || detections?.[0]?.description || "";
+    if (!fullText) {
       return { fullText: "", lines: [], confidence: 0 };
     }
 
-    // detections[0].description is full receipt text with newlines
-    const fullText = detections[0].description || "";
+    // documentTextDetection is optimized for dense receipt text.
     const lines = fullText
       .split("\n")
       .map((l) => l.trim())
       .filter((l) => l.length > 0);
 
-    // textDetection may return confidence 0 even when usable text exists.
+    // Some Vision responses omit page confidence even when text is usable.
     const pageConfidence = result.fullTextAnnotation?.pages?.[0]?.confidence;
     const confidence =
       typeof pageConfidence === "number" && pageConfidence > 0
