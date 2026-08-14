@@ -5,6 +5,7 @@ import {
   getUserWeekReport,
   isQuestXpClaimed,
 } from "../services/contract.js";
+import { clearLeaderboardCache } from "./leaderboard.js";
 
 const router = Router();
 
@@ -145,6 +146,7 @@ router.post("/:address/claim", async (req: Request, res: Response) => {
     }
 
     const result = await claimQuestXp(address, quest.id, currentWeekKey, quest.bonusSeasonalXp);
+    clearLeaderboardCache();
     res.json({ ...result, questId: quest.id, weekKey: currentWeekKey });
   } catch (error: any) {
     const message = error?.message || "Quest XP claim failed";
