@@ -150,6 +150,25 @@ describe("ReplateQuest", function () {
     });
   });
 
+  describe("claimQuestXp", function () {
+    it("awards quest XP once and only through the validator", async function () {
+      const questId = ethers.id("receipts-2");
+      const weekKey = ethers.id("2026-W33");
+
+      await expect(
+        (replate as any).claimQuestXp(user1.address, questId, weekKey, 80)
+      ).to.emit(replate, "QuestXpClaimed").withArgs(user1.address, questId, weekKey, 80);
+
+      expect(await (replate as any).totalPoints(user1.address)).to.equal(80);
+      await expect(
+        (replate as any).claimQuestXp(user1.address, questId, weekKey, 80)
+      ).to.be.revertedWith("Quest XP already claimed");
+      await expect(
+        (replate.connect(user1) as any).claimQuestXp(user1.address, ethers.id("health-65"), weekKey, 100)
+      ).to.be.revertedWith("Unauthorized");
+    });
+  });
+
   describe("finalizeWeek", function () {
     it("should increment streak for healthy week", async function () {
       for (let i = 0; i < 3; i++) {

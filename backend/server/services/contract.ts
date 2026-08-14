@@ -470,7 +470,6 @@ async function discoverUsersFromLogs(): Promise<string[]> {
     console.log("📡 Discovering users via Tenderly public RPC getLogs...");
     const readProvider = new ethers.JsonRpcProvider("https://base.gateway.tenderly.co");
     const latestBlock = await readProvider.getBlockNumber();
-    
     const logs = await readProvider.getLogs({
       address: contractAddr,
       topics: [[receiptTopic, checkInTopic]],
@@ -491,7 +490,6 @@ async function discoverUsersFromLogs(): Promise<string[]> {
     console.log(`✅ Tenderly discovered ${users.size} total unique users`);
   } catch (e: any) {
     console.warn("⚠️ Tenderly log discovery failed, trying fallback...", e.message || e);
-    
     // Fallback: public RPC
     const rpcUrl = process.env.RPC_URL || process.env.BASE_RPC_URL;
     if (rpcUrl) {
@@ -641,6 +639,56 @@ export async function getUserWeekReport(userAddress: string) {
 }
 
 // ─── Pool status ──────────────────────────────────────────────────────
+export async function isQuestXpClaimed(
+  userAddress: string,
+  questId: string,
+  weekKey: string
+): Promise<boolean> {
+  if (!process.env.VALIDATOR_PRIVATE_KEY && !process.env.PRIVATE_KEY) return false;
+  try {
+    const claimId = ethers.keccak256(
+      ethers.AbiCoder.defaultAbiCoder().encode(
+        ["address", "bytes32", "bytes32"],
+        [userAddress, ethers.id(questId), ethers.id(weekKey)]
+      )
+    );
+    return Boolean(await getContract().questXpClaimed(claimId));
+  } catch (error) {
+    console.warn("⚠️ Failed to read quest claim status:", error);
+    return false;
+  }
+}
+
+export async function claimQuestXp(
+  userAddress: string,
+  questId: string,
+  weekKey: string,
+  amount: number
+): Promise<{ success: boolean; txHash: string; amount: number }> {
+  try {
+    return await withRetry(async (c) => {
+      const txRequest = await c.claimQuestXp.populateTransaction(
+        userAddress,
+        ethers.id(questId),
+        ethers.id(weekKey),
+        amount
+      );
+      txRequest.data = txRequest.data + BUILDER_CODE_SUFFIX;
+
+      if (!wallet) throw new Error("Wallet not initialized");
+      const tx = await wallet.sendTransaction(txRequest);
+      await tx.wait();
+      return { success: true, txHash: tx.hash, amount };
+    });
+  } catch (error: any) {
+    const message = error?.message || "Quest XP claim failed";
+    if (message.includes("Quest XP already claimed")) {
+      throw new Error("Quest XP already claimed");
+    }
+    throw new Error(message);
+  }
+}
+
 export async function getPoolStatus(): Promise<PoolStatus> {
   try {
     const c = getContract();
@@ -855,4 +903,4 @@ export async function submitReceiptWithSig(
 
     throw new Error(message);
   }
-}
+}

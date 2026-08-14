@@ -97,6 +97,8 @@ contract ReplateQuest is
     uint256 public FEE;
     // Appended after all V3 storage to preserve the upgradeable layout.
     mapping(bytes32 => bool) public usedReceiptHashes;
+    // Appended after all existing storage to preserve the UUPS layout.
+    mapping(bytes32 => bool) public questXpClaimed;
 
     // ─── Events ──────────────────────────────────────────────────────
     event ReceiptSubmitted(
@@ -119,6 +121,7 @@ contract ReplateQuest is
     event CheckedIn(address indexed user, uint256 day, uint256 checkInStreak, uint256 pointsEarned);
     event FeeUpdated(uint256 oldFee, uint256 newFee);
     event ReceiptHashConsumed(address indexed user, bytes32 indexed receiptHash);
+    event QuestXpClaimed(address indexed user, bytes32 indexed questId, bytes32 indexed weekKey, uint256 amount);
 
     // ─── Modifiers ───────────────────────────────────────────────────
     modifier onlyValidator() {
@@ -603,6 +606,27 @@ contract ReplateQuest is
         if (count <= 1) return newValue;
         uint256 total = (uint256(currentAvg) * (count - 1)) + uint256(newValue);
         return uint8(total / count);
+    }
+
+    /// @notice Award a completed quest's XP once for a user and ISO week.
+    function claimQuestXp(
+        address user,
+        bytes32 questId,
+        bytes32 weekKey,
+        uint256 amount
+    ) external onlyValidator whenNotPaused {
+        require(user != address(0), "Invalid user address");
+        require(questId != bytes32(0), "Invalid quest id");
+        require(weekKey != bytes32(0), "Invalid week key");
+        require(amount > 0 && amount <= 1000, "Invalid quest XP");
+
+        bytes32 claimId = keccak256(abi.encode(user, questId, weekKey));
+        require(!questXpClaimed[claimId], "Quest XP already claimed");
+
+        questXpClaimed[claimId] = true;
+        totalPoints[user] += amount;
+
+        emit QuestXpClaimed(user, questId, weekKey, amount);
     }
 
     // ─── View Functions ───────────────────────────────────────────────

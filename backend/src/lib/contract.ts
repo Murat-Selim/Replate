@@ -448,6 +448,37 @@ export const REPLATE_QUEST_ABI = [
       {
         "indexed": true,
         "internalType": "bytes32",
+        "name": "questId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "weekKey",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "QuestXpClaimed",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "bytes32",
         "name": "receiptHash",
         "type": "bytes32"
       }
@@ -784,6 +815,34 @@ export const REPLATE_QUEST_ABI = [
       }
     ],
     "name": "checkInWithSig",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "questId",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "weekKey",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "claimQuestXp",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -1303,6 +1362,25 @@ export const REPLATE_QUEST_ABI = [
         "internalType": "bytes32",
         "name": "",
         "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "name": "questXpClaimed",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
       }
     ],
     "stateMutability": "view",

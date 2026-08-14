@@ -6,7 +6,7 @@ import { Gift, Loader2, Lock, Sparkles } from "lucide-react";
 import Shell from "@/components/Shell";
 import { getApiUrl } from "@/lib/api";
 
-interface Quest { id: string; title: string; description: string; progress: number; target: number; completed: boolean; bonusSeasonalXp: number }
+interface Quest { id: string; title: string; description: string; progress: number; target: number; completed: boolean; claimed?: boolean; claimable?: boolean; claimTxHash?: string; bonusSeasonalXp: number }
 interface QuestData {
   weekKey: string;
   quests: Quest[];
@@ -19,6 +19,7 @@ export default function QuestsPage() {
   const [data, setData] = useState<QuestData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [claimingQuest, setClaimingQuest] = useState<string | null>(null);
 
   useEffect(() => {
     if (!address) return;
@@ -34,6 +35,31 @@ export default function QuestsPage() {
       })
       .finally(() => setLoading(false));
   }, [address]);
+
+  async function claimQuest(questId: string) {
+    if (!address || !data) return;
+    setClaimingQuest(questId);
+    setError("");
+    try {
+      const response = await fetch(getApiUrl(`/api/quests/${address}/claim`), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ questId, weekKey: data.weekKey }),
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.success) throw new Error(payload.error || "XP claim failed");
+      setData((current) => current && {
+        ...current,
+        quests: current.quests.map((quest) => quest.id === questId
+          ? { ...quest, claimed: true, claimable: false, claimTxHash: payload.txHash }
+          : quest),
+      });
+    } catch (claimError) {
+      setError(claimError instanceof Error ? claimError.message : "XP claim failed");
+    } finally {
+      setClaimingQuest(null);
+    }
+  }
 
   return (
     <Shell>
@@ -69,6 +95,17 @@ export default function QuestsPage() {
                       <div className="h-full rounded-full bg-gradient-to-r from-brand-primary to-lime-300 transition-all duration-700" style={{ width: `${percent}%` }} />
                     </div>
                     <div className="mt-2 flex justify-between text-xs text-brand-text/50"><span>{quest.progress}/{quest.target}</span><span>{percent}%</span></div>
+                    {quest.claimed && <p className="mt-4 font-bold text-brand-primary">XP claimed</p>}
+                    {quest.claimable && (
+                      <button
+                        type="button"
+                        disabled={claimingQuest === quest.id}
+                        onClick={() => claimQuest(quest.id)}
+                        className="mt-4 rounded-xl bg-brand-primary px-4 py-2 text-sm font-black text-black disabled:opacity-50"
+                      >
+                        {claimingQuest === quest.id ? "Claiming…" : `Claim +${quest.bonusSeasonalXp} XP`}
+                      </button>
+                    )}
                     {quest.completed && <p className="mt-4 font-bold text-brand-primary">✅ Quest complete</p>}
                   </article>
                 );

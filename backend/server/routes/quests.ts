@@ -1,5 +1,10 @@
 import { Router, Request, Response } from "express";
-import { getUserSummary, getUserWeekReport } from "../services/contract.js";
+import {
+  claimQuestXp,
+  getUserSummary,
+  getUserWeekReport,
+  isQuestXpClaimed,
+} from "../services/contract.js";
 
 const router = Router();
 
@@ -45,6 +50,27 @@ function deterministicOffset(seed: string, modulo: number): number {
   return (hash >>> 0) % modulo;
 }
 
+async function getQuestState(address: string) {
+  const [summary, report] = await Promise.all([
+    getUserSummary(address),
+    getUserWeekReport(address),
+  ]);
+  const weekKey = getUtcWeekKey();
+  const offset = deterministicOffset(weekKey, QUEST_POOL.length);
+  const selected = Array.from({ length: 3 }, (_, index) => QUEST_POOL[(offset + index) % QUEST_POOL.length]);
+  const metrics: Record<QuestMetric, number> = {
+    receiptCount: report.receiptCount,
+    avgHealthScore: report.avgHealthScore,
+    avgNutritionScore: report.avgNutritionScore,
+    checkInStreak: summary.checkInStreak,
+    weekPoints: report.weekPoints,
+  };
+  const claimed = await Promise.all(
+    selected.map((quest) => isQuestXpClaimed(address, quest.id, weekKey))
+  );
+  return { weekKey, selected, metrics, claimed };
+}
+
 router.get("/:address", async (req: Request, res: Response) => {
   const { address } = req.params;
   if (typeof address !== "string" || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
@@ -53,32 +79,21 @@ router.get("/:address", async (req: Request, res: Response) => {
   }
 
   try {
-    const [summary, report] = await Promise.all([
-      getUserSummary(address),
-      getUserWeekReport(address),
-    ]);
-    const weekKey = getUtcWeekKey();
-    const offset = deterministicOffset(weekKey, QUEST_POOL.length);
-    const selected = Array.from({ length: 3 }, (_, index) => QUEST_POOL[(offset + index) % QUEST_POOL.length]);
-    const metrics: Record<QuestMetric, number> = {
-      receiptCount: report.receiptCount,
-      avgHealthScore: report.avgHealthScore,
-      avgNutritionScore: report.avgNutritionScore,
-      checkInStreak: summary.checkInStreak,
-      weekPoints: report.weekPoints,
-    };
+    const { weekKey, selected, metrics, claimed } = await getQuestState(address);
 
-    const mysteryEligible = summary.checkInStreak >= 7;
+    const mysteryEligible = metrics.checkInStreak >= 7;
     res.json({
       success: true,
       weekKey,
-      quests: selected.map((quest) => ({
+      quests: selected.map((quest, index) => ({
         id: quest.id,
         title: quest.title,
         metric: quest.metric,
         progress: Math.min(metrics[quest.metric], quest.target),
         target: quest.target,
         completed: metrics[quest.metric] >= quest.target,
+        claimed: claimed[index],
+        claimable: metrics[quest.metric] >= quest.target && !claimed[index],
         bonusSeasonalXp: quest.bonusSeasonalXp,
         description: quest.description,
       })),
@@ -88,11 +103,54 @@ router.get("/:address", async (req: Request, res: Response) => {
           ? { type: "cosmetic_badge_fragment", amount: 1 }
           : { type: "seasonal_xp", amount: 25 },
       },
-      note: "Quest bonuses and mystery-box contents are off-chain seasonal previews only; they do not promise contract XP, tokens, or USDC.",
+      note: "Completed quests can be claimed once as on-chain XP through the validator.",
     });
   } catch (error) {
     console.error("Quest status fetch failed:", error);
     res.status(502).json({ success: false, error: "Quest status is temporarily unavailable" });
+  }
+});
+
+router.post("/:address/claim", async (req: Request, res: Response) => {
+  const { address } = req.params;
+  const { questId, weekKey } = req.body || {};
+  if (typeof address !== "string" || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
+    res.status(400).json({ success: false, error: "Valid address is required" });
+    return;
+  }
+  if (typeof questId !== "string" || typeof weekKey !== "string") {
+    res.status(400).json({ success: false, error: "questId and weekKey are required" });
+    return;
+  }
+
+  try {
+    const { weekKey: currentWeekKey, selected, metrics, claimed } = await getQuestState(address);
+    const questIndex = selected.findIndex((quest) => quest.id === questId);
+    const quest = selected[questIndex];
+    if (weekKey !== currentWeekKey) {
+      res.status(400).json({ success: false, error: "Quest week has expired" });
+      return;
+    }
+    if (!quest) {
+      res.status(400).json({ success: false, error: "Quest is not active this week" });
+      return;
+    }
+    if (metrics[quest.metric] < quest.target) {
+      res.status(400).json({ success: false, error: "Quest is not complete" });
+      return;
+    }
+    if (claimed[questIndex]) {
+      res.status(409).json({ success: false, error: "Quest XP already claimed" });
+      return;
+    }
+
+    const result = await claimQuestXp(address, quest.id, currentWeekKey, quest.bonusSeasonalXp);
+    res.json({ ...result, questId: quest.id, weekKey: currentWeekKey });
+  } catch (error: any) {
+    const message = error?.message || "Quest XP claim failed";
+    const status = message.includes("already claimed") ? 409 : 502;
+    console.error("Quest XP claim failed:", error);
+    res.status(status).json({ success: false, error: message });
   }
 });
 
