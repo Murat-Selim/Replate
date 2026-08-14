@@ -278,6 +278,19 @@ async function testReceiptGolden() {
     bread.products[0]?.category === "neutral",
     `ekmek is neutral (got ${bread.products[0]?.category})`
   );
+
+  const icedTea = await classifyFoods(["LIPTON SEFTALI 330ML %10 *48,95"]);
+  assert(
+    icedTea.products[0]?.category === "unhealthy" &&
+      icedTea.products[0]?.fruitVegGrams === 0,
+    `peach iced tea is unhealthy with 0 fruit/veg grams (got ${icedTea.products[0]?.category}/${icedTea.products[0]?.fruitVegGrams}g)`
+  );
+
+  const receiptNoise = await classifyFoods(["30 T8 *125,00"]);
+  assert(
+    receiptNoise.totalItems === 0,
+    "price-table code noise is not classified as a product"
+  );
 }
 
 async function main() {

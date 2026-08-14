@@ -161,6 +161,7 @@ export const PRODUCT_CATALOG: CatalogEntry[] = [
   { id: "margarin", category: "unhealthy" },
   { id: "gazoz", category: "unhealthy", aliases: ["soda"] },
   { id: "kolali", category: "unhealthy", aliases: ["cola"] },
+  { id: "ice tea", category: "unhealthy", aliases: ["iced tea", "lipton seftali", "lipton ice tea", "lipton iced tea"] },
   { id: "enerji icecegi", category: "unhealthy", aliases: ["energy drink"] },
   { id: "malt", category: "unhealthy" },
   { id: "kahve ins", category: "unhealthy", aliases: ["3u 1 arada", "3 u 1 arada"] },
@@ -266,7 +267,7 @@ export const PROCESSED_OR_COMPOSITE_KEYWORDS = [
   "margarin", "yag", "peynir", "lor", "kasar", "krema",
   "ayran", "kefir", "cacik", "meze", "kraker", "kurabiye", "lokum",
   "jelibon", "sakiz", "gazoz", "kola", "cola", "fanta", "sprite",
-  "icecek", "limonata", "serbet", "komposto", "hosaf",
+  "icecek", "ice tea", "iced tea", "icetea", "limonata", "serbet", "komposto", "hosaf",
   "salamura", "dondurulmus", "kurutulmus",
   "ketcap", "mayonez", "hardal", "tuz", "baharat",
 ];

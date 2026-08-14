@@ -12,11 +12,8 @@ import {
 
 const OFF_SEARCH = "https://world.openfoodfacts.org/api/v2/search";
 
-// Only create cache when OFF API is enabled
-const offCache =
-  process.env.USE_OFF_API === "true"
-    ? new Map<string, ClassificationResult | null>()
-    : null;
+// Create a cache independent of dotenv load order in ESM.
+const offCache = new Map<string, ClassificationResult | null>();
 
 // Debug logging — suppressed in production
 const DEBUG = process.env.NODE_ENV !== "production";
@@ -289,6 +286,7 @@ function extractProductLines(lines: string[]): ExtractedProduct[] {
 
     if (!cleaned || cleaned.length < 2) continue;
     if (cleaned.match(/^[\d\s\/\-:,.]+$/)) continue;
+    if (/^[A-Z]{1,3}\d{1,3}$/i.test(cleaned)) continue;
     const excluded = NON_FOOD_PATTERNS.some((p) => p.test(cleaned));
 
     products.push({ name: cleaned, actualWeightGrams, quantity, excluded });
@@ -526,8 +524,6 @@ async function queryOpenFoodFacts(
   productName: string,
   productWeightGrams: number = 0
 ): Promise<ClassificationResult | null> {
-  if (!offCache) return null;
-
   const cacheKey = `${normalizeTurkish(productName)}|${productWeightGrams}`;
   if (offCache.has(cacheKey)) {
     return offCache.get(cacheKey) ?? null;

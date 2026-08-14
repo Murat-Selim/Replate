@@ -91,6 +91,7 @@ The core logic resides on-chain to ensure transparency and trust.
 
     Frontend apps use `NEXT_PUBLIC_API_URL` to talk to the backend.
     For local development, set it to `http://localhost:3001`.
+    Set `USE_OFF_API=true` to enrich unknown local-catalog products with Open Food Facts.
     Default network is `baseMainnet` and default contract is `0x9d646D474ba0D1bF03E61453898c160b7f9e3E90`.
     If you deploy a new contract or switch networks:
     - update `CONTRACT_ADDRESS` in `backend/.env`
@@ -168,4 +169,3 @@ API resolution works like this in both frontends:
 ## 📜 License
 
 This project is licensed under the MIT License.
-
