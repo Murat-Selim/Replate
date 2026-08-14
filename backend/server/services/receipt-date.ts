@@ -1,4 +1,5 @@
 const DAY_MS = 24 * 60 * 60 * 1000;
+const MAX_RECEIPT_AGE_DAYS = 30;
 const DATE_PATTERN = /(?<!\d)(\d{1,4})[./-](\d{1,2})[./-](\d{1,4})(?!\d)/g;
 const DATE_LABEL = /(?:TAR(?:I|\u0130)H|DATE)/iu;
 const RECEIPT_END_MARKER = /(?:TOPLAM|TOTAL|FIS\s*NO|F[İI]S\s*NO|BELGE\s*NO|THANK|TE[ŞS]EKK[UÜ]R)/iu;
@@ -68,9 +69,9 @@ export function assertRecentReceiptDate(lines: string[], now = new Date()): stri
 
   const today = turkeyToday(now);
   const daysAgo = Math.floor((today.getTime() - receiptDate.getTime()) / DAY_MS);
-  if (daysAgo < 0 || daysAgo > 6) {
+  if (daysAgo < 0 || daysAgo > MAX_RECEIPT_AGE_DAYS) {
     throw new ReceiptDateError(
-      "Only receipts from today or the previous 6 days are accepted",
+      "Only receipts from today or the previous 30 days are accepted",
       "RECEIPT_DATE_OUT_OF_RANGE"
     );
   }
