@@ -2,9 +2,8 @@ import { Router, Request, Response } from "express";
 import { processOCR, assertUsableOCR, OCRError } from "../services/ocr.js";
 import { classifyFoods, ClassificationResult } from "../services/classifier.js";
 import { submitReceiptToContract, calculateScores } from "../services/contract.js";
-import { isReceiptHashUsed } from "../services/receipt-hash.js";
+import { createLegacyReceiptHash, createReceiptHash, isReceiptHashUsed } from "../services/receipt-hash.js";
 import { clearLeaderboardCache } from "./leaderboard.js";
-import { keccak256, toUtf8Bytes } from "ethers";
 import { assertCompleteReceipt, ReceiptDateError, ReceiptQualityError, assertRecentReceiptDate } from "../services/receipt-date.js";
 
 const router = Router();
@@ -70,16 +69,13 @@ router.post("/", async (req: Request, res: Response) => {
 
     // Gate: reject empty / low-quality scans before classification or on-chain submit
     assertUsableOCR(ocrResult);
-    assertRecentReceiptDate(ocrResult.lines);
+    const receiptDate = assertRecentReceiptDate(ocrResult.lines);
     assertCompleteReceipt(ocrResult.lines);
 
-    const normalizedReceipt = ocrResult.lines
-      .map((line) => line.normalize("NFKC").trim().replace(/\s+/g, " ").toLocaleLowerCase("tr-TR"))
-      .filter(Boolean)
-      .join("\n");
-    const receiptHash = keccak256(toUtf8Bytes(normalizedReceipt));
+    const receiptHash = createReceiptHash(ocrResult.lines, receiptDate);
 
-    if (await isReceiptHashUsed(receiptHash)) {
+    const legacyReceiptHash = createLegacyReceiptHash(ocrResult.lines);
+    if (await isReceiptHashUsed(receiptHash) || await isReceiptHashUsed(legacyReceiptHash)) {
       res.status(409).json({
         success: false,
         error: "This receipt has already been uploaded",

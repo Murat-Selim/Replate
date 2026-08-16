@@ -291,6 +291,26 @@ async function testReceiptGolden() {
     receiptNoise.totalItems === 0,
     "price-table code noise is not classified as a product"
   );
+
+  const migrosPhoto = await classifyFoods([
+    "2.610 KG x 59,90 TL/KG",
+    "DOMATES KG.",
+    "0.555 KG x 39,95 TL/KG",
+    "SOGAN KURU KG",
+    "0.575 KG x 99,95 TL/KG",
+    "KOY BIBERI",
+    "10 AD x 19,50 TL/AD",
+    "SOFRA EKMEK ADET",
+    "MARLBORO TBLUE PAKET %0",
+    "#979236******4114 ORTAK POS *555,98",
+  ]);
+  assert(
+    migrosPhoto.totalItems === 4 &&
+      migrosPhoto.healthyItems === 3 &&
+      migrosPhoto.excludedItems === 1 &&
+      migrosPhoto.fruitVegGrams === 3740,
+    `Migros OCR unit/weight handling is correct (got ${migrosPhoto.totalItems}/${migrosPhoto.healthyItems}/${migrosPhoto.excludedItems}/${migrosPhoto.fruitVegGrams}g)`
+  );
 }
 
 async function main() {

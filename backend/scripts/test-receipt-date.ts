@@ -5,6 +5,7 @@ import {
   ReceiptDateError,
   ReceiptQualityError,
 } from "../server/services/receipt-date.js";
+import { createReceiptHash } from "../server/services/receipt-hash.js";
 
 const today = new Date("2026-08-06T12:00:00Z");
 
@@ -23,6 +24,10 @@ assert.throws(
 assert.throws(
   () => assertRecentReceiptDate(["ELMA 1 KG"], today),
   (error) => error instanceof ReceiptDateError && error.code === "RECEIPT_DATE_NOT_FOUND"
+);
+assert.equal(
+  createReceiptHash(["TARIH: 15/08/2026", "FIS NO: 0100", "TOPLAM *555,98"], "2026-08-15"),
+  createReceiptHash(["TARİH:15/08/2026", "FİŞ NO:0100", "TOPLAM", "*555.98"], "2026-08-15")
 );
 
 console.log("Receipt date checks passed");

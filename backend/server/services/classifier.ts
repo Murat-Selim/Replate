@@ -96,6 +96,7 @@ const STRIP_TOKEN_REGEX = new RegExp(
 // ─── Receipt meta lines to skip ───────────────────────────────────────
 // Prefer structural/meta terms over city/brand-specific tokens.
 const SKIP_PATTERNS = [
+  /\b(ORTAK\s+POS|POS|ONAY\s+KODU|REF\s+NO|TERMINAL\s+ID|BATCH\s+NO)\b/i,
   /^(TOTAL|SUBTOTAL|TAX|DATE|STORE|CASHIER|CHANGE|RECEIPT)/i,
   /^(TOPLAM|KDV|FIS|FİŞ|SAAT|TARIH|ARA TOPLAM|ALISVERIS|ALIŞVERİŞ|NAKIT|BANKA)/i,
   /^(BELGE|ETTN|FISC|KASA|DARA|ADET|ISKONTO|İSKONTO|INDIRIM|İNDİRİM)/i,
@@ -122,6 +123,7 @@ const SKIP_PATTERNS = [
 
 // ─── Non-food products found on grocery receipts ──────────────────────
 const NON_FOOD_PATTERNS = [
+  /\b(MARLBORO|SIGARA|CIGARET)\b/i,
   /\b(PED|H[Iİ]JYEN|PE[CÇ]ETE|HAVLU|KA[GĞ]IT|MEND[Iİ]L|DETERJAN|SABUN|[SŞ]AMPUAN|DURULAY|YUMU[SŞ]ATICI|[CÇ]AMA[SŞ]IR|BULA[SŞ]IK)\b/i,
   /\b(MOLPED|HOLPED|ORK[Iİ]D|KOTEX|ALWAYS|PR[Iİ]MA|PAMPERS|HUGGIES)\b/i,
   /\b([CÇ][OÖ]P\s*PO[SŞ]ET|TORBA|FIRIN TORBASI)\b/i,
@@ -202,6 +204,9 @@ function extractProductLines(lines: string[]): ExtractedProduct[] {
     if (SKIP_PATTERNS.some((p) => p.test(trimmed))) continue;
     if (trimmed.length < 4) continue;
 
+    const isUnitPriceLine = /^(?:\d+[.,]\d{1,3}\s*KG|\d+\s*AD(?:ET)?)\s*x\s*\d+[.,]\d{2}\s*TL\s*\/\s*(?:KG|AD(?:ET)?)$/i.test(trimmed);
+    if (isUnitPriceLine) continue;
+
     // Standalone weight lines: 0.430 / 0,430 / 1.864 kg
     if (/^\d+[.,]\d{1,3}(\s*kg)?$/i.test(trimmed)) continue;
 
@@ -222,6 +227,17 @@ function extractProductLines(lines: string[]): ExtractedProduct[] {
     let hasWeightLineBelow = false;
     let actualWeightGrams = 0;
     let quantity = 1;
+
+    const previousLine = lines[i - 1]?.trim() ?? "";
+    const previousUnitPriceLine = /^(?:\d+[.,]\d{1,3}\s*KG|\d+\s*AD(?:ET)?)\s*x\s*\d+[.,]\d{2}\s*TL\s*\/\s*(?:KG|AD(?:ET)?)$/i.test(previousLine);
+    if (previousUnitPriceLine) {
+      const previousWeight = previousLine.match(/^(\d+)[.,](\d{1,3})\s*KG/i);
+      if (previousWeight) {
+        actualWeightGrams = Number(previousWeight[1]) * 1000 + Number(previousWeight[2].padEnd(3, "0"));
+      }
+      const previousQuantity = previousLine.match(/^(\d+)\s*AD(?:ET)?/i);
+      if (previousQuantity) quantity = Math.max(1, Number(previousQuantity[1]));
+    }
 
     if (i + 1 < lines.length) {
       const nextLine = lines[i + 1].trim();
@@ -348,6 +364,7 @@ export function cleanProductLine(
   cleaned = cleaned.replace(/\b\d+[.,]\d{1,3}\s*kg\b/gi, "").trim();
   cleaned = cleaned.replace(/\b\d+\s*kg\b/gi, "").trim();
   cleaned = cleaned.replace(/\b\d+[.,]?\d*\s*L\b/gi, "").trim(); // 1 L, 1.5 L
+  cleaned = cleaned.replace(/\b(?:KG|KGM|AD(?:ET)?)\.?\b/gi, "").trim();
 
   // Product codes, HL
   cleaned = cleaned.replace(/\b[A-Z]{2,4}\d{2,3}\b/g, "").trim();
