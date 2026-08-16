@@ -136,6 +136,20 @@ export function useSubmitReceipt() {
       }
 
       try {
+        const [lastReceiptDay, latestBlock] = await Promise.all([
+          publicClient.readContract({
+            address: CONTRACT_ADDRESS,
+            abi: REPLATE_QUEST_ABI,
+            functionName: 'lastReceiptDay',
+            args: [address],
+          }),
+          publicClient.getBlock(),
+        ]);
+        const today = latestBlock.timestamp / BigInt(86400);
+        if ((lastReceiptDay as bigint) >= today) {
+          return { success: false, error: 'You have already submitted a receipt today. Try again tomorrow.' };
+        }
+
         // Switch chain automatically if connected to wrong network
         if (chainId !== appChain.id && switchChainAsync) {
           console.log(`Switching network to ${appChain.name} (Chain ID: ${appChain.id})...`);
@@ -183,6 +197,11 @@ export function useSubmitReceipt() {
           ],
           dataSuffix: DATA_SUFFIX,
         });
+
+        const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+        if (receipt.status !== 'success') {
+          return { success: false, error: 'Receipt transaction was reverted. No XP was awarded.' };
+        }
 
         // Clear leaderboard cache
         try {
