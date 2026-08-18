@@ -7,14 +7,19 @@ import { timingSafeEqual } from "crypto";
 import { runtimeConfig, validateRuntimeConfig } from "./config.js";
 
 import verifyReceiptRouter from "./routes/verify-receipt.js";
+import confirmedReceiptRouter from "./routes/confirmed-receipt.js";
+import intelligenceRouter from "./routes/intelligence.js";
 import leaderboardRouter from "./routes/leaderboard.js";
 import userRouter from "./routes/user.js";
 import checkInRouter from "./routes/check-in.js";
 import metaRouter from "./routes/meta.js";
 import questsRouter from "./routes/quests.js";
+import agentDiscoveryRouter from "./routes/agent-discovery.js";
 import { runWeeklyFinalization } from "./cron/weekly.js";
 import { setupEventListeners, invalidateLeaderboardCache } from "./services/events.js";
 import { warmLeaderboardCache } from "./routes/leaderboard.js";
+import { getDatabaseStatus } from "./db.js";
+import { createX402Middleware } from "./services/x402.js";
 
 
 dotenv.config();
@@ -49,6 +54,7 @@ app.use(cors({
     return callback(null, true);
   },
   credentials: true,
+  exposedHeaders: ["PAYMENT-REQUIRED", "PAYMENT-RESPONSE"],
 }));
 
 // Request Logger
@@ -59,17 +65,29 @@ app.use((req, res, next) => {
 
 app.use(express.json({ limit: "10mb" })); // For base64 image uploads
 
+const x402Middleware = createX402Middleware();
+if (x402Middleware) app.use(x402Middleware);
+
 // Health check & Root
 app.get("/", (req, res) => {
   res.json({ status: "ok", message: "Replate API is running! 🚀" });
 });
 
-app.get("/api/health", (req, res) => {
-  res.json({ status: "ok", timestamp: new Date().toISOString() });
+app.get("/api/health", async (_req, res) => {
+  const database = await getDatabaseStatus();
+  res.json({
+    status: database.status === "ok" ? "ok" : "degraded",
+    database: database.status,
+    verifiedDataWrites: database.status === "ok" ? "enabled" : "disabled",
+    timestamp: new Date().toISOString(),
+  });
 });
 
 // Routes
+app.use(agentDiscoveryRouter);
 app.use("/api/verify-receipt", verifyReceiptRouter);
+app.use("/api/receipts", confirmedReceiptRouter);
+app.use("/api/intelligence", intelligenceRouter);
 app.use("/api/leaderboard", leaderboardRouter);
 app.use("/api/user", userRouter);
 app.use("/api/check-in", checkInRouter);

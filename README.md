@@ -96,7 +96,14 @@ The core logic resides on-chain to ensure transparency and trust.
     If you deploy a new contract or switch networks:
     - update `CONTRACT_ADDRESS` in `backend/.env`
     - update `NEXT_PUBLIC_CHAIN` and `NEXT_PUBLIC_CONTRACT_ADDRESS` in both frontend apps
+    - keep `NEXT_PUBLIC_BUILDER_CODE` aligned with the backend `BUILDER_CODE`
     - copy the refreshed ABI file into each frontend app if the contract interface changed
+
+    Advanced Intelligence requires PostgreSQL plus a Base-mainnet x402 facilitator:
+    set `DATABASE_URL`, `X402_PAY_TO`, and `X402_FACILITATOR_URL` in `backend/.env`; add
+    `X402_FACILITATOR_API_KEY` when the selected production facilitator requires it.
+    The public facilitator is for development/testnet use, so it is intentionally not a production default.
+    Verify a receipt transaction with `npm run check:builder -- 0x<tx-hash>` from `backend`.
 
 ### Contract Config Strategy
 

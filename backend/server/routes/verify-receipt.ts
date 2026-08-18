@@ -22,6 +22,7 @@ interface VerifyReceiptResponse {
   data?: {
     txHash: string;
     receiptHash: string;
+    receiptDate: string;
     healthScore: number;
     nutritionScore: number;
     totalItems: number;
@@ -115,6 +116,7 @@ router.post("/", async (req: Request, res: Response) => {
         data: {
           txHash: "",
           receiptHash,
+          receiptDate,
           healthScore: scores.healthScore,
           nutritionScore: scores.nutritionScore,
           totalItems: classification.totalItems,
@@ -152,6 +154,7 @@ router.post("/", async (req: Request, res: Response) => {
       data: {
         txHash: contractResult.txHash,
         receiptHash,
+        receiptDate,
         healthScore: contractResult.healthScore,
         nutritionScore: contractResult.nutritionScore,
         totalItems: classification.totalItems,

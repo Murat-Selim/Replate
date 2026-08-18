@@ -14,6 +14,8 @@
     "@farcaster/miniapp-wagmi-connector": "latest",
     "@tanstack/react-query": "latest",
     "@wagmi/core": "latest",
+    "@x402/core": "^2.22.0",
+    "@x402/evm": "^2.22.0",
     "axios": "^1.13.6",
     "lucide-react": "^0.575.0",
     "next": "^16.2.4",

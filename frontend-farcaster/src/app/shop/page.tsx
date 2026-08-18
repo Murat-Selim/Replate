@@ -7,10 +7,13 @@ import { sdk } from "@farcaster/miniapp-sdk";
 import { useFarcasterAccount } from "@/hooks/useFarcasterAccount";
 import { getApiUrl } from "@/lib/api";
 import { compressImage } from "@/lib/image";
-import { useAccount } from "wagmi";
+import { useAccount, useWalletClient } from "wagmi";
+import { appChain } from "@/lib/network";
 import { useSubmitReceipt } from "@/lib/useTransaction";
+import { unlockAdvancedIntelligence, type AdvancedReport } from "@/lib/intelligence";
 
 interface VerificationResult {
+    receiptId: string;
     txHash: string;
     receiptHash: `0x${string}`;
     healthScore: number;
@@ -46,6 +49,7 @@ function getBasketFeedback(result: VerificationResult) {
 }
 export default function SmartShop() {
     const { address } = useFarcasterAccount();
+    const { data: walletClient } = useWalletClient({ chainId: appChain.id });
     const { submitReceipt } = useSubmitReceipt();
     const [userContext, setUserContext] = useState<UserContext>({});
     const [householdSize, setHouseholdSize] = useState(2);
@@ -54,6 +58,8 @@ export default function SmartShop() {
     const [isLoading, setIsLoading] = useState(false);
     const [isCompressing, setIsCompressing] = useState(false);
     const [result, setResult] = useState<VerificationResult | null>(null);
+    const [advancedReport, setAdvancedReport] = useState<AdvancedReport | null>(null);
+    const [isUnlocking, setIsUnlocking] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [showUploadModal, setShowUploadModal] = useState(false);
     const [isCameraActive, setIsCameraActive] = useState(false);
@@ -240,15 +246,60 @@ export default function SmartShop() {
                 throw new Error(txResult.error || "Transaction failed");
             }
 
-            // 3. Show successful result with user's direct txHash
+            const confirmedResponse = await fetch(getApiUrl("/api/receipts/confirmed"), {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    txHash: txResult.txHash,
+                    userAddress: targetAddress,
+                    receiptHash: data.data.receiptHash,
+                    receiptDate: data.data.receiptDate,
+                    totalItems: data.data.totalItems,
+                    healthyItems: data.data.healthyItems,
+                    unhealthyItems: data.data.unhealthyItems,
+                    fruitVegGrams: data.data.fruitVegGrams,
+                    householdSize,
+                    daysCovered: data.data.daysCovered,
+                    products: data.data.products,
+                    ocrConfidence: data.data.ocrConfidence,
+                }),
+            });
+            const confirmedData = await confirmedResponse.json();
+            if (!confirmedResponse.ok || !confirmedData.success) {
+                throw new Error(confirmedData.error || "Verified receipt could not be saved");
+            }
+
+            // 4. Show successful result with user's direct txHash
             setResult({
                 ...data.data,
+                receiptId: String(confirmedData.receiptId),
                 txHash: txResult.txHash || "",
             });
         } catch (err) {
             setError(err instanceof Error ? err.message : "An error occurred");
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const handleUnlockAdvanced = async () => {
+        const targetAddress = address || userContext.address;
+        if (!result || !targetAddress || !walletClient) {
+            setError("Connect a Base wallet to unlock Advanced Intelligence");
+            return;
+        }
+        setIsUnlocking(true);
+        setError(null);
+        try {
+            setAdvancedReport(await unlockAdvancedIntelligence(walletClient, {
+                receiptId: result.receiptId,
+                receiptHash: result.receiptHash,
+                userAddress: targetAddress,
+            }));
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Advanced Intelligence could not be unlocked");
+        } finally {
+            setIsUnlocking(false);
         }
     };
 
@@ -274,6 +325,7 @@ Join me in reducing food waste!`,
     const resetForm = () => {
         setImagePreview(null);
         setResult(null);
+        setAdvancedReport(null);
         setError(null);
     };
 
@@ -486,6 +538,27 @@ Join me in reducing food waste!`,
                                     <div className="text-[9px] text-[#A6B0B5]/50 text-center break-all font-mono">
                                         TX: {result.txHash}
                                     </div>
+
+                                    {advancedReport ? (
+                                        <div className="bg-[#22D97A]/5 border border-[#22D97A]/20 rounded-[22px] p-4 space-y-3">
+                                            <p className="text-sm font-black text-[#22D97A] font-heading">Advanced Intelligence</p>
+                                            {[...advancedReport.insights, ...advancedReport.recommendations].map((item, index) => (
+                                                <p key={`${item.message}-${index}`} className="text-xs text-[#A6B0B5]">• {item.message}</p>
+                                            ))}
+                                            {!advancedReport.insights.length && !advancedReport.recommendations.length && (
+                                                <p className="text-xs text-[#A6B0B5]">Your basket has no additional rule-based recommendations.</p>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <button
+                                            onClick={handleUnlockAdvanced}
+                                            disabled={isUnlocking}
+                                            className="w-full bg-[#22D97A] text-[#07100B] py-3.5 px-4 rounded-xl font-black text-xs hover:bg-[#39ed8b] disabled:opacity-60 transition-all flex items-center justify-center gap-2"
+                                        >
+                                            {isUnlocking ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+                                            {isUnlocking ? "Unlocking..." : "Unlock Advanced Intelligence · 0.10 USDC"}
+                                        </button>
+                                    )}
 
                                     <div className="flex gap-2 pt-2">
                                         <button

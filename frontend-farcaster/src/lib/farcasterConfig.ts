@@ -7,7 +7,7 @@ import { appChain } from "@/lib/network";
 import { Attribution } from 'ox/erc8021';
 
 export const DATA_SUFFIX = Attribution.toDataSuffix({
-  codes: ['bc_7to91eav'],
+  codes: [process.env.NEXT_PUBLIC_BUILDER_CODE || 'bc_7to91eav'],
 });
 
 export const wagmiConfig = createConfig({
@@ -20,4 +20,3 @@ export const wagmiConfig = createConfig({
     injected(),
   ],
 });
-
