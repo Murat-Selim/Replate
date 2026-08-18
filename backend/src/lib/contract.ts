@@ -1,7 +1,7 @@
 // Auto-generated from ReplateQuest.sol
-// Run: npx hardhat run scripts/export-abi.cts to regenerate
+// Run: npm run export-abi from backend to regenerate
 
-export { CONTRACT_ADDRESS } from "./network.js";
+export { CONTRACT_ADDRESS, DEPLOYMENT_ABI_VERSION } from "./network.js";
 
 export const REPLATE_QUEST_ABI = [
   {

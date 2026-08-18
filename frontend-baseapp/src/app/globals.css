@@ -10,8 +10,8 @@
   --color-brand-text-muted: #8c9790;
   --color-brand-glow: #00ff66;
   
-  --font-heading: "Outfit", sans-serif;
-  --font-body: "Inter", sans-serif;
+  --font-heading: ui-sans-serif, system-ui, sans-serif;
+  --font-body: ui-sans-serif, system-ui, sans-serif;
 
   --breakpoint-xs: 480px;
 }
@@ -155,4 +155,3 @@ h1, h2, h3, h4, h5, h6 {
                     linear-gradient(90deg, rgba(0, 227, 110, 0.03) 1px, transparent 1px);
   background-size: 40px 40px;
 }
-

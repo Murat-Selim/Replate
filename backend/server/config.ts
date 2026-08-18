@@ -1,6 +1,6 @@
 import * as dotenv from "dotenv";
 import { ethers } from "ethers";
-import { CONTRACT_ADDRESS } from "../src/lib/network.js";
+import { BASE_MAINNET_CHAIN_ID, CONTRACT_ADDRESS } from "../src/lib/network.js";
 
 dotenv.config();
 const isProduction = process.env.NODE_ENV === "production";
@@ -8,7 +8,7 @@ const isProduction = process.env.NODE_ENV === "production";
 export const runtimeConfig = {
   isProduction,
   contractAddress: CONTRACT_ADDRESS,
-  chainId: Number(process.env.CHAIN_ID || 8453),
+  chainId: Number(process.env.CHAIN_ID || BASE_MAINNET_CHAIN_ID),
   rpcUrl: (process.env.RPC_URL || process.env.BASE_RPC_URL || "").trim(),
   validatorPrivateKey: (process.env.VALIDATOR_PRIVATE_KEY || process.env.PRIVATE_KEY || "").trim(),
   cronSecret: (process.env.CRON_SECRET || "").trim(),
@@ -18,7 +18,7 @@ export const runtimeConfig = {
 export function validateRuntimeConfig(): void {
   const errors: string[] = [];
   if (!ethers.isAddress(runtimeConfig.contractAddress)) errors.push("CONTRACT_ADDRESS must be a valid EVM address");
-  if (runtimeConfig.chainId !== 8453) errors.push("CHAIN_ID must be 8453 for the Base mainnet deployment");
+  if (runtimeConfig.chainId !== BASE_MAINNET_CHAIN_ID) errors.push(`CHAIN_ID must be ${BASE_MAINNET_CHAIN_ID} for the Base mainnet deployment`);
   if (runtimeConfig.rpcUrl) {
     try {
       const url = new URL(runtimeConfig.rpcUrl);

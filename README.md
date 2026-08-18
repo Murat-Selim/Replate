@@ -103,12 +103,13 @@ The core logic resides on-chain to ensure transparency and trust.
 There is no shared package yet, so the generated ABI is copied into each client.
 
 - `backend/.openzeppelin/base.json` records the Base mainnet UUPS deployment history and storage layout.
+- `deployment.json` is the single source for the canonical chain, proxy address, and ABI version.
 - `backend/src/lib/contract.ts` stores the generated ABI and exports the backend contract address.
 - `backend/src/lib/network.ts` resolves `CONTRACT_ADDRESS` from env with the canonical mainnet fallback.
 - `frontend-baseapp/src/lib/contract.ts` and `frontend-farcaster/src/lib/contract.ts` store the matching ABI.
-- Both frontends resolve the same proxy from `src/lib/network.ts` unless explicitly overridden by env.
+- Both frontends resolve the same proxy and ABI version from the manifest unless explicitly overridden by env.
 
-When the Solidity interface changes, run `npm run export-abi` from `backend` and synchronize both frontend ABI files before building.
+When the Solidity interface changes, run `npm run export-abi` from `backend`; it regenerates the backend and both frontend ABI files.
 
 ### Running the Apps
 

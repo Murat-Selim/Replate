@@ -9,8 +9,8 @@
   --color-brand-text: #FFFFFF;
   --color-brand-text-muted: #A6B0B5;
 
-  --font-heading: "Outfit", sans-serif;
-  --font-body: "Inter", sans-serif;
+  --font-heading: ui-sans-serif, system-ui, sans-serif;
+  --font-body: ui-sans-serif, system-ui, sans-serif;
 }
 
 :root {

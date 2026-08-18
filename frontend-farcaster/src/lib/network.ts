@@ -1,8 +1,8 @@
 import { base, baseSepolia, type Chain } from "wagmi/chains";
 
-const DEFAULT_CHAIN = "baseMainnet";
+const DEFAULT_CHAIN = process.env.NEXT_PUBLIC_DEPLOYMENT_CHAIN || "baseMainnet";
 // Güncel kontrat adresi — env yoksa bu kullanılır
-const DEFAULT_CONTRACT_ADDRESS = "0x9d646D474ba0D1bF03E61453898c160b7f9e3E90";
+const DEFAULT_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_DEPLOYMENT_CONTRACT_ADDRESS || "0x9d646D474ba0D1bF03E61453898c160b7f9e3E90";
 
 function resolveChain(): Chain {
   const chainName = process.env.NEXT_PUBLIC_CHAIN?.trim() || DEFAULT_CHAIN;
@@ -10,6 +10,7 @@ function resolveChain(): Chain {
 }
 
 export const appChain = resolveChain();
+export const DEPLOYMENT_ABI_VERSION = process.env.NEXT_PUBLIC_DEPLOYMENT_ABI_VERSION || "ReplateQuest-v3";
 
 export const CONTRACT_ADDRESS =
   (process.env.NEXT_PUBLIC_CONTRACT_ADDRESS?.trim() || DEFAULT_CONTRACT_ADDRESS) as `0x${string}`;

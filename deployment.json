@@ -1,0 +1,7 @@
+{
+  "name": "ReplateQuest",
+  "abiVersion": "ReplateQuest-v3",
+  "chain": "baseMainnet",
+  "chainId": 8453,
+  "contractAddress": "0x9d646D474ba0D1bF03E61453898c160b7f9e3E90"
+}
