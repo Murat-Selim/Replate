@@ -207,6 +207,23 @@ Agents can call the paid endpoint with the official x402 fetch client. The wrapp
 automatically handles the `402 Payment Required` response, signs the payment, retries
 the request, and returns the report. The agent wallet needs Base Mainnet USDC.
 
+```text
+# Endpoint
+POST https://replate-backend61.vercel.app/api/intelligence/advanced
+
+# Test: should return 402 before payment
+curl -i -X POST https://replate-backend61.vercel.app/api/intelligence/advanced \
+  -H "Content-Type: application/json" \
+  -d '{"receiptId":"1","receiptHash":"0x_VERIFIED_RECEIPT_HASH","userAddress":"0x_AGENT_WALLET_ADDRESS"}'
+
+# Payment: $0.01 USDC · Base Mainnet · exact EIP-3009
+
+# Discovery
+GET https://replate-backend61.vercel.app/openapi.json
+GET https://replate-backend61.vercel.app/.well-known/agent.json
+GET https://replate-backend61.vercel.app/.well-known/agent-card.json
+```
+
 Install the client:
 
 ```bash
@@ -255,6 +272,11 @@ if (!response.ok) {
 
 console.log(await response.json());
 ```
+
+The request body is Replate-specific: `receiptId` and `receiptHash` identify an
+already verified receipt, while `userAddress` must equal the paying wallet. Unlike
+a date-based bulletin endpoint, this report cannot be requested without a verified
+receipt reference.
 
 Run it with:
 
