@@ -32,6 +32,51 @@ interface ConfirmedReceiptRequest {
   ocrConfidence: number;
 }
 
+router.get("/latest", async (req: Request, res: Response) => {
+  const userAddress = String(req.query.userAddress || "");
+  if (!ADDRESS.test(userAddress)) {
+    res.status(400).json({ success: false, error: "Valid user address is required", errorCode: "INVALID_USER_ADDRESS" });
+    return;
+  }
+
+  try {
+    assertDatabaseConfigured();
+    const result = await getDatabasePool().query(
+      `SELECT r.id, r.receipt_hash, r.tx_hash, r.health_score, r.nutrition_score,
+              r.total_items, r.healthy_items, r.unhealthy_items, r.fruit_veg_grams,
+              r.days_covered, r.points_earned
+       FROM receipts r JOIN users u ON u.id = r.user_id
+       WHERE lower(u.wallet_address) = lower($1)
+       ORDER BY r.verified_at DESC LIMIT 1`,
+      [userAddress],
+    );
+    const row = result.rows[0];
+    if (!row) {
+      res.status(404).json({ success: false, error: "Verified receipt not found", errorCode: "RECEIPT_NOT_FOUND" });
+      return;
+    }
+    res.json({
+      success: true,
+      data: {
+        receiptId: String(row.id),
+        txHash: row.tx_hash,
+        receiptHash: row.receipt_hash,
+        healthScore: Number(row.health_score),
+        nutritionScore: Number(row.nutrition_score),
+        totalItems: Number(row.total_items),
+        healthyItems: Number(row.healthy_items),
+        unhealthyItems: Number(row.unhealthy_items),
+        fruitVegGrams: Number(row.fruit_veg_grams),
+        daysCovered: Number(row.days_covered),
+        pointsEarned: Number(row.points_earned),
+        badgeMinted: false,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Internal server error" });
+  }
+});
+
 function fail(message: string, code: string): never {
   throw new VerifiedReceiptError(message, 400, code);
 }

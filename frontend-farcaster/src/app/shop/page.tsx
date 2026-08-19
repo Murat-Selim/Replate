@@ -91,6 +91,18 @@ export default function SmartShop() {
         else sessionStorage.removeItem(SHOP_STATE_KEY);
     }, [advancedReport, restoredShopState, result]);
 
+    useEffect(() => {
+        if (!address || !restoredShopState || result) return;
+        let cancelled = false;
+        fetch(getApiUrl(`/api/receipts/latest?userAddress=${encodeURIComponent(address)}`))
+            .then((response) => response.ok ? response.json() : null)
+            .then((payload) => {
+                if (!cancelled && payload?.success && payload.data) setResult(payload.data as VerificationResult);
+            })
+            .catch(() => undefined);
+        return () => { cancelled = true; };
+    }, [address, restoredShopState, result]);
+
 
     useEffect(() => {
         const fetchContext = async () => {
