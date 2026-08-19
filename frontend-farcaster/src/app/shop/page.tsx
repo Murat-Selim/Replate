@@ -341,6 +341,9 @@ Join me in reducing food waste!`,
                         <h1 className="text-4xl font-black text-white font-heading uppercase tracking-wide">Verify Your Receipt</h1>
                         <p className="text-[#A6B0B5] text-sm">Scan or upload a grocery receipt to understand and verify your basket.</p>
                     </div>
+                    <div className="rounded-[22px] border border-[#22D97A]/20 bg-[#22D97A]/5 px-4 py-3 text-left text-xs text-[#A6B0B5] leading-relaxed">
+                        After verification, optionally unlock <span className="font-bold text-[#22D97A]">Personalized Basket Insights</span> with a <span className="font-bold text-white">$0.10 USDC x402 payment</span> on Base Mainnet.
+                    </div>
 
                     {/* Section 1: Verify (Top) */}
                     <div className="space-y-6">

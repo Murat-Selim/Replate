@@ -287,6 +287,9 @@ export default function SmartShop() {
                     <h1 className="text-3xl sm:text-4xl font-black text-[#00E36E] drop-shadow-[0_0_10px_rgba(0,227,110,0.15)]">Verify Your Receipt</h1>
                     <p className="text-[#8c9790]">Scan or upload a grocery receipt to understand and verify your basket.</p>
                 </div>
+                <div className="rounded-2xl border border-[#00E36E]/20 bg-[#00E36E]/5 px-4 py-3 text-sm text-[#8c9790]">
+                    After verification, optionally unlock <span className="font-bold text-[#00E36E]">Personalized Basket Insights</span> with a <span className="font-bold text-white">$0.10 USDC x402 payment</span> on Base Mainnet.
+                </div>
 
                 {/* Main Content — 2 column on desktop */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
