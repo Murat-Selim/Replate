@@ -4,15 +4,7 @@ import React, { useState, useEffect } from "react";
 import Shell from "@/components/Shell";
 import { Trophy, Medal, Award, Loader2, TrendingUp } from "lucide-react";
 import { useFarcasterAccount } from "@/hooks/useFarcasterAccount";
-import { useReadContract } from "wagmi";
-import { CONTRACT_ADDRESS, REPLATE_QUEST_ABI } from "@/lib/contract";
 import { getApiUrl } from "@/lib/api";
-
-interface PoolStatus {
-    weeklyPool: number;
-    devFund: number;
-    currentPhase: number;
-}
 
 interface LeaderboardEntry {
     rank: number;
@@ -47,19 +39,6 @@ export default function Leaderboard() {
     };
 
     const currentLeaders = getTabLeaders();
-
-    // Contract Read for Pool Status
-    const { data: poolData } = useReadContract({
-        address: CONTRACT_ADDRESS,
-        abi: REPLATE_QUEST_ABI,
-        functionName: 'getPoolStatus',
-    });
-
-    const poolStatus: PoolStatus | null = poolData ? {
-        weeklyPool: Number(poolData[0]),
-        devFund: Number(poolData[1]),
-        currentPhase: Number(poolData[2]),
-    } : null;
 
     useEffect(() => {
         const fetchLeaderboard = async () => {
@@ -118,18 +97,8 @@ export default function Leaderboard() {
                     <p className="text-[#8c9790]">Top Nutrition Scores on Base</p>
                 </div>
 
-                {/* Pool Status + Stats Row */}
+                {/* Leaderboard Stats */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {poolStatus && (
-                        <div className="sm:col-span-2 lg:col-span-2 bg-gradient-to-r from-[#00E36E]/15 to-[#05CE67]/5 border border-[#00E36E]/20 rounded-3xl p-6 text-white shadow-xl shadow-[#00E36E]/5">
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                                <div className="space-y-1">
-                                    <span className="text-[#8c9790] text-sm font-semibold">Weekly Prize Pool</span>
-                                    <p className="text-3xl font-black text-white drop-shadow-[0_0_12px_rgba(255,255,255,0.1)]">${(poolStatus.weeklyPool / 1e6).toFixed(2)} USDC</p>
-                                </div>
-                            </div>
-                        </div>
-                    )}
                     <div className="bg-[#0c1310]/90 border border-[#00E36E]/12 backdrop-blur-2xl rounded-3xl p-6 flex items-center gap-4 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
                         <div className="w-12 h-12 rounded-2xl bg-[#00E36E]/10 border border-[#00E36E]/20 flex items-center justify-center text-[#00E36E]">
                             <TrendingUp size={22} />

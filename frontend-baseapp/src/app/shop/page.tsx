@@ -25,8 +25,6 @@ interface VerificationResult {
     badgeMinted: boolean;
 }
 
-const SHOP_STATE_KEY = "replate:shop-state";
-
 function getBasketFeedback(result: VerificationResult) {
     const positive = result.healthyItems > result.unhealthyItems
         ? `${result.healthyItems} of ${result.totalItems} detected items support a more balanced basket.`
@@ -53,7 +51,6 @@ export default function SmartShop() {
     const [isCompressing, setIsCompressing] = useState(false);
     const [result, setResult] = useState<VerificationResult | null>(null);
     const [advancedReport, setAdvancedReport] = useState<AdvancedReport | null>(null);
-    const [restoredShopState, setRestoredShopState] = useState(false);
     const [isUnlocking, setIsUnlocking] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [showUploadModal, setShowUploadModal] = useState(false);
@@ -61,39 +58,6 @@ export default function SmartShop() {
     const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
-
-    useEffect(() => {
-        try {
-            const saved = sessionStorage.getItem(SHOP_STATE_KEY);
-            if (saved) {
-                const state = JSON.parse(saved) as { result?: VerificationResult; advancedReport?: AdvancedReport };
-                setResult(state.result || null);
-                setAdvancedReport(state.advancedReport || null);
-            }
-        } catch {
-            sessionStorage.removeItem(SHOP_STATE_KEY);
-        } finally {
-            setRestoredShopState(true);
-        }
-    }, []);
-
-    useEffect(() => {
-        if (!restoredShopState) return;
-        if (result) sessionStorage.setItem(SHOP_STATE_KEY, JSON.stringify({ result, advancedReport }));
-        else sessionStorage.removeItem(SHOP_STATE_KEY);
-    }, [advancedReport, restoredShopState, result]);
-
-    useEffect(() => {
-        if (!address || !restoredShopState || result) return;
-        let cancelled = false;
-        fetch(getApiUrl(`/api/receipts/latest?userAddress=${encodeURIComponent(address)}`))
-            .then((response) => response.ok ? response.json() : null)
-            .then((payload) => {
-                if (!cancelled && payload?.success && payload.data) setResult(payload.data as VerificationResult);
-            })
-            .catch(() => undefined);
-        return () => { cancelled = true; };
-    }, [address, restoredShopState, result]);
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];

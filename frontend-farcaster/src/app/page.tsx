@@ -171,6 +171,24 @@ export default function Home() {
                     </div>
                 </div>
 
+                {/* x402 Agent Service */}
+                <section className="w-full glass-card rounded-[28px] p-6 text-left border border-[#22D97A]/20 space-y-4">
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#22D97A] font-heading">Agent-native service</span>
+                    <h2 className="text-2xl font-black text-white font-heading">Personalized Basket Insights via x402</h2>
+                    <p className="text-sm text-[#A6B0B5] leading-relaxed">
+                        Autonomous agents can request receipt-based basket insights with a programmatic payment of $0.10 USDC on Base Mainnet.
+                    </p>
+                    <a
+                        href="https://replate-backend61.vercel.app/.well-known/agent-card.json"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-2 text-sm font-black text-[#22D97A]"
+                    >
+                        View Agent Card
+                        <ChevronRight size={16} />
+                    </a>
+                </section>
+
                 {/* How It Works Section */}
                 <div className="w-full space-y-6 pt-6 text-left">
                     <div className="text-center md:text-left">
