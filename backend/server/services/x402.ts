@@ -7,6 +7,7 @@ import { ExactEvmScheme } from "@x402/evm/exact/server";
 import {
   bazaarResourceServerExtension,
   declareBuilderCodeExtension,
+  parseBuilderCodeSuffixFromCalldata,
   declareDiscoveryExtension,
 } from "@x402/extensions";
 import {
@@ -65,7 +66,8 @@ async function settlementBuilderCodeAttribution(transactionHash: string): Promis
     const provider = new ethers.JsonRpcProvider(runtimeConfig.rpcUrl || "https://base-rpc.publicnode.com");
     const transaction = await provider.getTransaction(transactionHash);
     if (!transaction?.data) return null;
-    return transaction.data.toLowerCase().endsWith(runtimeConfig.builderCodeSuffix.toLowerCase());
+    const attribution = parseBuilderCodeSuffixFromCalldata(transaction.data as `0x${string}`);
+    return attribution?.a?.toLowerCase() === runtimeConfig.builderCode.toLowerCase();
   } catch {
     return null;
   }
