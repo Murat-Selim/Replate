@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import Shell from "@/components/Shell";
 import { Minus, Plus, Sparkles, Camera, Check, Loader2, X, Leaf, Star, Trophy, Image } from "lucide-react";
 import { useAccount, useWalletClient } from "wagmi";
@@ -24,6 +24,8 @@ interface VerificationResult {
     pointsEarned: number;
     badgeMinted: boolean;
 }
+
+const SHOP_STATE_KEY = "replate:shop-state";
 
 function getBasketFeedback(result: VerificationResult) {
     const positive = result.healthyItems > result.unhealthyItems
@@ -51,6 +53,7 @@ export default function SmartShop() {
     const [isCompressing, setIsCompressing] = useState(false);
     const [result, setResult] = useState<VerificationResult | null>(null);
     const [advancedReport, setAdvancedReport] = useState<AdvancedReport | null>(null);
+    const [restoredShopState, setRestoredShopState] = useState(false);
     const [isUnlocking, setIsUnlocking] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [showUploadModal, setShowUploadModal] = useState(false);
@@ -58,6 +61,27 @@ export default function SmartShop() {
     const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
+
+    useEffect(() => {
+        try {
+            const saved = sessionStorage.getItem(SHOP_STATE_KEY);
+            if (saved) {
+                const state = JSON.parse(saved) as { result?: VerificationResult; advancedReport?: AdvancedReport };
+                setResult(state.result || null);
+                setAdvancedReport(state.advancedReport || null);
+            }
+        } catch {
+            sessionStorage.removeItem(SHOP_STATE_KEY);
+        } finally {
+            setRestoredShopState(true);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (!restoredShopState) return;
+        if (result) sessionStorage.setItem(SHOP_STATE_KEY, JSON.stringify({ result, advancedReport }));
+        else sessionStorage.removeItem(SHOP_STATE_KEY);
+    }, [advancedReport, restoredShopState, result]);
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -504,7 +528,7 @@ export default function SmartShop() {
                                         className="w-full bg-[#00E36E] text-[#050806] py-3 px-4 rounded-xl font-black text-sm hover:bg-[#00FF66] disabled:opacity-60 transition-all flex items-center justify-center gap-2"
                                     >
                                         {isUnlocking ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-                                        {isUnlocking ? "Unlocking..." : "Unlock Advanced Intelligence · 0.10 USDC"}
+                                        {isUnlocking ? "Unlocking..." : "Unlock Advanced Intelligence · 0.01 USDC"}
                                     </button>
                                 )}
 
