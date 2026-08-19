@@ -592,7 +592,7 @@ Join me in reducing food waste!`,
                                             className="w-full bg-[#22D97A] text-[#07100B] py-3.5 px-4 rounded-xl font-black text-xs hover:bg-[#39ed8b] disabled:opacity-60 transition-all flex items-center justify-center gap-2"
                                         >
                                             {isUnlocking ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-                                            {isUnlocking ? "Unlocking..." : "Unlock Basket Insights · 0.01 USDC"}
+                                            {isUnlocking ? "Unlocking..." : "Unlock Basket Insights · 0.10 USDC"}
                                         </button>
                                     )}
 

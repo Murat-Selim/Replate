@@ -6,7 +6,7 @@ Turn receipts into healthier insights you can verify. Scan a grocery receipt to 
 
 The current production target is Base mainnet. The canonical `ReplateQuest` proxy is upgraded to the receipt-hash replay-protected implementation, and both frontend clients plus the backend use the matching ABI.
 
-The default contract onboarding phase remains `FREE`. The separate contract `PAID` phase is not a production go-ahead; allowance UX, security review, legal/data-retention controls, and operational monitoring remain open. The x402-powered Personalized Basket Insights endpoint is available independently at `$0.01 USDC` per request.
+The default contract onboarding phase remains `FREE`. The separate contract `PAID` phase is not a production go-ahead; allowance UX, security review, legal/data-retention controls, and operational monitoring remain open. The x402-powered Personalized Basket Insights endpoint is available independently at `$0.10 USDC` per request.
 
 ---
 
@@ -17,7 +17,7 @@ The default contract onboarding phase remains `FREE`. The separate contract `PAI
 - **EIP-712 Receipt Flow**: Users sign receipt data and the client/relayer submits it through `submitReceiptWithSig`.
 - **Replay Protection**: Each `receiptHash` can be consumed only once on-chain.
 - **Progress and Rewards**: XP, health streaks, daily check-ins, weekly reports, and ERC-721 badges.
-- **Paid Basket Insights**: Personalized Basket Insights unlocked with a `$0.01 USDC` x402 payment on Base Mainnet.
+- **Paid Basket Insights**: Personalized Basket Insights unlocked with a `$0.10 USDC` x402 payment on Base Mainnet.
 - **Weekly Leaderboard**: Top 100 users can share the weekly USDC pool in the PAID phase.
 - **Quest Previews**: Weekly quest progress is currently off-chain and does not promise tokens, XP, or USDC.
 
@@ -48,7 +48,7 @@ The default contract onboarding phase remains `FREE`. The separate contract `PAI
 5.  **User Approval**: The user signs receipt data with EIP-712 typed data containing the hash, nonce, and deadline.
 6.  **On-Chain Submit**: The client or relayer submits `submitReceiptWithSig` to `ReplateQuest`.
 7.  **Rewards**: The contract records XP, weekly reports, streaks, and eligible ERC-721 badges.
-8.  **Insight Payment**: An agent or user wallet signs a `$0.01 USDC` x402 payment on Base Mainnet.
+8.  **Insight Payment**: An agent or user wallet signs a `$0.10 USDC` x402 payment on Base Mainnet.
 9.  **Settlement**: Coinbase CDP verifies and settles the payment to the configured receiver wallet.
 10. **Personalized Basket Insights**: The backend returns rule-based recommendations from the stored derived features.
 
@@ -173,7 +173,7 @@ API resolution works like this in both frontends:
 ## Safety and Current Limits
 
 - The current contract onboarding phase is `FREE`; do not enable the contract `PAID` phase without allowance/balance/approval UX, security review, and an explicit go/no-go decision.
-- Contract `PAID` receipts cost `0.50 USDC`; that fee is separate from the x402 Personalized Basket Insights price of `$0.01 USDC`.
+- Contract `PAID` receipts cost `0.50 USDC`; that fee is separate from the x402 Personalized Basket Insights price of `$0.10 USDC`.
 - Quest previews are off-chain and do not promise tokens, XP, or USDC.
 - Only receipt summaries and hashes are written on-chain; the full receipt image is not.
 - Production mock OCR/contract behavior is disabled unless explicitly enabled outside production.
@@ -188,7 +188,7 @@ API resolution works like this in both frontends:
 | `/api/verify-receipt` | `POST` | Validates and analyzes a receipt, returns the normalized `receiptHash`, and can relay on-chain. |
 | `/api/receipts/confirmed` | `POST` | Verifies and persists a successful on-chain receipt. |
 | `/api/receipts/latest?userAddress=0x...` | `GET` | Restores the latest verified receipt for a wallet. |
-| `/api/intelligence/advanced` | `POST` | Returns Personalized Basket Insights after a `$0.01 USDC` x402 payment. |
+| `/api/intelligence/advanced` | `POST` | Returns Personalized Basket Insights after a `$0.10 USDC` x402 payment. |
 | `/.well-known/agent.json` | `GET` | Agent discovery card with x402 and endpoint metadata. |
 | `/.well-known/agent-card.json` | `GET` | Alternate agent card route. |
 | `/api/leaderboard` | `GET` | Fetches the top XP earners. |
@@ -216,7 +216,7 @@ curl -i -X POST https://replate-backend61.vercel.app/api/intelligence/advanced \
   -H "Content-Type: application/json" \
   -d '{"receiptId":"1","receiptHash":"0x_VERIFIED_RECEIPT_HASH","userAddress":"0x_AGENT_WALLET_ADDRESS"}'
 
-# Payment: $0.01 USDC · Base Mainnet · exact EIP-3009
+# Payment: $0.10 USDC · Base Mainnet · exact EIP-3009
 
 # Discovery
 GET https://replate-backend61.vercel.app/openapi.json

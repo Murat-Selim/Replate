@@ -540,7 +540,7 @@ export default function SmartShop() {
                                         className="w-full bg-[#00E36E] text-[#050806] py-3 px-4 rounded-xl font-black text-sm hover:bg-[#00FF66] disabled:opacity-60 transition-all flex items-center justify-center gap-2"
                                     >
                                         {isUnlocking ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-                                        {isUnlocking ? "Unlocking..." : "Unlock Basket Insights · 0.01 USDC"}
+                                        {isUnlocking ? "Unlocking..." : "Unlock Basket Insights · 0.10 USDC"}
                                     </button>
                                 )}
 

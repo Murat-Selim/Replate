@@ -19,7 +19,7 @@ export const runtimeConfig = {
   cdpApiKeySecret: (process.env.CDP_API_KEY_SECRET || "").trim(),
   x402Network: `eip155:${BASE_MAINNET_CHAIN_ID}` as `eip155:${number}`,
   x402Asset: BASE_USDC_ADDRESS,
-  x402PriceAtomic: "10000",
+  x402PriceAtomic: "100000",
   builderCode: (process.env.BUILDER_CODE || "bc_7to91eav").trim(),
   builderCodeSuffix: (process.env.BUILDER_CODE_SUFFIX || "62635f37746f39316561760b0080218021802180218021802180218021").trim().replace(/^0x/, ""),
   validatorPrivateKey: (process.env.VALIDATOR_PRIVATE_KEY || process.env.PRIVATE_KEY || "").trim(),
