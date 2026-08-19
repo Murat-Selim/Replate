@@ -6,7 +6,7 @@ Turn receipts into healthier insights you can verify. Scan a grocery receipt to 
 
 The current production target is Base mainnet. The canonical `ReplateQuest` proxy is upgraded to the receipt-hash replay-protected implementation, and both frontend clients plus the backend use the matching ABI.
 
-The default onboarding phase is `FREE`. The `PAID` phase is not a production go-ahead: allowance UX, security review, legal/data-retention controls, and operational monitoring remain open.
+The default contract onboarding phase remains `FREE`. The separate contract `PAID` phase is not a production go-ahead; allowance UX, security review, legal/data-retention controls, and operational monitoring remain open. The x402-powered Personalized Basket Insights endpoint is available independently at `$0.01 USDC` per request.
 
 ---
 
@@ -17,6 +17,7 @@ The default onboarding phase is `FREE`. The `PAID` phase is not a production go-
 - **EIP-712 Receipt Flow**: Users sign receipt data and the client/relayer submits it through `submitReceiptWithSig`.
 - **Replay Protection**: Each `receiptHash` can be consumed only once on-chain.
 - **Progress and Rewards**: XP, health streaks, daily check-ins, weekly reports, and ERC-721 badges.
+- **Paid Basket Insights**: Personalized Basket Insights unlocked with a `$0.01 USDC` x402 payment on Base Mainnet.
 - **Weekly Leaderboard**: Top 100 users can share the weekly USDC pool in the PAID phase.
 - **Quest Previews**: Weekly quest progress is currently off-chain and does not promise tokens, XP, or USDC.
 
@@ -28,11 +29,13 @@ The default onboarding phase is `FREE`. The `PAID` phase is not a production go-
 - **Smart Contracts**: Solidity ^0.8.22 (UUPS Upgradeable, OpenZeppelin)
 - **Frontend**: Next.js 16 + React 19 + Tailwind CSS
 - **Backend**: Node.js + Express + TypeScript
+- **Database**: Hosted PostgreSQL on Neon
 - **OCR**: Google Cloud Vision API
 - **Food Data**: Open Food Facts API
 - **Product Catalog**: Local Turkish retailer/product aliases and nutrition heuristics.
 - **Signing**: EIP-712 typed data with nonce and deadline replay protection.
 - **Wallet/SDK**: Farcaster Mini-App SDK, Wagmi, Ethers.js
+- **Agent Payments**: x402 v2 with Coinbase CDP facilitator and ERC-8021 Builder Code attribution
 
 ---
 
@@ -45,6 +48,9 @@ The default onboarding phase is `FREE`. The `PAID` phase is not a production go-
 5.  **User Approval**: The user signs receipt data with EIP-712 typed data containing the hash, nonce, and deadline.
 6.  **On-Chain Submit**: The client or relayer submits `submitReceiptWithSig` to `ReplateQuest`.
 7.  **Rewards**: The contract records XP, weekly reports, streaks, and eligible ERC-721 badges.
+8.  **Insight Payment**: An agent or user wallet signs a `$0.01 USDC` x402 payment on Base Mainnet.
+9.  **Settlement**: Coinbase CDP verifies and settles the payment to the configured receiver wallet.
+10. **Personalized Basket Insights**: The backend returns rule-based recommendations from the stored derived features.
 
 ---
 
@@ -99,10 +105,26 @@ The core logic resides on-chain to ensure transparency and trust.
     - keep `NEXT_PUBLIC_BUILDER_CODE` aligned with the backend `BUILDER_CODE`
     - copy the refreshed ABI file into each frontend app if the contract interface changed
 
-    Advanced Intelligence requires PostgreSQL plus a Base-mainnet x402 facilitator:
-    set `DATABASE_URL`, `X402_PAY_TO`, and `X402_FACILITATOR_URL` in `backend/.env`; add
-    `X402_FACILITATOR_API_KEY` when the selected production facilitator requires it.
-    The public facilitator is for development/testnet use, so it is intentionally not a production default.
+    Advanced Basket Insights uses hosted PostgreSQL on Neon and the Coinbase CDP x402 facilitator.
+    Configure these backend variables in Vercel (Production):
+
+    - `DATABASE_URL`: Neon pooled PostgreSQL connection string.
+    - `DATABASE_SSL=require`.
+    - `X402_PAY_TO`: a receiver wallet address different from the paying user wallet.
+    - `CDP_API_KEY_ID` and `CDP_API_KEY_SECRET`: CDP credentials; mark both Sensitive.
+    - Leave `X402_FACILITATOR_URL` and `X402_FACILITATOR_API_KEY` empty when using CDP.
+    - `GOOGLE_CREDENTIALS_JSON`: the complete Google Vision service-account JSON; mark Sensitive.
+    - `BUILDER_CODE` and `BUILDER_CODE_SUFFIX`: public attribution values; do not mark Sensitive.
+
+    Run the database migrations once after creating the Neon project:
+
+    ```bash
+    cd backend
+    npm run db:migrate
+    ```
+
+    Environment changes require a new Vercel deployment. `DATABASE_URL`, CDP secrets,
+    Google credentials, and private keys must never be committed to the repository.
     Verify a receipt transaction with `npm run check:builder -- 0x<tx-hash>` from `backend`.
 
 ### Contract Config Strategy
@@ -150,8 +172,8 @@ API resolution works like this in both frontends:
 ---
 ## Safety and Current Limits
 
-- The current onboarding phase is `FREE`; do not enable `PAID` without allowance/balance/approval UX, security review, and an explicit go/no-go decision.
-- PAID receipts cost `0.50 USDC`; the fee is split 50/50 between the weekly pool and developer fund.
+- The current contract onboarding phase is `FREE`; do not enable the contract `PAID` phase without allowance/balance/approval UX, security review, and an explicit go/no-go decision.
+- Contract `PAID` receipts cost `0.50 USDC`; that fee is separate from the x402 Personalized Basket Insights price of `$0.01 USDC`.
 - Quest previews are off-chain and do not promise tokens, XP, or USDC.
 - Only receipt summaries and hashes are written on-chain; the full receipt image is not.
 - Production mock OCR/contract behavior is disabled unless explicitly enabled outside production.
@@ -164,6 +186,11 @@ API resolution works like this in both frontends:
 | Endpoint | Method | Description |
 | :--- | :--- | :--- |
 | `/api/verify-receipt` | `POST` | Validates and analyzes a receipt, returns the normalized `receiptHash`, and can relay on-chain. |
+| `/api/receipts/confirmed` | `POST` | Verifies and persists a successful on-chain receipt. |
+| `/api/receipts/latest?userAddress=0x...` | `GET` | Restores the latest verified receipt for a wallet. |
+| `/api/intelligence/advanced` | `POST` | Returns Personalized Basket Insights after a `$0.01 USDC` x402 payment. |
+| `/.well-known/agent.json` | `GET` | Agent discovery card with x402 and endpoint metadata. |
+| `/.well-known/agent-card.json` | `GET` | Alternate agent card route. |
 | `/api/leaderboard` | `GET` | Fetches the top XP earners. |
 | `/api/user/:address` | `GET` | Returns user summary, streaks, reports, and pool state. |
 | `/api/check-in` | `POST` | Records a daily user check-in. |
@@ -171,6 +198,72 @@ API resolution works like this in both frontends:
 | `/api/meta/nonce/:address` | `GET` | Returns the current EIP-712 nonce. |
 | `/api/meta/checkin-sig` | `POST` | Relays a signed check-in transaction. |
 | `/api/meta/receipt-sig` | `POST` | Relays a signed receipt transaction with `receiptHash`. |
+
+---
+
+## x402 Agent Quickstart
+
+Agents can call the paid endpoint with the official x402 fetch client. The wrapper
+automatically handles the `402 Payment Required` response, signs the payment, retries
+the request, and returns the report. The agent wallet needs Base Mainnet USDC.
+
+Install the client:
+
+```bash
+npm install @x402/fetch @x402/evm viem dotenv
+```
+
+Create `.env` in the agent project:
+
+```env
+EVM_PRIVATE_KEY=0x_AGENT_WALLET_PRIVATE_KEY
+REPLATE_API_URL=https://replate-backend61.vercel.app
+RECEIPT_ID=1
+RECEIPT_HASH=0x_VERIFIED_RECEIPT_HASH
+```
+
+Create `agent.mjs`:
+
+```js
+import "dotenv/config";
+import { x402Client, wrapFetchWithPayment } from "@x402/fetch";
+import { registerExactEvmScheme } from "@x402/evm/exact/client";
+import { privateKeyToAccount } from "viem/accounts";
+
+const signer = privateKeyToAccount(process.env.EVM_PRIVATE_KEY);
+const client = new x402Client();
+
+registerExactEvmScheme(client, { signer });
+
+const fetchWithPayment = wrapFetchWithPayment(fetch, client);
+const response = await fetchWithPayment(
+  `${process.env.REPLATE_API_URL}/api/intelligence/advanced`,
+  {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      receiptId: process.env.RECEIPT_ID,
+      receiptHash: process.env.RECEIPT_HASH,
+      userAddress: signer.address,
+    }),
+  },
+);
+
+if (!response.ok) {
+  throw new Error(`${response.status}: ${await response.text()}`);
+}
+
+console.log(await response.json());
+```
+
+Run it with:
+
+```bash
+node agent.mjs
+```
+
+The receipt must already be verified and the `userAddress` must match the paying
+wallet. Never share `EVM_PRIVATE_KEY`; it belongs only to the agent wallet.
 
 ---
 

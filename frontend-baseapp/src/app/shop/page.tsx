@@ -525,7 +525,7 @@ export default function SmartShop() {
 
                                 {advancedReport ? (
                                     <div className="bg-[#00E36E]/5 border border-[#00E36E]/20 rounded-2xl p-4 space-y-3">
-                                        <p className="text-sm font-black text-brand-primary">Advanced Intelligence</p>
+                                        <p className="text-sm font-black text-brand-primary">Personalized Basket Insights</p>
                                         {[...advancedReport.insights, ...advancedReport.recommendations].map((item, index) => (
                                             <p key={`${item.message}-${index}`} className="text-xs text-brand-text/70">• {item.message}</p>
                                         ))}
@@ -540,7 +540,7 @@ export default function SmartShop() {
                                         className="w-full bg-[#00E36E] text-[#050806] py-3 px-4 rounded-xl font-black text-sm hover:bg-[#00FF66] disabled:opacity-60 transition-all flex items-center justify-center gap-2"
                                     >
                                         {isUnlocking ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-                                        {isUnlocking ? "Unlocking..." : "Unlock Advanced Intelligence · 0.01 USDC"}
+                                        {isUnlocking ? "Unlocking..." : "Unlock Basket Insights · 0.01 USDC"}
                                     </button>
                                 )}
 

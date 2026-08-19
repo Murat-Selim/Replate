@@ -577,7 +577,7 @@ Join me in reducing food waste!`,
 
                                     {advancedReport ? (
                                         <div className="bg-[#22D97A]/5 border border-[#22D97A]/20 rounded-[22px] p-4 space-y-3">
-                                            <p className="text-sm font-black text-[#22D97A] font-heading">Advanced Intelligence</p>
+                                            <p className="text-sm font-black text-[#22D97A] font-heading">Personalized Basket Insights</p>
                                             {[...advancedReport.insights, ...advancedReport.recommendations].map((item, index) => (
                                                 <p key={`${item.message}-${index}`} className="text-xs text-[#A6B0B5]">• {item.message}</p>
                                             ))}
@@ -592,7 +592,7 @@ Join me in reducing food waste!`,
                                             className="w-full bg-[#22D97A] text-[#07100B] py-3.5 px-4 rounded-xl font-black text-xs hover:bg-[#39ed8b] disabled:opacity-60 transition-all flex items-center justify-center gap-2"
                                         >
                                             {isUnlocking ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-                                            {isUnlocking ? "Unlocking..." : "Unlock Advanced Intelligence · 0.01 USDC"}
+                                            {isUnlocking ? "Unlocking..." : "Unlock Basket Insights · 0.01 USDC"}
                                         </button>
                                     )}
 
