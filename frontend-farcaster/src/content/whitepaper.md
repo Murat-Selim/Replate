@@ -337,7 +337,7 @@ Potential revenue sources include:
 
 A portion of future infrastructure revenue may support ecosystem growth and recurring reward pools.
 
-The existing contract's 0.50 USDC PAID receipt mechanism remains experimental and is not considered the final business model.
+The legacy contract PAID receipt mechanism is disabled; receipt submissions are free and the x402-powered intelligence endpoint is the separate paid product.
 
 ---
 
@@ -377,4 +377,3 @@ The goal is to create a system where users understand and verify their progress,
 ### Real behavior. Verified intelligence. Machine-to-machine commerce.
 
 **Shop Smart. Eat All. Replate.**
-

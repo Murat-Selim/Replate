@@ -20,6 +20,8 @@
     "check:builder": "node scripts/check-builder-attribution.cjs",
     "upgrade:sepolia": "cross-env TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat run scripts/upgradeV3.cts --network baseSepolia",
     "upgrade:mainnet": "cross-env TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat run scripts/upgradeV3.cts --network baseMainnet",
+    "upgrade:sepolia:v4": "cross-env TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat run scripts/upgradeV4.cts --network baseSepolia",
+    "upgrade:mainnet:v4": "cross-env TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat run scripts/upgradeV4.cts --network baseMainnet",
     "export-abi": "node scripts/export-abi.cjs"
   },
   "dependencies": {

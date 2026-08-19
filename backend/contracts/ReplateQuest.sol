@@ -25,6 +25,8 @@ contract ReplateQuest is
 {
     using ECDSA for bytes32;
     // ─── Phase System ────────────────────────────────────────────────
+    // Legacy phase storage is retained for UUPS layout compatibility.
+    // Receipt submissions are permanently free in this implementation.
     enum Phase { FREE, PAID }
     Phase public currentPhase;
 
@@ -86,6 +88,7 @@ contract ReplateQuest is
     // ─── Security Mappings ───────────────────────────────────────────
     mapping(uint256 => bool)                             public weekDistributed;
     mapping(address => mapping(uint256 => bool))         public weekFinalized;
+    // Legacy storage retained for UUPS layout compatibility; no longer enforced.
     mapping(address => uint256)                          public lastReceiptDay;
 
     // ─── Check-in Mappings ───────────────────────────────────────────
@@ -147,7 +150,7 @@ contract ReplateQuest is
         devWallet    = _devWallet;
         usdc         = IERC20(_usdc);
         currentPhase = Phase.FREE;
-        FEE          = 5e5;
+        FEE          = 5e5; // Legacy storage slot; receipt submissions are free
     }
 
     /// @notice V2 initializer — adds EIP-712 support for meta-transactions
@@ -158,7 +161,12 @@ contract ReplateQuest is
 
     /// @notice V3 initializer — sets initial fee amount as a mutable state variable
     function initializeV3() public reinitializer(3) {
-        FEE = 5e5; // 0.50 USDC (6 decimals)
+        FEE = 5e5; // Legacy storage slot; receipt submissions are free
+    }
+
+    /// @notice V4 initializer — locks the legacy phase state to FREE
+    function initializeV4() public reinitializer(4) {
+        currentPhase = Phase.FREE;
     }
 
     // ─── UUPS Upgrade Authorization ──────────────────────────────────
@@ -167,10 +175,11 @@ contract ReplateQuest is
 
     // ─── Phase Management ────────────────────────────────────────────
 
-    /// @notice Switch between FREE and PAID phase
+    /// @notice Keep the legacy admin entry point, but reject PAID forever.
     function setPhase(Phase _phase) external onlyValidator {
-        emit PhaseChanged(currentPhase, _phase);
-        currentPhase = _phase;
+        require(_phase == Phase.FREE, "Paid phase disabled");
+        emit PhaseChanged(currentPhase, Phase.FREE);
+        currentPhase = Phase.FREE;
     }
 
     // ─── Emergency Controls ──────────────────────────────────────────
@@ -203,18 +212,6 @@ contract ReplateQuest is
         require(healthyItems + unhealthyItems <= totalItems,    "Item count mismatch");
         require(householdSize >= 1 && householdSize <= 10,      "Household size must be 1-10");
         require(daysCovered >= 1 && daysCovered <= 30,          "Days covered must be 1-30");
-
-        // Prevent daily XP farming — one receipt per user per day
-        uint256 today = block.timestamp / 1 days;
-        require(lastReceiptDay[user] < today, "Already submitted a receipt today");
-        lastReceiptDay[user] = today;
-
-        // -- PAID phase: collect 1 USDC and split to pools --
-        if (currentPhase == Phase.PAID) {
-            require(usdc.transferFrom(user, address(this), FEE), "USDC transfer failed");
-            weeklyPool += FEE / 2;  // 50% → weekly reward pool
-            devFund    += FEE / 2;  // 50% → developer fund
-        }
 
         // -- Calculate scores --
         uint8 healthScore = _calcHealthScore(totalItems, healthyItems, unhealthyItems);
@@ -487,16 +484,6 @@ contract ReplateQuest is
         uint8   householdSize,
         uint8   daysCovered
     ) internal {
-        uint256 today = block.timestamp / 1 days;
-        require(lastReceiptDay[user] < today, "Already submitted a receipt today");
-        lastReceiptDay[user] = today;
-
-        if (currentPhase == Phase.PAID) {
-            require(usdc.transferFrom(user, address(this), FEE), "USDC transfer failed");
-            weeklyPool += FEE / 2;
-            devFund    += FEE / 2;
-        }
-
         uint8 healthScore = _calcHealthScore(totalItems, healthyItems, unhealthyItems);
 
         uint16 expectedGrams = uint16(householdSize)

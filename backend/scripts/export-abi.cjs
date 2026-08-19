@@ -21,7 +21,7 @@ export const REPLATE_QUEST_ABI = ${JSON.stringify(artifact.abi, null, 2)} as con
 
 // Contract constants / initial values
 export const CONTRACT_CONSTANTS = {
-  INITIAL_FEE: 5e5, // Initial fee in V3: 0.50 USDC (6 decimals), dynamic state variable
+  INITIAL_FEE: 5e5, // Legacy FEE storage slot retained for UUPS compatibility; receipt uploads are free
   DAILY_FRUIT_VEG_PER_PERSON: 300, // grams
   MIN_HEALTHY_SCORE: 60,
   BASE_POINTS: 50,

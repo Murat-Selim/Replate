@@ -6,7 +6,7 @@ Turn receipts into healthier insights you can verify. Scan a grocery receipt to 
 
 The current production target is Base mainnet. The canonical `ReplateQuest` proxy is upgraded to the receipt-hash replay-protected implementation, and both frontend clients plus the backend use the matching ABI.
 
-The default contract onboarding phase remains `FREE`. The separate contract `PAID` phase is not a production go-ahead; allowance UX, security review, legal/data-retention controls, and operational monitoring remain open. The x402-powered Personalized Basket Insights endpoint is available independently at `$0.10 USDC` per request.
+Contract receipt submissions are permanently `FREE`. The legacy `PAID` storage and getter remain only for UUPS compatibility; no receipt submission can collect that fee. The x402-powered Personalized Basket Insights endpoint is available independently at `$0.10 USDC` per request.
 
 ---
 
@@ -18,7 +18,7 @@ The default contract onboarding phase remains `FREE`. The separate contract `PAI
 - **Replay Protection**: Each `receiptHash` can be consumed only once on-chain.
 - **Progress and Rewards**: XP, health streaks, daily check-ins, weekly reports, and ERC-721 badges.
 - **Paid Basket Insights**: Personalized Basket Insights unlocked with a `$0.10 USDC` x402 payment on Base Mainnet.
-- **Weekly Leaderboard**: Top 100 users can share the weekly USDC pool in the PAID phase.
+- **Weekly Leaderboard**: Top 100 users can share the weekly leaderboard; receipt submissions do not charge USDC.
 - **Quest Previews**: Weekly quest progress is currently off-chain and does not promise tokens, XP, or USDC.
 
 ---
@@ -60,7 +60,7 @@ The core logic resides on-chain to ensure transparency and trust.
 
 - **Proxy Address**: [`0x9d646D474ba0D1bF03E61453898c160b7f9e3E90`](https://basescan.org/address/0x9d646D474ba0D1bF03E61453898c160b7f9e3E90) (Base mainnet, chain ID `8453`)
 - **Implementation**: [`0x425Ff13453417A090D91e279558127f20642c227`](https://basescan.org/address/0x425Ff13453417A090D91e279558127f20642c227#code), verified on Basescan.
-- **Runtime state verified on 2026-08-02**: `FREE`, `FEE=500000` (`0.50 USDC` in `PAID`), `paused=false`.
+- **Runtime state before V4 upgrade**: `FREE`, legacy `FEE=500000` storage slot, `paused=false`.
 - **Receipt security**: EIP-712 nonce/deadline checks plus one-time `receiptHash` consumption via `usedReceiptHashes`.
 - **Scoring Logic**:
     - **Health Score**: Based on the ratio of healthy vs. unhealthy items.
@@ -172,8 +172,8 @@ API resolution works like this in both frontends:
 ---
 ## Safety and Current Limits
 
-- The current contract onboarding phase is `FREE`; do not enable the contract `PAID` phase without allowance/balance/approval UX, security review, and an explicit go/no-go decision.
-- Contract `PAID` receipts cost `0.50 USDC`; that fee is separate from the x402 Personalized Basket Insights price of `$0.10 USDC`.
+- Contract receipt submissions are free and have no daily per-wallet limit. Receipt-hash replay protection remains active for signed submissions.
+- The x402 Personalized Basket Insights price is `$0.10 USDC` and is independent of the contract receipt flow.
 - Quest previews are off-chain and do not promise tokens, XP, or USDC.
 - Only receipt summaries and hashes are written on-chain; the full receipt image is not.
 - Production mock OCR/contract behavior is disabled unless explicitly enabled outside production.
@@ -286,6 +286,18 @@ node agent.mjs
 
 The receipt must already be verified and the `userAddress` must match the paying
 wallet. Never share `EVM_PRIVATE_KEY`; it belongs only to the agent wallet.
+
+### Contract V4 Upgrade
+
+V4 keeps the existing UUPS proxy and storage layout, permanently disables the
+legacy paid receipt path, and removes the contract-level daily receipt limit.
+After testing on Sepolia, run the upgrade from `backend` with the validator key:
+
+```bash
+npm run upgrade:sepolia:v4
+# After Sepolia verification:
+# npm run upgrade:mainnet:v4
+```
 
 ---
 

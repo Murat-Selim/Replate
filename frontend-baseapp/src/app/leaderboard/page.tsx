@@ -126,11 +126,6 @@ export default function Leaderboard() {
                                     <span className="text-[#8c9790] text-sm font-semibold">Weekly Prize Pool</span>
                                     <p className="text-3xl font-black text-white drop-shadow-[0_0_12px_rgba(255,255,255,0.1)]">${(poolStatus.weeklyPool / 1e6).toFixed(2)} USDC</p>
                                 </div>
-                                <div className="flex items-center gap-3">
-                                    <div className="px-4 py-2 bg-[#00E36E]/15 border border-[#00E36E]/20 rounded-xl backdrop-blur-sm">
-                                        <span className="text-sm font-bold text-[#00E36E]">{poolStatus.currentPhase === 0 ? "🟢 FREE" : "💎 PAID"}</span>
-                                    </div>
-                                </div>
                             </div>
                         </div>
                     )}
