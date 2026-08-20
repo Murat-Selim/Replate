@@ -4,9 +4,9 @@ Turn receipts into healthier insights you can verify. Scan a grocery receipt to 
 
 ## Current Status
 
-The current production target is Base mainnet. The canonical `ReplateQuest` proxy is upgraded to the receipt-hash replay-protected implementation, and both frontend clients plus the backend use the matching ABI.
+Production runs on Base mainnet. The canonical `ReplateQuest` proxy is upgraded to V4, and both frontend clients plus the backend use the matching ABI.
 
-Contract receipt submissions are permanently `FREE`. The legacy `PAID` storage and getter remain only for UUPS compatibility; no receipt submission can collect that fee. The x402-powered Personalized Basket Insights endpoint is available independently at `$0.10 USDC` per request.
+Receipt submissions are permanently `FREE` with no contract-level daily limit. The legacy `PAID` storage remains only for UUPS compatibility. Detailed Basket Analysis is the separate x402 product at `$0.10 USDC` per request.
 
 ---
 
@@ -59,8 +59,8 @@ Contract receipt submissions are permanently `FREE`. The legacy `PAID` storage a
 The core logic resides on-chain to ensure transparency and trust.
 
 - **Proxy Address**: [`0x9d646D474ba0D1bF03E61453898c160b7f9e3E90`](https://basescan.org/address/0x9d646D474ba0D1bF03E61453898c160b7f9e3E90) (Base mainnet, chain ID `8453`)
-- **Implementation**: [`0x425Ff13453417A090D91e279558127f20642c227`](https://basescan.org/address/0x425Ff13453417A090D91e279558127f20642c227#code), verified on Basescan.
-- **Runtime state before V4 upgrade**: `FREE`, legacy `FEE=500000` storage slot, `paused=false`.
+- **V4 Implementation**: [`0x7bac983059bcccbc02d2c769aa9d5f26a23d41a1`](https://basescan.org/address/0x7bac983059bcccbc02d2c769aa9d5f26a23d41a1#code), verified on BaseScan.
+- **Current state**: `FREE`, no contract-level daily receipt limit, and receipt-hash replay protection active.
 - **Receipt security**: EIP-712 nonce/deadline checks plus one-time `receiptHash` consumption via `usedReceiptHashes`.
 - **Scoring Logic**:
     - **Health Score**: Based on the ratio of healthy vs. unhealthy items.
@@ -127,18 +127,9 @@ The core logic resides on-chain to ensure transparency and trust.
     Google credentials, and private keys must never be committed to the repository.
     Verify a receipt transaction with `npm run check:builder -- 0x<tx-hash>` from `backend`.
 
-### Contract Config Strategy
+### Contract Config
 
-There is no shared package yet, so the generated ABI is copied into each client.
-
-- `backend/.openzeppelin/base.json` records the Base mainnet UUPS deployment history and storage layout.
-- `deployment.json` is the single source for the canonical chain, proxy address, and ABI version.
-- `backend/src/lib/contract.ts` stores the generated ABI and exports the backend contract address.
-- `backend/src/lib/network.ts` resolves `CONTRACT_ADDRESS` from env with the canonical mainnet fallback.
-- `frontend-baseapp/src/lib/contract.ts` and `frontend-farcaster/src/lib/contract.ts` store the matching ABI.
-- Both frontends resolve the same proxy and ABI version from the manifest unless explicitly overridden by env.
-
-When the Solidity interface changes, run `npm run export-abi` from `backend`; it regenerates the backend and both frontend ABI files.
+The generated ABI is copied into the backend and both frontends. If the Solidity interface changes, run `npm run export-abi` from `backend`.
 
 ### Running the Apps
 
@@ -286,18 +277,6 @@ node agent.mjs
 
 The receipt must already be verified and the `userAddress` must match the paying
 wallet. Never share `EVM_PRIVATE_KEY`; it belongs only to the agent wallet.
-
-### Contract V4 Upgrade
-
-V4 keeps the existing UUPS proxy and storage layout, permanently disables the
-legacy paid receipt path, and removes the contract-level daily receipt limit.
-After testing on Sepolia, run the upgrade from `backend` with the validator key:
-
-```bash
-npm run upgrade:sepolia:v4
-# After Sepolia verification:
-# npm run upgrade:mainnet:v4
-```
 
 ---
 

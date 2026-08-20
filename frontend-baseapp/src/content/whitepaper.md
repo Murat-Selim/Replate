@@ -75,56 +75,76 @@ Current onchain data is pseudonymous rather than fully anonymous because wallet 
 
 The current product is designed so that detailed receipt content stays offchain while only aggregate proof data is written to the smart contract.
 
+## 5. Replate Intelligence data layer
+**Live**
+
+Replate now runs a hosted PostgreSQL intelligence layer on Neon alongside the Base contracts.
+
+The current pipeline is:
+
+**Verified Receipt -> Normalized Data -> Derived Features -> Replate Intelligence**
+
+The live feature layer calculates basket diversity, fruit-and-vegetable coverage, protein ratio, estimated household coverage, and rule-based insights and recommendations for a verified receipt.
+
+PostgreSQL stores the verified receipt reference, derived features, and paid intelligence report status. The raw receipt image and full OCR text remain offchain and are not written to the smart contract.
+
+Blockchain remains the verification and reward layer, while PostgreSQL provides the current normalization, feature, and intelligence layer.
+
+---
+
+## 6. x402 Detailed Basket Analysis and agent access
+**Live**
+
+After a receipt is verified, a user can unlock **Detailed Basket Analysis** for **$0.10 USDC** on Base Mainnet through the x402 payment flow.
+
+The paid endpoint is `POST /api/intelligence/advanced`. It returns a report based on the already verified receipt and the derived intelligence features. Coinbase CDP acts as the facilitator and ERC-8021 Builder Code attribution is supported.
+
+The service is also discoverable by autonomous agents through the `.well-known/agent.json`, `.well-known/agent-card.json`, and `/openapi.json` endpoints. An agent wallet can pay with Base USDC and request the report programmatically.
+
+**x402 is the payment rail. Detailed Basket Analysis is the live product.**
+
+---
+
+## 7. Contract and receipt pricing model
+**Live**
+
+Receipt submissions on the upgraded Base contract are permanently free and have no contract-level daily receipt limit. Receipt-hash replay protection remains active for signed submissions.
+
+The legacy `PAID` phase and fee storage remain only for UUPS upgrade compatibility; they are not used to charge for receipt submissions. The separate paid product is the x402-powered Detailed Basket Analysis endpoint.
+
 ---
 
 # PLANNED
 
-## 5. Replate Intelligence data layer  
+## 8. Extended intelligence roadmap
 **Planned**
 
-Replate plans to build a PostgreSQL-based intelligence layer alongside the existing Base contracts.
+The foundational PostgreSQL intelligence layer is live. The following historical and aggregated intelligence extensions remain planned.
 
 The proposed pipeline is:
 
-**Raw Receipt  
-→ Normalized Data  
-→ Derived Features  
-→ Behavioral History  
+**Derived Features
+→ Behavioral History
 → Replate Intelligence**
 
-Potential intelligence includes:
+Planned extensions include:
 
-- basket diversity
-- processed-food ratio
-- protein diversity
-- fruit-and-vegetable quality
-- household coverage
 - 30 / 60 / 90-day trends
 - historical improvement
 - shopping consistency
-- personalized recommendations
 - aggregate consumer signals
 - permissioned reputation
 
 Blockchain remains the verification and reward layer.
 
-PostgreSQL becomes the normalization, historical analysis, aggregation, and intelligence layer.
+Historical analysis, aggregation, and permissioned intelligence remain planned extensions.
 
 ---
 
-## 6. Premium consumer model  
+## 9. Premium consumer model
 **Planned**
 
 The basic Replate experience is intended to remain accessible without charging for every receipt.
-
-The preferred consumer flow is:
-
-**Receipt Upload  
-→ Basic Analysis  
-→ User-Signed Base Verification  
-→ Optional Advanced Replate Intelligence**
-
-After verification, a user may purchase a detailed intelligence report through an x402-compatible USDC payment.
 
 Replate may also introduce **Replate Intelligence+**:
 
@@ -146,23 +166,15 @@ Subscription status would be managed by Replate while x402 acts as the payment r
 
 ---
 
-## 7. x402, MCP, and AI infrastructure  
+## 10. Extended x402, MCP, and AI infrastructure
 **Planned**
 
-Replate plans to use x402 for both consumer premium services and machine-to-machine payments.
+The x402 consumer report and agent payment path are live. Planned extensions include:
 
-Consumer model:
-
-**Verified User  
-→ x402 Payment  
-→ Advanced Replate Intelligence**
-
-Infrastructure model:
-
-**AI Agent / Web3 Application  
-→ Replate API or MCP Tool  
-→ x402 Payment  
-→ Replate Intelligence**
+**AI Agent / Web3 Application
+→ Replate API or MCP Tool
+→ x402 Payment
+→ Extended Replate Intelligence**
 
 Potential paid services include:
 
@@ -173,13 +185,11 @@ Potential paid services include:
 - Aggregated Consumer Insights
 - Permissioned Reputation Signals
 
-MCP-compatible tools may allow AI agents to access these services directly.
-
-**x402 is the payment rail. Replate Intelligence is the product.**
+MCP-compatible tools, broader B2B APIs, historical trend products, aggregate consumer insights, and permissioned reputation signals remain planned.
 
 ---
 
-## 8. Founder NFT and sponsored ecosystem  
+## 11. Founder NFT and sponsored ecosystem
 **Planned**
 
 Replate plans to explore a limited Founder NFT collection:
@@ -205,7 +215,7 @@ Sponsors are an additional growth layer, not the core revenue dependency.
 
 ---
 
-## 9. Planned roadmap  
+## 12. Planned roadmap
 **Planned**
 
 Near-term priorities include:
@@ -214,11 +224,9 @@ Near-term priorities include:
 - stronger product normalization
 - OCR and classification confidence
 - duplicate and fraud detection
-- PostgreSQL intelligence architecture
-- historical behavioral tracking
-- Advanced Replate Intelligence
-- x402 premium consumer payments
 - Intelligence+ membership
+- longer-term historical behavioral tracking
+- expanded trend and aggregate intelligence products
 - B2B Intelligence APIs
 - MCP-compatible AI tools
 - Founder NFT utility
@@ -230,18 +238,18 @@ A native token and mass-market wallet-abstracted experience remain conditional o
 
 # STRATEGY
 
-## 10. Abstract  
+## 13. Abstract
 **Strategy**
 
 Replate combines OCR, product classification, household context, AI analysis, and Base blockchain verification to turn grocery receipts into health feedback, verifiable progress, and privacy-conscious behavioral intelligence.
 
-Today, Replate focuses on receipt analysis, Health Score, Nutrition Score, XP, streaks, badges, weekly progress, and user-signed onchain verification.
+Today, Replate includes receipt analysis, Health Score, Nutrition Score, XP, streaks, badges, weekly progress, user-signed onchain verification, Neon-backed intelligence features, and x402-paid Detailed Basket Analysis for users and agents.
 
 The long-term vision is to build **Replate Intelligence**: a structured intelligence layer that can serve users, AI agents, and Web3 applications through premium consumer features, x402-powered APIs, and MCP-compatible tools.
 
 ---
 
-## 11. Mission and audience  
+## 14. Mission and audience
 **Strategy**
 
 Replate helps users understand and improve their grocery-shopping behavior while creating a transparent, verifiable record of progress.
@@ -254,9 +262,9 @@ Long term, Replate may also serve AI agents, developers, wellness platforms, and
 
 ---
 
-12. The Problem
+## 15. The Problem
 
-Strategy
+**Strategy**
 
 Every year, billions of grocery receipts are discarded after serving a single purpose: proving that a purchase happened.
 
@@ -294,7 +302,7 @@ valuable real-world receipt data is currently wasted, and users rarely participa
 The long-term goal is to turn this discarded information into a useful, privacy-conscious intelligence layer that benefits users, developers, AI systems, and the broader Web3 ecosystem.
 ---
 
-## 13. Privacy and data principles  
+## 16. Privacy and data principles
 **Strategy**
 
 Replate separates data into three broad classes:
@@ -311,14 +319,14 @@ The guiding principle is:
 
 ---
 
-## 14. Economic model  
+## 17. Economic model
 **Strategy**
 
 Replate is designed around three participants.
 
 ### Users
 
-Users contribute verified real-world activity and receive health feedback, XP, streaks, badges, onchain progress, optional premium intelligence, and potential future rewards.
+Users contribute verified real-world activity and receive health feedback, XP, streaks, badges, onchain progress, paid Detailed Basket Analysis, and potential future rewards.
 
 ### AI and Web3 applications
 
@@ -341,7 +349,7 @@ The legacy contract PAID receipt mechanism is disabled; receipt submissions are 
 
 ---
 
-## 15. Risks and open questions  
+## 18. Risks and open questions
 **Strategy**
 
 The quality of Replate Intelligence depends on accurate OCR, strong normalization, reliable classification, fraud resistance, sufficient user activity, historical depth, and appropriate privacy controls.
@@ -356,7 +364,7 @@ Privacy, user consent, data licensing, subscriptions, NFTs, rewards, sponsored c
 
 ---
 
-## 16. Vision  
+## 19. Vision
 **Strategy**
 
 Replate begins with a grocery receipt.

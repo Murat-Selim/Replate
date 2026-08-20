@@ -14,7 +14,7 @@ export default function WhitepaperPage() {
             </div>
             <Link href="/litepaper" className="inline-flex shrink-0 rounded-2xl bg-brand-primary px-5 py-3 text-sm font-black text-[#050806]">Read Litepaper</Link>
           </div>
-          <p className="mt-5 max-w-3xl text-lg leading-8 text-brand-text/65">The complete Replate whitepaper, including the live product, planned intelligence layer, economic model, and long-term strategy.</p>
+          <p className="mt-5 max-w-3xl text-lg leading-8 text-brand-text/65">The complete Replate whitepaper, including the live product, deployed intelligence layer, planned extensions, economic model, and long-term strategy.</p>
         </header>
         <section className="rounded-3xl border border-brand-primary/15 bg-[#0c1310] p-6 sm:p-9">
           <MarkdownDocument fileName="whitepaper.md" />
