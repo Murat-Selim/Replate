@@ -136,20 +136,6 @@ export function useSubmitReceipt() {
       }
 
       try {
-        const [lastReceiptDay, latestBlock] = await Promise.all([
-          publicClient.readContract({
-            address: CONTRACT_ADDRESS,
-            abi: REPLATE_QUEST_ABI,
-            functionName: 'lastReceiptDay',
-            args: [address],
-          }),
-          publicClient.getBlock(),
-        ]);
-        const today = latestBlock.timestamp / BigInt(86400);
-        if ((lastReceiptDay as bigint) >= today) {
-          return { success: false, error: 'You have already submitted a receipt today. Try again tomorrow.' };
-        }
-
         // Switch chain automatically if connected to wrong network
         if (chainId !== appChain.id && switchChainAsync) {
           console.log(`Switching network to ${appChain.name} (Chain ID: ${appChain.id})...`);
@@ -183,6 +169,7 @@ export function useSubmitReceipt() {
           address: CONTRACT_ADDRESS,
           abi: REPLATE_QUEST_ABI,
           functionName: 'submitReceiptWithSig',
+          chainId: appChain.id,
           args: [
             address,
             receiptData.receiptHash,

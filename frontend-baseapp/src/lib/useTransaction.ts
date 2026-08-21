@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { useAccount, useSignTypedData, useWriteContract, useSwitchChain, usePublicClient } from 'wagmi';
+import { useAccount, useConnection, useSignTypedData, useWalletClient, useWriteContract, useSwitchChain, usePublicClient } from 'wagmi';
+import { concat, encodeFunctionData } from 'viem';
 import {
   EIP712_DOMAIN,
   CHECK_IN_TYPES,
@@ -27,6 +28,8 @@ interface TransactionResult {
 // useCheckIn Hook
 export function useCheckIn() {
   const { address, chainId } = useAccount();
+  const { connector } = useConnection();
+  const { data: walletClient } = useWalletClient({ chainId: appChain.id });
   const publicClient = usePublicClient({ chainId: appChain.id });
   const { signTypedDataAsync } = useSignTypedData();
   const { writeContractAsync } = useWriteContract();
@@ -77,13 +80,26 @@ export function useCheckIn() {
       });
 
       // 3. Call checkInWithSig directly
-      const txHash = await writeContractAsync({
-        address: CONTRACT_ADDRESS,
+      const callData = encodeFunctionData({
         abi: REPLATE_QUEST_ABI,
         functionName: 'checkInWithSig',
         args: [address, deadline, signature],
-        dataSuffix: DATA_SUFFIX,
       });
+      const txHash = connector?.id === 'baseAccount' && walletClient
+        ? (await walletClient.sendCallsSync({
+            account: address,
+            chain: appChain,
+            calls: [{ to: CONTRACT_ADDRESS, data: concat([callData, DATA_SUFFIX]) }],
+          })).receipts?.[0]?.transactionHash
+        : await writeContractAsync({
+            address: CONTRACT_ADDRESS,
+            abi: REPLATE_QUEST_ABI,
+            functionName: 'checkInWithSig',
+            chainId: appChain.id,
+            args: [address, deadline, signature],
+            dataSuffix: DATA_SUFFIX,
+          });
+      if (!txHash) throw new Error('Wallet did not return a transaction hash');
 
       // Clear leaderboard cache
       try {
@@ -101,7 +117,7 @@ export function useCheckIn() {
     } finally {
       setIsLoading(false);
     }
-  }, [address, chainId, switchChainAsync, publicClient, signTypedDataAsync, writeContractAsync]);
+  }, [address, chainId, connector, walletClient, switchChainAsync, publicClient, signTypedDataAsync, writeContractAsync]);
 
   return { checkIn, isLoading, error };
 }
@@ -109,6 +125,8 @@ export function useCheckIn() {
 // useSubmitReceipt Hook
 export function useSubmitReceipt() {
   const { address, chainId } = useAccount();
+  const { connector } = useConnection();
+  const { data: walletClient } = useWalletClient({ chainId: appChain.id });
   const publicClient = usePublicClient({ chainId: appChain.id });
   const { signTypedDataAsync } = useSignTypedData();
   const { writeContractAsync } = useWriteContract();
@@ -136,20 +154,6 @@ export function useSubmitReceipt() {
       }
 
       try {
-        const [lastReceiptDay, latestBlock] = await Promise.all([
-          publicClient.readContract({
-            address: CONTRACT_ADDRESS,
-            abi: REPLATE_QUEST_ABI,
-            functionName: 'lastReceiptDay',
-            args: [address],
-          }),
-          publicClient.getBlock(),
-        ]);
-        const today = latestBlock.timestamp / BigInt(86400);
-        if ((lastReceiptDay as bigint) >= today) {
-          return { success: false, error: 'You have already submitted a receipt today. Try again tomorrow.' };
-        }
-
         // Switch chain automatically if connected to wrong network
         if (chainId !== appChain.id && switchChainAsync) {
           console.log(`Switching network to ${appChain.name} (Chain ID: ${appChain.id})...`);
@@ -179,8 +183,7 @@ export function useSubmitReceipt() {
         });
 
         // 3. Call submitReceiptWithSig directly
-        const txHash = await writeContractAsync({
-          address: CONTRACT_ADDRESS,
+        const callData = encodeFunctionData({
           abi: REPLATE_QUEST_ABI,
           functionName: 'submitReceiptWithSig',
           args: [
@@ -195,8 +198,33 @@ export function useSubmitReceipt() {
             deadline,
             signature,
           ],
-          dataSuffix: DATA_SUFFIX,
         });
+        const txHash = connector?.id === 'baseAccount' && walletClient
+          ? (await walletClient.sendCallsSync({
+              account: address,
+              chain: appChain,
+              calls: [{ to: CONTRACT_ADDRESS, data: concat([callData, DATA_SUFFIX]) }],
+            })).receipts?.[0]?.transactionHash
+          : await writeContractAsync({
+              address: CONTRACT_ADDRESS,
+              abi: REPLATE_QUEST_ABI,
+              functionName: 'submitReceiptWithSig',
+              chainId: appChain.id,
+              args: [
+                address,
+                receiptData.receiptHash,
+                receiptData.totalItems,
+                receiptData.healthyItems,
+                receiptData.unhealthyItems,
+                receiptData.fruitVegGrams,
+                receiptData.householdSize,
+                receiptData.daysCovered,
+                deadline,
+                signature,
+              ],
+              dataSuffix: DATA_SUFFIX,
+            });
+        if (!txHash) throw new Error('Wallet did not return a transaction hash');
 
         const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
         if (receipt.status !== 'success') {
@@ -220,7 +248,7 @@ export function useSubmitReceipt() {
         setIsLoading(false);
       }
     },
-    [address, chainId, switchChainAsync, publicClient, signTypedDataAsync, writeContractAsync]
+    [address, chainId, connector, walletClient, switchChainAsync, publicClient, signTypedDataAsync, writeContractAsync]
   );
 
   return { submitReceipt, isLoading, error };

@@ -6,7 +6,7 @@ Turn receipts into healthier insights you can verify. Scan a grocery receipt to 
 
 Production runs on Base mainnet. The canonical `ReplateQuest` proxy is upgraded to V4, and both frontend clients plus the backend use the matching ABI.
 
-Receipt submissions are permanently `FREE` with no contract-level daily limit. The legacy `PAID` storage remains only for UUPS compatibility. Detailed Basket Analysis is the separate x402 product at `$0.10 USDC` per request.
+Receipt submissions are permanently `FREE` with no contract-level daily limit. Detailed Basket Analysis is the separate x402 product at `$0.10 USDC` per request.
 
 ---
 
@@ -60,13 +60,11 @@ The core logic resides on-chain to ensure transparency and trust.
 
 - **Proxy Address**: [`0x9d646D474ba0D1bF03E61453898c160b7f9e3E90`](https://basescan.org/address/0x9d646D474ba0D1bF03E61453898c160b7f9e3E90) (Base mainnet, chain ID `8453`)
 - **V4 Implementation**: [`0x7bac983059bcccbc02d2c769aa9d5f26a23d41a1`](https://basescan.org/address/0x7bac983059bcccbc02d2c769aa9d5f26a23d41a1#code), verified on BaseScan.
-- **Current state**: `FREE`, no contract-level daily receipt limit, and receipt-hash replay protection active.
 - **Receipt security**: EIP-712 nonce/deadline checks plus one-time `receiptHash` consumption via `usedReceiptHashes`.
 - **Scoring Logic**:
     - **Health Score**: Based on the ratio of healthy vs. unhealthy items.
     - **Nutrition Score**: Based on fruit/vegetable weight relative to household size (General standard: 300g/day).
 - **Points System**: Users earn `BASE_POINTS` (50) plus bonuses for high health/nutrition scores and streaks.
-- **Upgradeable storage**: The replay-protection mapping is appended after `FEE` to preserve the existing storage layout.
 
 ---
 
@@ -159,18 +157,6 @@ API resolution works like this in both frontends:
 - If `NEXT_PUBLIC_API_URL` is set, requests go there.
 - If it is not set and the app runs on `localhost`, requests go to `http://localhost:3001`.
 - If it is not set in production, requests stay relative (`/api/...`). This is useful for the Farcaster app when backend routes are deployed behind the same Vercel domain.
-
----
-## Safety and Current Limits
-
-- Contract receipt submissions are free and have no daily per-wallet limit. Receipt-hash replay protection remains active for signed submissions.
-- The x402 Personalized Basket Insights price is `$0.10 USDC` and is independent of the contract receipt flow.
-- Quest previews are off-chain and do not promise tokens, XP, or USDC.
-- Only receipt summaries and hashes are written on-chain; the full receipt image is not.
-- Production mock OCR/contract behavior is disabled unless explicitly enabled outside production.
-- Independent audit, data-retention/KVKK-GDPR controls, and production cron observability remain open.
----
-
 
 ## 📡 API Endpoints (Backend)
 
