@@ -8,7 +8,7 @@ import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/cryptography/EIP712Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/NoncesUpgradeable.sol";
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /// @title ReplateQuest
@@ -23,7 +23,6 @@ contract ReplateQuest is
     EIP712Upgradeable,
     NoncesUpgradeable
 {
-    using ECDSA for bytes32;
     // ─── Phase System ────────────────────────────────────────────────
     // Legacy phase storage is retained for UUPS layout compatibility.
     // Receipt submissions are permanently free in this implementation.
@@ -309,8 +308,7 @@ contract ReplateQuest is
         ));
 
         bytes32 digest = _hashTypedDataV4(structHash);
-        address signer = digest.recover(signature);
-        require(signer == user, "Invalid signature");
+        require(SignatureChecker.isValidSignatureNow(user, digest, signature), "Invalid signature");
 
         // ── Same logic as checkIn ──
         uint256 today = block.timestamp / 1 days;
@@ -470,8 +468,7 @@ contract ReplateQuest is
         ));
 
         bytes32 digest = _hashTypedDataV4(structHash);
-        address signer = digest.recover(signature);
-        require(signer == user, "Invalid signature");
+        require(SignatureChecker.isValidSignatureNow(user, digest, signature), "Invalid signature");
     }
 
     /// @dev Internal: process receipt data (shared by submitReceipt and submitReceiptWithSig)
