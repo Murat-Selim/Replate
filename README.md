@@ -4,7 +4,7 @@ Turn receipts into healthier insights you can verify. Scan a grocery receipt to 
 
 ## Current Status
 
-Production runs on Base mainnet. The canonical `ReplateQuest` proxy is upgraded to V4, and both frontend clients plus the backend use the matching ABI.
+Production runs on Base mainnet. The canonical `ReplateQuest` proxy is upgraded to V5, and both frontend clients plus the backend use the matching ABI.
 
 Receipt submissions are permanently `FREE` with no contract-level daily limit. Detailed Basket Analysis is the separate x402 product at `$0.10 USDC` per request.
 
@@ -59,7 +59,7 @@ Receipt submissions are permanently `FREE` with no contract-level daily limit. D
 The core logic resides on-chain to ensure transparency and trust.
 
 - **Proxy Address**: [`0x9d646D474ba0D1bF03E61453898c160b7f9e3E90`](https://basescan.org/address/0x9d646D474ba0D1bF03E61453898c160b7f9e3E90) (Base mainnet, chain ID `8453`)
-- **V4 Implementation**: [`0x7bac983059bcccbc02d2c769aa9d5f26a23d41a1`](https://basescan.org/address/0x7bac983059bcccbc02d2c769aa9d5f26a23d41a1#code), verified on BaseScan.
+- **V5 Implementation**: [`0x88d905706c0035ff6ef6ea3d25088f7d1be821b0`](https://basescan.org/address/0x88d905706c0035ff6ef6ea3d25088f7d1be821b0#code), verified on BaseScan; supports EIP-1271 smart-wallet signatures.
 - **Receipt security**: EIP-712 nonce/deadline checks plus one-time `receiptHash` consumption via `usedReceiptHashes`.
 - **Scoring Logic**:
     - **Health Score**: Based on the ratio of healthy vs. unhealthy items.
