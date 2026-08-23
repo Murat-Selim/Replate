@@ -25,7 +25,7 @@ export default function PrivacyPage() {
             </section>
           ))}
         </div>
-        <Link href="/verify-receipt" className="inline-flex rounded-2xl bg-brand-primary px-6 py-3 font-black text-[#050806]">Verify a receipt</Link>
+          <Link href="/shop" className="inline-flex rounded-2xl bg-brand-primary px-6 py-3 font-black text-[#050806]">Verify a receipt</Link>
       </article>
     </Shell>
   );

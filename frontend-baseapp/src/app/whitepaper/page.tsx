@@ -21,7 +21,7 @@ export default function WhitepaperPage() {
         </section>
         <footer className="flex flex-wrap gap-3 border-t border-brand-primary/15 pt-6">
           <Link href="/litepaper" className="inline-flex rounded-2xl bg-brand-primary px-6 py-3 font-black text-[#050806]">Read Litepaper</Link>
-          <Link href="/verify-receipt" className="inline-flex rounded-2xl border border-brand-primary/20 px-6 py-3 font-black text-brand-primary">Verify a receipt</Link>
+          <Link href="/shop" className="inline-flex rounded-2xl border border-brand-primary/20 px-6 py-3 font-black text-brand-primary">Verify a receipt</Link>
         </footer>
       </article>
     </Shell>

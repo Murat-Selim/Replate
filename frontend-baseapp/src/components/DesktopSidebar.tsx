@@ -9,7 +9,7 @@ import { useAccount, useConnect, useDisconnect } from "wagmi";
 
 const navItems = [
     { icon: LayoutGrid, href: "/", label: "Home", desc: "Overview & start" },
-    { icon: ShoppingBag, href: "/verify-receipt", label: "Verify Receipt", desc: "Scan or upload" },
+    { icon: ShoppingBag, href: "/shop", label: "Verify Receipt", desc: "Scan or upload" },
     { icon: Target, href: "/quests", label: "Quests", desc: "Challenges & progress" },
     { icon: BarChart3, href: "/leaderboard", label: "Leaderboard", desc: "Rankings & prizes" },
     { icon: User, href: "/profile", label: "Profile", desc: "Stats & streaks" },

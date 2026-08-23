@@ -7,7 +7,7 @@ import { LayoutGrid, ShoppingBag, BarChart3, Target, User } from "lucide-react";
 
 const navItems = [
     { icon: LayoutGrid, href: "/", label: "Home" },
-    { icon: ShoppingBag, href: "/verify-receipt", label: "Verify Receipt" },
+    { icon: ShoppingBag, href: "/shop", label: "Verify Receipt" },
     { icon: BarChart3, href: "/leaderboard", label: "Leaderboard" },
     { icon: Target, href: "/quests", label: "Quests" },
     { icon: User, href: "/profile", label: "Profile" },
