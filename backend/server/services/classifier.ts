@@ -255,9 +255,12 @@ function extractProductLines(lines: string[]): ExtractedProduct[] {
     let quantity = 1;
 
     const previousLine = lines[i - 1]?.trim() ?? "";
-    const previousUnitPriceLine = /^(?:\d+(?:\s*[.,]\s*\d{1,3})?\s*KG|\d+\s*AD(?:ET)?)\s*x\s*\d+[.,]\d{2}\s*TL\s*\/\s*(?:KG|AD(?:ET)?)$/i.test(previousLine);
+    const previousUnitPriceLine = /^(?:\d+(?:\s*[.,]\s*\d{1,3})?\s*(?:KG)?|\d+\s*AD(?:ET)?)\s*x\s*\d+[.,]\d{2}\s*TL\s*\/\s*(?:KG|AD(?:ET)?)$/i.test(previousLine);
     if (previousUnitPriceLine) {
-      actualWeightGrams = parseWeightGrams(previousLine);
+      const previousWeight = previousLine.match(
+        /^(\d+(?:\s*[.,]\s*\d{1,3})?)\s*(?:KG)?\s*x\s*\d+[.,]\d{2}\s*TL\s*\/\s*KG$/i
+      );
+      if (previousWeight) actualWeightGrams = parseWeightGrams(`${previousWeight[1]} KG`);
       const previousQuantity = previousLine.match(/^(\d+)\s*AD(?:ET)?/i);
       if (previousQuantity) quantity = Math.max(1, Number(previousQuantity[1]));
     }
