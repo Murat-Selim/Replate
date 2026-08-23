@@ -322,12 +322,21 @@ async function testReceiptGolden() {
   );
 
   const a101Photo = await classifyFoods([
-    "0.710 x59,50 TL/kg",
-    "PATLICAN %01 *42,25",
-    "0.670 x39,50 TL/kg",
-    "SALATALIK %01 *26,47",
-    "0.515 x49,50 TL/kg",
-    "DOMATES %01 *25,49",
+    "0.710",
+    "x59,50 TL/kg",
+    "%01",
+    "*42,25",
+    "PATLICAN",
+    "0.670",
+    "x39,50 TL/kg",
+    "SALATALIK",
+    "%01",
+    "*26,47",
+    "0.515",
+    "x49,50 TL/kg",
+    "DOMATES",
+    "%01",
+    "*25,49",
   ]);
   assert(
     a101Photo.fruitVegGrams === 1895,

@@ -223,6 +223,7 @@ export async function classifyFoods(
  */
 function extractProductLines(lines: string[]): ExtractedProduct[] {
   const products: ExtractedProduct[] = [];
+  let pendingWeightGrams = 0;
 
   for (let i = 0; i < lines.length; i++) {
     const trimmed = lines[i].trim();
@@ -230,11 +231,28 @@ function extractProductLines(lines: string[]): ExtractedProduct[] {
     if (SKIP_PATTERNS.some((p) => p.test(trimmed))) continue;
     if (trimmed.length < 4) continue;
 
-    const isUnitPriceLine = /^(?:\d+[.,]\d{1,3}\s*KG|\d+\s*AD(?:ET)?)\s*x\s*\d+[.,]\d{2}\s*TL\s*\/\s*(?:KG|AD(?:ET)?)$/i.test(trimmed);
-    if (isUnitPriceLine) continue;
+    const isUnitPriceLine = /^(?:\d+(?:\s*[.,]\s*\d{1,3})?\s*(?:KG)?|\d+\s*AD(?:ET)?)\s*x\s*\d+[.,]\d{2}\s*TL\s*\/\s*(?:KG|AD(?:ET)?)$/i.test(trimmed);
+    if (isUnitPriceLine) {
+      const unitPriceWeight = parseWeightGrams(trimmed);
+      if (unitPriceWeight) pendingWeightGrams = unitPriceWeight;
+      continue;
+    }
 
     // Standalone weight lines: 0.430 / 0,430 / 1.864 kg
-    if (parseWeightGrams(trimmed, true)) continue;
+    const standaloneWeightGrams = parseWeightGrams(trimmed, true);
+    if (standaloneWeightGrams) {
+      const nextLine = lines[i + 1]?.trim() ?? "";
+      const startsNextUnitPrice =
+        /^x\s*\d+[.,]\d{2}\s*TL\s*\/\s*(?:KG|AD(?:ET)?)$/i.test(nextLine) ||
+        /^(?:\d+(?:\s*[.,]\s*\d{1,3})?\s*(?:KG)?|\d+\s*AD(?:ET)?)\s*x\s*\d+[.,]\d{2}\s*TL\s*\/\s*(?:KG|AD(?:ET)?)$/i.test(nextLine);
+
+      if (startsNextUnitPrice) {
+        pendingWeightGrams = standaloneWeightGrams;
+      } else if (products.length && !products[products.length - 1].actualWeightGrams) {
+        products[products.length - 1].actualWeightGrams = standaloneWeightGrams;
+      }
+      continue;
+    }
 
     const hasPrice =
       /[*]\d+[.,]\d{2}/.test(trimmed) || /\d+[.,]\d{2}\s*$/.test(trimmed);
@@ -250,8 +268,7 @@ function extractProductLines(lines: string[]): ExtractedProduct[] {
     const hasSplitReceiptPrice =
       /^%\d{1,2}$/.test(nextLine) && /^\*?\d+[.,]\d{2}$/.test(lineAfterNext);
 
-    let hasWeightLineBelow = false;
-    let actualWeightGrams = 0;
+    let actualWeightGrams = pendingWeightGrams;
     let quantity = 1;
 
     const previousLine = lines[i - 1]?.trim() ?? "";
@@ -263,15 +280,6 @@ function extractProductLines(lines: string[]): ExtractedProduct[] {
       if (previousWeight) actualWeightGrams = parseWeightGrams(`${previousWeight[1]} KG`);
       const previousQuantity = previousLine.match(/^(\d+)\s*AD(?:ET)?/i);
       if (previousQuantity) quantity = Math.max(1, Number(previousQuantity[1]));
-    }
-
-    if (i + 1 < lines.length) {
-      const nextLine = lines[i + 1].trim();
-      const nextWeightGrams = parseWeightGrams(nextLine, true);
-      if (nextWeightGrams) {
-        hasWeightLineBelow = true;
-        actualWeightGrams = nextWeightGrams;
-      }
     }
 
     // Adet: x2,00 TL/ad
@@ -298,7 +306,6 @@ function extractProductLines(lines: string[]): ExtractedProduct[] {
       hasProductCode ||
       hasUnitPrice ||
       hasQuantityPrefix ||
-      hasWeightLineBelow ||
       hasSplitReceiptPrice;
 
     let matchesKnownFood = false;
@@ -330,8 +337,8 @@ function extractProductLines(lines: string[]): ExtractedProduct[] {
     const excluded = NON_FOOD_PATTERNS.some((p) => p.test(cleaned));
 
     products.push({ name: cleaned, actualWeightGrams, quantity, excluded });
+    pendingWeightGrams = 0;
 
-    if (hasWeightLineBelow) i++;
   }
 
   return products;
