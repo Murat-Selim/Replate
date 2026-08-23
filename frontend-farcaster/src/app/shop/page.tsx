@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import Shell from "@/components/Shell";
-import { Minus, Plus, Sparkles, Camera, Check, Loader2, X, Leaf, Star, Trophy, Image } from "lucide-react";
+import { Minus, Plus, Sparkles, Camera, Check, Loader2, X, Leaf, Star, Trophy, Image, ChevronDown } from "lucide-react";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { useFarcasterAccount } from "@/hooks/useFarcasterAccount";
 import { getApiUrl } from "@/lib/api";
@@ -272,7 +272,7 @@ export default function SmartShop() {
             // 4. Show successful result with user's direct txHash
             setResult({
                 ...data.data,
-                receiptId: String(confirmedData.receiptId),
+                receiptId: String(confirmedData.data?.receiptId ?? confirmedData.receiptId),
                 txHash: txResult.txHash || "",
             });
         } catch (err) {
@@ -579,6 +579,45 @@ Join me in reducing food waste!`,
                                     </div>
                                 </div>
                             )}
+
+                            <details className="group rounded-[24px] border border-[#22D97A]/15 bg-[#22D97A]/5 p-5">
+                                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 [&::-webkit-details-marker]:hidden">
+                                    <div>
+                                        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#22D97A]">For AI Agents</p>
+                                        <p className="mt-1 text-sm font-bold text-white">Machine-readable Replate Intelligence API via x402</p>
+                                    </div>
+                                    <ChevronDown size={18} className="shrink-0 text-[#22D97A] transition-transform group-open:rotate-180" />
+                                </summary>
+                                <div className="mt-4 space-y-4 border-t border-[#22D97A]/10 pt-4">
+                                    <p className="text-xs leading-5 text-[#A6B0B5]">
+                                        Agents can autonomously pay and fetch intelligence from verified receipt data using x402 — no browser interaction required.
+                                    </p>
+                                    <div className="space-y-2">
+                                        {[
+                                            ["Advanced Receipt Report", "POST /api/intelligence/advanced", "0.10 USDC", "Live"],
+                                            ["Basket Intelligence", "GET /api/intelligence/basket/{receiptId}", "0.01 USDC", "Planned"],
+                                            ["Price Intelligence", "GET /api/intelligence/price/{receiptId}", "0.01 USDC", "Planned"],
+                                            ["Behavior Intelligence", "GET /api/intelligence/behavior/{wallet}", "0.02 USDC", "Planned"],
+                                            ["Recommendation", "GET /api/intelligence/recommendation/{receiptId}", "0.03 USDC", "Planned"],
+                                        ].map(([name, endpoint, price, status]) => (
+                                            <div key={endpoint} className="flex items-center justify-between gap-3 rounded-xl border border-white/5 bg-black/10 px-3 py-2.5">
+                                                <div className="min-w-0">
+                                                    <p className="text-xs font-bold text-white">{name}</p>
+                                                    <code className="block truncate text-[10px] text-[#A6B0B5]/60">{endpoint}</code>
+                                                </div>
+                                                <div className="shrink-0 text-right">
+                                                    <p className="text-xs font-black text-[#22D97A]">{price}</p>
+                                                    <p className={`text-[10px] font-bold ${status === "Live" ? "text-[#22D97A]" : "text-[#A6B0B5]/40"}`}>{status}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className="flex flex-wrap gap-3 text-xs font-bold">
+                                        <a href={getApiUrl("/openapi.json")} target="_blank" rel="noreferrer" className="text-[#22D97A] hover:underline">OpenAPI spec →</a>
+                                        <a href={getApiUrl("/.well-known/agent-card.json")} target="_blank" rel="noreferrer" className="text-[#22D97A] hover:underline">Agent card →</a>
+                                    </div>
+                                </div>
+                            </details>
 
                             <div className="bg-[#131C20]/50 border border-[#22D97A]/5 p-5 rounded-[24px] text-center">
                                 <p className="text-xs text-[#A6B0B5] italic font-medium leading-relaxed">
