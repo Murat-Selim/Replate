@@ -60,30 +60,17 @@ export async function verifyReceiptTransaction(txHash: string): Promise<Verified
     throw new VerifiedReceiptError("Reverted transactions are not accepted", 422, "TX_REVERTED");
   }
 
-  const transaction = await provider.getTransaction(txHash);
-  if (!transaction || !transaction.to || !sameAddress(transaction.to, runtimeConfig.contractAddress)) {
-    throw new VerifiedReceiptError("Transaction was not sent to the Replate contract", 422, "INVALID_CONTRACT_TX");
-  }
-
   const iface = new ethers.Interface(REPLATE_QUEST_ABI);
-  const parsed = iface.parseTransaction({ data: transaction.data, value: transaction.value });
-  if (!parsed || parsed.name !== "submitReceiptWithSig") {
-    throw new VerifiedReceiptError("Transaction does not contain a signed receipt submission", 422, "INVALID_RECEIPT_CALL");
+  const transaction = await provider.getTransaction(txHash);
+  let directArgs: ethers.Result | null = null;
+  if (transaction?.to && sameAddress(transaction.to, runtimeConfig.contractAddress)) {
+    try {
+      const parsed = iface.parseTransaction({ data: transaction.data, value: transaction.value });
+      if (parsed?.name === "submitReceiptWithSig") directArgs = parsed.args;
+    } catch {
+      // Base Account may wrap the contract call in a batch transaction.
+    }
   }
-
-  const args = parsed.args;
-  const userAddress = String(args[0]);
-  const receiptHash = String(args[1]);
-  if (!ethers.isAddress(userAddress) || !RECEIPT_HASH.test(receiptHash)) {
-    throw new VerifiedReceiptError("Receipt transaction arguments are invalid", 422, "INVALID_RECEIPT_ARGS");
-  }
-
-  const totalItems = toSafeNumber(BigInt(args[2]), "totalItems");
-  const healthyItems = toSafeNumber(BigInt(args[3]), "healthyItems");
-  const unhealthyItems = toSafeNumber(BigInt(args[4]), "unhealthyItems");
-  const fruitVegGrams = toSafeNumber(BigInt(args[5]), "fruitVegGrams");
-  const householdSize = toSafeNumber(BigInt(args[6]), "householdSize");
-  const daysCovered = toSafeNumber(BigInt(args[7]), "daysCovered");
 
   let consumedUser = "";
   let consumedHash = "";
@@ -95,7 +82,12 @@ export async function verifyReceiptTransaction(txHash: string): Promise<Verified
 
   for (const log of receipt.logs) {
     if (!sameAddress(log.address, runtimeConfig.contractAddress)) continue;
-    const parsedLog = iface.parseLog({ topics: [...log.topics], data: log.data });
+    let parsedLog: ethers.LogDescription | null;
+    try {
+      parsedLog = iface.parseLog({ topics: [...log.topics], data: log.data });
+    } catch {
+      continue;
+    }
     if (!parsedLog) continue;
     if (parsedLog.name === "ReceiptHashConsumed") {
       consumedUser = String(parsedLog.args[0]);
@@ -110,13 +102,51 @@ export async function verifyReceiptTransaction(txHash: string): Promise<Verified
     }
   }
 
-  if (!consumedUser || !submittedUser || !sameAddress(consumedUser, userAddress) || !sameAddress(submittedUser, userAddress)) {
+  if (!consumedUser || !submittedUser || !sameAddress(consumedUser, submittedUser)) {
     throw new VerifiedReceiptError("Receipt events do not match the submitted user", 422, "EVENT_USER_MISMATCH");
   }
-  if (consumedHash.toLowerCase() !== receiptHash.toLowerCase()) {
-    throw new VerifiedReceiptError("Receipt hash does not match the consumed hash event", 422, "EVENT_HASH_MISMATCH");
+
+  const userAddress = submittedUser;
+  const receiptHash = consumedHash;
+  if (!ethers.isAddress(userAddress) || !RECEIPT_HASH.test(receiptHash)) {
+    throw new VerifiedReceiptError("Receipt events contain invalid arguments", 422, "INVALID_RECEIPT_ARGS");
   }
-  if (submittedFruitVegGrams !== fruitVegGrams || healthyItems + unhealthyItems > totalItems) {
+
+  let totalItems: number;
+  let healthyItems: number;
+  let unhealthyItems: number;
+  let fruitVegGrams: number;
+  let householdSize: number;
+  let daysCovered: number;
+
+  if (directArgs) {
+    if (String(directArgs[0]).toLowerCase() !== userAddress.toLowerCase() || String(directArgs[1]).toLowerCase() !== receiptHash.toLowerCase()) {
+      throw new VerifiedReceiptError("Receipt transaction arguments are invalid", 422, "INVALID_RECEIPT_ARGS");
+    }
+    totalItems = toSafeNumber(BigInt(directArgs[2]), "totalItems");
+    healthyItems = toSafeNumber(BigInt(directArgs[3]), "healthyItems");
+    unhealthyItems = toSafeNumber(BigInt(directArgs[4]), "unhealthyItems");
+    fruitVegGrams = toSafeNumber(BigInt(directArgs[5]), "fruitVegGrams");
+    householdSize = toSafeNumber(BigInt(directArgs[6]), "householdSize");
+    daysCovered = toSafeNumber(BigInt(directArgs[7]), "daysCovered");
+  } else {
+    const contract = new ethers.Contract(runtimeConfig.contractAddress, REPLATE_QUEST_ABI, provider);
+    const summary = await contract.getUserSummary(userAddress);
+    const receiptCount = toSafeNumber(BigInt(summary[5]), "receiptCount");
+    if (receiptCount < 1) {
+      throw new VerifiedReceiptError("Receipt was not found in the Replate contract", 422, "RECEIPT_NOT_FOUND");
+    }
+    const stored = await contract.receipts(userAddress, BigInt(receiptCount - 1));
+    totalItems = toSafeNumber(BigInt(stored[3]), "totalItems");
+    healthyItems = toSafeNumber(BigInt(stored[4]), "healthyItems");
+    unhealthyItems = toSafeNumber(BigInt(stored[5]), "unhealthyItems");
+    fruitVegGrams = toSafeNumber(BigInt(stored[6]), "fruitVegGrams");
+    householdSize = toSafeNumber(BigInt(stored[7]), "householdSize");
+    daysCovered = toSafeNumber(BigInt(stored[8]), "daysCovered");
+  }
+
+  if (submittedFruitVegGrams !== fruitVegGrams || healthyItems + unhealthyItems > totalItems ||
+    healthScore === 0 && nutritionScore === 0 && pointsEarned === 0) {
     throw new VerifiedReceiptError("Receipt aggregate does not match on-chain data", 422, "ONCHAIN_AGGREGATE_MISMATCH");
   }
 
@@ -133,6 +163,6 @@ export async function verifyReceiptTransaction(txHash: string): Promise<Verified
     nutritionScore,
     pointsEarned,
     blockNumber: receipt.blockNumber,
-    builderCodeAttributed: transaction.data.toLowerCase().endsWith(runtimeConfig.builderCodeSuffix.toLowerCase()),
+    builderCodeAttributed: transaction?.data.toLowerCase().includes(runtimeConfig.builderCodeSuffix.toLowerCase()) ?? false,
   };
 }

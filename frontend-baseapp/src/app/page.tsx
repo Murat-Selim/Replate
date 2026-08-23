@@ -40,7 +40,7 @@ export default function Home() {
 
                         <div className="pt-2">
                             <Link
-                                href="/verify-receipt"
+                                href="/shop"
                                 className="flex sm:inline-flex w-full sm:w-auto items-center justify-center gap-3 bg-[#00E36E] hover:bg-[#00FF66] text-[#050806] py-4 px-8 rounded-2xl font-black text-lg shadow-[0_0_20px_rgba(0,227,110,0.3)] hover:shadow-[0_0_30px_rgba(0,227,110,0.5)] transition-all hover:scale-[1.02] active:scale-[0.98] group"
                             >
                                 Verify Receipt
