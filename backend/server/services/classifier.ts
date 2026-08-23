@@ -42,6 +42,32 @@ export function normalizeTurkish(text: string): string {
     .toLowerCase();
 }
 
+function parseWeightGrams(text: string, lineOnly = false): number {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  const weightPattern = /(\d+(?:\s*[.,]\s*\d{1,3})?)\s*(kg|g)\b/i;
+  const match = (lineOnly
+    ? normalized.match(new RegExp(`^${weightPattern.source}$`, "i"))
+    : normalized.match(weightPattern));
+
+  if (match) {
+    const amount = Number(match[1].replace(/\s/g, "").replace(",", "."));
+    const isKg = match[2].toLowerCase() === "kg";
+    const grams = Math.round(amount * (isKg ? 1000 : 1));
+    if (Number.isFinite(grams) && grams > 0 && (isKg ? grams <= 50000 : grams <= 5000 && grams >= 10)) {
+      return grams;
+    }
+  }
+
+  if (lineOnly) {
+    const bareKg = normalized.match(/^(\d+)\s*[.,]\s*(\d{1,3})$/);
+    if (bareKg) {
+      return Math.round(Number(`${bareKg[1]}.${bareKg[2]}`) * 1000);
+    }
+  }
+
+  return 0;
+}
+
 const matchKeyword = (text: string, keyword: string): boolean => {
   const normText = normalizeTurkish(text);
   const normKw = normalizeTurkish(keyword);
@@ -208,7 +234,7 @@ function extractProductLines(lines: string[]): ExtractedProduct[] {
     if (isUnitPriceLine) continue;
 
     // Standalone weight lines: 0.430 / 0,430 / 1.864 kg
-    if (/^\d+[.,]\d{1,3}(\s*kg)?$/i.test(trimmed)) continue;
+    if (parseWeightGrams(trimmed, true)) continue;
 
     const hasPrice =
       /[*]\d+[.,]\d{2}/.test(trimmed) || /\d+[.,]\d{2}\s*$/.test(trimmed);
@@ -229,24 +255,19 @@ function extractProductLines(lines: string[]): ExtractedProduct[] {
     let quantity = 1;
 
     const previousLine = lines[i - 1]?.trim() ?? "";
-    const previousUnitPriceLine = /^(?:\d+[.,]\d{1,3}\s*KG|\d+\s*AD(?:ET)?)\s*x\s*\d+[.,]\d{2}\s*TL\s*\/\s*(?:KG|AD(?:ET)?)$/i.test(previousLine);
+    const previousUnitPriceLine = /^(?:\d+(?:\s*[.,]\s*\d{1,3})?\s*KG|\d+\s*AD(?:ET)?)\s*x\s*\d+[.,]\d{2}\s*TL\s*\/\s*(?:KG|AD(?:ET)?)$/i.test(previousLine);
     if (previousUnitPriceLine) {
-      const previousWeight = previousLine.match(/^(\d+)[.,](\d{1,3})\s*KG/i);
-      if (previousWeight) {
-        actualWeightGrams = Number(previousWeight[1]) * 1000 + Number(previousWeight[2].padEnd(3, "0"));
-      }
+      actualWeightGrams = parseWeightGrams(previousLine);
       const previousQuantity = previousLine.match(/^(\d+)\s*AD(?:ET)?/i);
       if (previousQuantity) quantity = Math.max(1, Number(previousQuantity[1]));
     }
 
     if (i + 1 < lines.length) {
       const nextLine = lines[i + 1].trim();
-      const weightMatch = nextLine.match(/^(\d+)[.,](\d{1,3})(?:\s*kg)?$/i);
-      if (weightMatch) {
+      const nextWeightGrams = parseWeightGrams(nextLine, true);
+      if (nextWeightGrams) {
         hasWeightLineBelow = true;
-        const whole = parseInt(weightMatch[1], 10);
-        const frac = weightMatch[2].padEnd(3, "0").slice(0, 3);
-        actualWeightGrams = whole * 1000 + parseInt(frac, 10);
+        actualWeightGrams = nextWeightGrams;
       }
     }
 
@@ -329,7 +350,6 @@ export function cleanProductLine(
   cleaned = cleaned.replace(/[*]?\d+[.,]\d{2}\s*$/, "").trim();
   cleaned = cleaned.replace(/TL\/(kg|ad|lt|adet)/gi, "").trim();
   cleaned = cleaned.replace(/\bTL\b\s*$/i, "").trim();
-  cleaned = cleaned.replace(/^\d+[.,]\d{1,3}\b\s*/, "").trim();
 
   // Egg pack / grade FIRST so "63-72 G" is never parsed as product weight
   cleaned = cleaned.replace(/\b\d+\s*LI\b/gi, "").trim();
@@ -338,30 +358,16 @@ export function cleanProductLine(
   cleaned = cleaned.replace(/\b([SML])\b(?=\s*$|\s+\d)/gi, "").trim();
 
   if (!actualWeightGrams) {
-    const inlineWeight =
-      cleaned.match(/(\d+)\s*G\b/i) || cleaned.match(/\((\d+)\s*G?\)/i);
-    if (inlineWeight) {
-      const inlineGrams = parseInt(inlineWeight[1], 10);
-      if (inlineGrams >= 10 && inlineGrams <= 5000) {
-        actualWeightGrams = inlineGrams;
-      }
-    }
-    const inlineKg = cleaned.match(/(\d+)[.,](\d{1,3})\s*kg\b/i);
-    if (inlineKg && !actualWeightGrams) {
-      const whole = parseInt(inlineKg[1], 10);
-      const frac = inlineKg[2].padEnd(3, "0").slice(0, 3);
-      actualWeightGrams = whole * 1000 + parseInt(frac, 10);
-    }
-    const wholeKg = cleaned.match(/\b(\d+)\s*kg\b/i);
-    if (wholeKg && !actualWeightGrams) {
-      const kg = parseInt(wholeKg[1], 10);
-      if (kg >= 1 && kg <= 50) actualWeightGrams = kg * 1000;
-    }
+    actualWeightGrams = parseWeightGrams(cleaned);
   }
+
+  cleaned = cleaned
+    .replace(/^(?:\d+\s*[.,]\s*\d{1,3}(?:\s*kg\b)?|\d+\s*kg\b)\s*/i, "")
+    .trim();
 
   // Weights / volumes
   cleaned = cleaned.replace(/\b\d+\s*G\b/gi, "").trim();
-  cleaned = cleaned.replace(/\b\d+[.,]\d{1,3}\s*kg\b/gi, "").trim();
+  cleaned = cleaned.replace(/\b\d+\s*[.,]\s*\d{1,3}\s*kg\b/gi, "").trim();
   cleaned = cleaned.replace(/\b\d+\s*kg\b/gi, "").trim();
   cleaned = cleaned.replace(/\b\d+[.,]?\d*\s*L\b/gi, "").trim(); // 1 L, 1.5 L
   cleaned = cleaned.replace(/\b(?:KG|KGM|AD(?:ET)?)\.?\b/gi, "").trim();

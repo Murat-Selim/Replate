@@ -159,6 +159,15 @@ function testCleanProductLine() {
     !normalizeTurkish(milk.cleaned).includes("birsan"),
     "brand BIRSAN stripped"
   );
+
+  const decimalKg = cleanProductLine("0.85 KG DOMATES %01 *42,50");
+  assert(
+    decimalKg.weightGrams === 850 && normalizeTurkish(decimalKg.cleaned) === "domates",
+    `0.85 KG converts to 850g (got ${decimalKg.weightGrams}g / "${decimalKg.cleaned}")`
+  );
+
+  const commaKg = cleanProductLine("0,85 kg DOMATES %01 *42,50");
+  assert(commaKg.weightGrams === 850, `0,85 kg converts to 850g (got ${commaKg.weightGrams}g)`);
 }
 
 function testOCRGates() {
