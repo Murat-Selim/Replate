@@ -342,6 +342,16 @@ async function testReceiptGolden() {
     a101Photo.fruitVegGrams === 1895,
     `A101 unit price lines keep 710g + 670g + 515g (got ${a101Photo.fruitVegGrams}g)`
   );
+
+  const processedA101 = await classifyFoods([
+    "MEYVE NEKTARI KARISIK 1 L CAPP%10 *69,50",
+    "DOND. TWISTER OCEAN 65 ML ALG%01 *15,00",
+    "BAR KAKAO KAPL. YER FISTIKLI 4%01 *8,50",
+  ]);
+  assert(
+    processedA101.unhealthyItems === 3,
+    `A101 nectar, ice cream and cocoa bar are unhealthy (got ${processedA101.unhealthyItems})`
+  );
 }
 
 async function main() {
