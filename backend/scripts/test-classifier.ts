@@ -352,6 +352,17 @@ async function testReceiptGolden() {
     processedA101.unhealthyItems === 3,
     `A101 nectar, ice cream and cocoa bar are unhealthy (got ${processedA101.unhealthyItems})`
   );
+
+  const previousOffApi = process.env.USE_OFF_API;
+  process.env.USE_OFF_API = "false";
+  const unknownProduct = await classifyFoods(["ORNEK URUN XYZ %01 *12,00"]);
+  if (previousOffApi === undefined) delete process.env.USE_OFF_API;
+  else process.env.USE_OFF_API = previousOffApi;
+  assert(
+    unknownProduct.totalItems === 1 &&
+      unknownProduct.products[0]?.category === "neutral",
+    "unknown products stay in the receipt with a neutral fallback category"
+  );
 }
 
 async function main() {

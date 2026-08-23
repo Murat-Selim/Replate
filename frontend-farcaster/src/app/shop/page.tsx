@@ -517,7 +517,6 @@ Join me in reducing food waste!`,
                                         </div>
                                     </div>
 
-
                                     <p className="text-[10px] text-[#A6B0B5] leading-relaxed">Based on an average target of around 300g of fruit and vegetables per person per day. We check if your basket provides enough for your household.</p>
 
                                     <div className="bg-[#22D97A]/5 border border-[#22D97A]/15 rounded-[22px] p-4 space-y-3">

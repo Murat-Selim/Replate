@@ -106,6 +106,11 @@ export interface FoodClassification {
   products: ClassificationResult[];
 }
 
+const UNHEALTHY_SIGNALS = [
+  "nektar", "dond.", "dondurma", "sekerli", "surup", "glikoz", "fruktoz",
+  "cikolata", "cips", "biskuvi", "gofret", "gazli icecek", "limonata", "tatli",
+];
+
 // Fruit/veg keyword set for processed restriction (normalized ids)
 const FRUIT_VEG_IDS = new Set(
   Object.keys(FRUIT_VEG_KEYWORDS).map((k) => normalizeTurkish(k))
@@ -197,7 +202,9 @@ export async function classifyFoods(
 
     if (classification.category === "healthy") healthyItems++;
     else if (classification.category === "unhealthy") unhealthyItems++;
-    if (classification.category !== "excluded") fruitVegGrams += classification.fruitVegGrams;
+    if (classification.category !== "excluded") {
+      fruitVegGrams += classification.fruitVegGrams;
+    }
   }
 
   debugLog(
@@ -207,7 +214,7 @@ export async function classifyFoods(
   return {
     totalItems: scoreableProducts.length,
     detectedItems: products.length,
-    excludedItems: products.length - scoreableProducts.length,
+    excludedItems: products.filter((product) => product.category === "excluded").length,
     healthyItems,
     unhealthyItems,
     fruitVegGrams,
@@ -437,7 +444,7 @@ async function classifyProduct(
   // Resolve alias → canonical id (longest match first)
   let resolvedName = normalized;
   for (const [alias, canonical] of SORTED_ALIAS_ENTRIES) {
-    if (normalized.includes(normalizeTurkish(alias))) {
+    if (matchKeyword(normalized, alias)) {
       resolvedName = normalizeTurkish(canonical);
       break;
     }
@@ -490,6 +497,15 @@ async function classifyProduct(
     (kw) => matchKeyword(resolvedName, kw) || matchKeyword(normalized, kw)
   );
 
+  if (!isHealthy && !isUnhealthy && UNHEALTHY_SIGNALS.some((signal) => matchKeyword(normalized, signal))) {
+    return {
+      name: productName,
+      category: "unhealthy",
+      fruitVegGrams: 0,
+      confidence: 0.72,
+    };
+  }
+
   if (isHealthy && isUnhealthy) {
     return {
       name: productName,
@@ -529,7 +545,7 @@ async function classifyProduct(
     };
   }
 
-  if (process.env.USE_OFF_API === "true") {
+  if (process.env.USE_OFF_API !== "false") {
     try {
       const offResult = await queryOpenFoodFacts(
         productName,
@@ -543,9 +559,10 @@ async function classifyProduct(
 
   return {
     name: productName,
+    // Unknown food stays in the receipt; neutral is the safe category when no reliable evidence exists.
     category: "neutral",
     fruitVegGrams,
-    confidence: 0.5,
+    confidence: 0.35,
   };
 }
 
@@ -582,6 +599,10 @@ async function queryOpenFoodFacts(
     const product = products[0];
     const nutriscore = product.nutriscore_grade?.toUpperCase();
     const fruitVegPer100g = Number(product.fruits_vegetables_nuts_100g) || 0;
+    if (!nutriscore && fruitVegPer100g === 0) {
+      offCache.set(cacheKey, null);
+      return null;
+    }
 
     let category: "healthy" | "unhealthy" | "neutral" = "neutral";
     if (nutriscore === "A" || nutriscore === "B") category = "healthy";
