@@ -17,11 +17,5 @@
       "source": "/",
       "destination": "/api"
     }
-  ],
-  "crons": [
-    {
-      "path": "/api/cron/weekly",
-      "schedule": "0 0 * * 0"
-    }
   ]
 }
