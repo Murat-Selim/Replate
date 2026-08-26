@@ -224,7 +224,8 @@ router.post("/receipt-sig", async (req: Request, res: Response) => {
       },
       receiptHash,
       Number(deadline),
-      signature
+      signature,
+      String(nonce)
     );
 
     // Refresh leaderboard

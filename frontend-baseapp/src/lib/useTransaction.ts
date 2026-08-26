@@ -182,48 +182,29 @@ export function useSubmitReceipt() {
           message,
         });
 
-        // 3. Call submitReceiptWithSig directly
-        const callData = encodeFunctionData({
-          abi: REPLATE_QUEST_ABI,
-          functionName: 'submitReceiptWithSig',
-          args: [
-            address,
-            receiptData.receiptHash,
-            receiptData.totalItems,
-            receiptData.healthyItems,
-            receiptData.unhealthyItems,
-            receiptData.fruitVegGrams,
-            receiptData.householdSize,
-            receiptData.daysCovered,
-            deadline,
+        // 3. Backend adds the validator attestation and relays the transaction.
+        const relayResponse = await fetch(getApiUrl('/api/meta/receipt-sig'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userAddress: address,
+            receiptHash: receiptData.receiptHash,
+            totalItems: receiptData.totalItems,
+            healthyItems: receiptData.healthyItems,
+            unhealthyItems: receiptData.unhealthyItems,
+            fruitVegGrams: receiptData.fruitVegGrams,
+            householdSize: receiptData.householdSize,
+            daysCovered: receiptData.daysCovered,
+            nonce: nonce.toString(),
+            deadline: Number(deadline),
             signature,
-          ],
+          }),
         });
-        const txHash = connector?.id === 'baseAccount' && walletClient
-          ? (await walletClient.sendCallsSync({
-              account: address,
-              chain: appChain,
-              calls: [{ to: CONTRACT_ADDRESS, data: concat([callData, DATA_SUFFIX]) }],
-            })).receipts?.[0]?.transactionHash
-          : await writeContractAsync({
-              address: CONTRACT_ADDRESS,
-              abi: REPLATE_QUEST_ABI,
-              functionName: 'submitReceiptWithSig',
-              chainId: appChain.id,
-              args: [
-                address,
-                receiptData.receiptHash,
-                receiptData.totalItems,
-                receiptData.healthyItems,
-                receiptData.unhealthyItems,
-                receiptData.fruitVegGrams,
-                receiptData.householdSize,
-                receiptData.daysCovered,
-                deadline,
-                signature,
-              ],
-              dataSuffix: DATA_SUFFIX,
-            });
+        const relayData = await relayResponse.json();
+        if (!relayResponse.ok || !relayData.success) {
+          throw new Error(relayData.error || 'Receipt relay failed');
+        }
+        const txHash = relayData.data?.txHash;
         if (!txHash) throw new Error('Wallet did not return a transaction hash');
 
         const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });

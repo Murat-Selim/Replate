@@ -2,6 +2,7 @@ import { ethers, Wallet, Contract } from "ethers";
 import fs from "fs";
 import path from "path";
 import { REPLATE_QUEST_ABI, CONTRACT_ADDRESS } from "../../src/lib/contract.js";
+import { BASE_MAINNET_CHAIN_ID } from "../../src/lib/network.js";
 import { runtimeConfig } from "../config.js";
 
 // ─── Sabitler ─────────────────────────────────────────────────────────
@@ -17,6 +18,21 @@ const RPC_LIST: string[] = [
 ].filter(Boolean) as string[];
 
 const CONTRACT_DEPLOY_BLOCK = 47849426;
+
+const RECEIPT_TYPES = {
+  SubmitReceipt: [
+    { name: "user", type: "address" },
+    { name: "receiptHash", type: "bytes32" },
+    { name: "totalItems", type: "uint8" },
+    { name: "healthyItems", type: "uint8" },
+    { name: "unhealthyItems", type: "uint8" },
+    { name: "fruitVegGrams", type: "uint16" },
+    { name: "householdSize", type: "uint8" },
+    { name: "daysCovered", type: "uint8" },
+    { name: "nonce", type: "uint256" },
+    { name: "deadline", type: "uint256" },
+  ],
+};
 
 function assertWriteConfiguration(): never {
   throw new Error("Blockchain write service is not configured");
@@ -827,7 +843,8 @@ export async function submitReceiptWithSig(
   data: ReceiptSubmission,
   receiptHash: string,
   deadline: number,
-  signature: string
+  signature: string,
+  nonce: string
 ): Promise<ContractResult> {
   try {
     saveUser(data.user);
@@ -837,6 +854,38 @@ export async function submitReceiptWithSig(
         totalItems: data.totalItems,
         healthyItems: data.healthyItems,
       });
+
+      if (!wallet) throw new Error("Wallet not initialized");
+      const currentNonce = await c.nonces(data.user);
+      if (currentNonce !== BigInt(nonce)) {
+        throw new Error("Nonce changed. Please sign the receipt again.");
+      }
+
+      const validatorSignature = await wallet.signTypedData(
+        {
+          name: "ReplateQuest",
+          version: "1",
+          chainId: BASE_MAINNET_CHAIN_ID,
+          verifyingContract: process.env.CONTRACT_ADDRESS || CONTRACT_ADDRESS,
+        },
+        RECEIPT_TYPES,
+        {
+          user: data.user,
+          receiptHash,
+          totalItems: data.totalItems,
+          healthyItems: data.healthyItems,
+          unhealthyItems: data.unhealthyItems,
+          fruitVegGrams: data.fruitVegGrams,
+          householdSize: data.householdSize,
+          daysCovered: data.daysCovered,
+          nonce: BigInt(nonce),
+          deadline: BigInt(deadline),
+        }
+      );
+      const signatures = ethers.AbiCoder.defaultAbiCoder().encode(
+        ["bytes", "bytes"],
+        [signature, validatorSignature]
+      );
 
       const txRequest = await c.submitReceiptWithSig.populateTransaction(
         data.user,
@@ -848,12 +897,10 @@ export async function submitReceiptWithSig(
         data.householdSize,
         data.daysCovered,
         deadline,
-        signature
+        signatures
       );
       // Append Builder Code suffix
       txRequest.data = txRequest.data + BUILDER_CODE_SUFFIX;
-
-      if (!wallet) throw new Error("Wallet not initialized");
 
       const tx = await wallet.sendTransaction(txRequest);
       console.log(`📤 ReceiptWithSig tx: ${tx.hash}`);
