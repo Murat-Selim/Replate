@@ -9,6 +9,7 @@ import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol
 import "@openzeppelin/contracts-upgradeable/utils/cryptography/EIP712Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/NoncesUpgradeable.sol";
 import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /// @title ReplateQuest
@@ -23,6 +24,7 @@ contract ReplateQuest is
     EIP712Upgradeable,
     NoncesUpgradeable
 {
+    using Strings for uint256;
     // ─── Phase System ────────────────────────────────────────────────
     // Legacy phase storage is retained for UUPS layout compatibility.
     // Receipt submissions are permanently free in this implementation.
@@ -41,6 +43,18 @@ contract ReplateQuest is
         uint8   householdSize;
         uint8   daysCovered;
         uint256 pointsEarned;
+    }
+
+    struct ReceiptAuthorization {
+        address user;
+        bytes32 receiptHash;
+        uint8 totalItems;
+        uint8 healthyItems;
+        uint8 unhealthyItems;
+        uint16 fruitVegGrams;
+        uint8 householdSize;
+        uint8 daysCovered;
+        uint256 deadline;
     }
 
     struct WeeklyReport {
@@ -87,7 +101,7 @@ contract ReplateQuest is
     // ─── Security Mappings ───────────────────────────────────────────
     mapping(uint256 => bool)                             public weekDistributed;
     mapping(address => mapping(uint256 => bool))         public weekFinalized;
-    // Legacy storage retained for UUPS layout compatibility; no longer enforced.
+    // Daily receipt throttle. The slot is legacy, but safe to reuse for this invariant.
     mapping(address => uint256)                          public lastReceiptDay;
 
     // ─── Check-in Mappings ───────────────────────────────────────────
@@ -101,6 +115,10 @@ contract ReplateQuest is
     mapping(bytes32 => bool) public usedReceiptHashes;
     // Appended after all existing storage to preserve the UUPS layout.
     mapping(bytes32 => bool) public questXpClaimed;
+    // Appended after all existing storage to preserve the UUPS layout.
+    mapping(address => uint256) public lastFinalizedWeek;
+    // Appended after all existing storage to preserve the UUPS layout.
+    string public badgeBaseURI;
 
     // ─── Events ──────────────────────────────────────────────────────
     event ReceiptSubmitted(
@@ -108,7 +126,7 @@ contract ReplateQuest is
         uint8   healthScore,
         uint8   nutritionScore,
         uint256 pointsEarned,
-        uint16  expectedGrams,
+        uint256 expectedGrams,
         uint16  actualGrams
     );
     event WeekFinalized(address indexed user, uint256 weekNumber, uint256 weeklyPoints, uint256 newStreak);
@@ -124,6 +142,19 @@ contract ReplateQuest is
     event FeeUpdated(uint256 oldFee, uint256 newFee);
     event ReceiptHashConsumed(address indexed user, bytes32 indexed receiptHash);
     event QuestXpClaimed(address indexed user, bytes32 indexed questId, bytes32 indexed weekKey, uint256 amount);
+    event BadgeBaseURIUpdated(string oldBaseURI, string newBaseURI);
+    event ReceiptVerified(
+        bytes32 indexed receiptHash,
+        address indexed user,
+        uint8 healthScore,
+        uint8 nutritionScore,
+        uint256 pointsEarned,
+        uint8 totalItems,
+        uint8 healthyItems,
+        uint8 unhealthyItems,
+        uint16 fruitVegGrams,
+        uint256 expectedGrams
+    );
 
     // ─── Modifiers ───────────────────────────────────────────────────
     modifier onlyValidator() {
@@ -195,66 +226,8 @@ contract ReplateQuest is
 
     // ─── Core Function ───────────────────────────────────────────────
 
-    /// @notice Submit a verified receipt for a user
-    function submitReceipt(
-        address user,
-        uint8   totalItems,
-        uint8   healthyItems,
-        uint8   unhealthyItems,
-        uint16  fruitVegGrams,
-        uint8   householdSize,
-        uint8   daysCovered
-    ) external onlyValidator whenNotPaused nonReentrant {
-
-        require(user != address(0),                             "Invalid user address");
-        require(totalItems > 0,                                 "Empty receipt");
-        require(healthyItems + unhealthyItems <= totalItems,    "Item count mismatch");
-        require(householdSize >= 1 && householdSize <= 10,      "Household size must be 1-10");
-        require(daysCovered >= 1 && daysCovered <= 30,          "Days covered must be 1-30");
-
-        // -- Calculate scores --
-        uint8 healthScore = _calcHealthScore(totalItems, healthyItems, unhealthyItems);
-
-        uint16 expectedGrams = uint16(householdSize)
-                             * uint16(daysCovered)
-                             * DAILY_FRUIT_VEG_PER_PERSON;
-
-        uint8 nutritionScore = _calcNutritionScore(fruitVegGrams, expectedGrams);
-
-        uint256 points = _calcPoints(healthScore, totalItems, healthyItems, nutritionScore);
-
-        // -- Save to blockchain --
-        receipts[user].push(Receipt({
-            timestamp:      block.timestamp,
-            healthScore:    healthScore,
-            nutritionScore: nutritionScore,
-            totalItems:     totalItems,
-            healthyItems:   healthyItems,
-            unhealthyItems: unhealthyItems,
-            fruitVegGrams:  fruitVegGrams,
-            householdSize:  householdSize,
-            daysCovered:    daysCovered,
-            pointsEarned:   points
-        }));
-
-        totalPoints[user] += points;
-
-        // -- Add to weekly report --
-        uint256 weekNum = block.timestamp / 7 days;
-        WeeklyReport storage report = weeklyReports[user][weekNum];
-        report.receiptCount     += 1;
-        report.totalPoints      += points;
-        report.avgHealthScore    = _updateAvg(report.avgHealthScore,    healthScore,    report.receiptCount);
-        report.avgNutritionScore = _updateAvg(report.avgNutritionScore, nutritionScore, report.receiptCount);
-
-        emit ReceiptSubmitted(user, healthScore, nutritionScore, points, expectedGrams, fruitVegGrams);
-
-        // -- Badge check --
-        _checkAndMintBadge(user, healthScore, nutritionScore);
-    }
-
     function _checkAndMintBadge(address user, uint8 healthScore, uint8 nutritionScore) internal {
-        if (!hasBadge[user] && healthScore >= MIN_HEALTHY_SCORE && nutritionScore >= 60) {
+        if (balanceOf(user) == 0 && healthScore >= MIN_HEALTHY_SCORE && nutritionScore >= 60) {
             hasBadge[user] = true;
             nextTokenId++;
             _mint(user, nextTokenId);
@@ -262,29 +235,29 @@ contract ReplateQuest is
         }
     }
 
-    // ─── Daily Check-in ──────────────────────────────────────────────
-
-    /// @notice User checks in daily to earn 10 XP. Streak resets if a day is missed.
-    function checkIn(address user) external onlyValidator whenNotPaused {
-        require(user != address(0), "Invalid user address");
-
-        uint256 today = block.timestamp / 1 days;
-        require(lastCheckInDay[user] < today, "Already checked in today");
-
-        // Update check-in streak
-        // If last check-in was yesterday → streak continues, otherwise reset to 1
-        if (lastCheckInDay[user] == today - 1) {
-            checkInStreak[user] += 1;
-        } else {
-            checkInStreak[user] = 1;
-        }
-
-        lastCheckInDay[user] = today;
-        totalCheckIns[user]  += 1;
-        totalPoints[user]    += CHECKIN_POINTS;
-
-        emit CheckedIn(user, today, checkInStreak[user], CHECKIN_POINTS);
+    /// @notice Badge metadata is externally hosted and controlled by the validator.
+    function setBadgeBaseURI(string calldata newBaseURI) external onlyValidator {
+        emit BadgeBaseURIUpdated(badgeBaseURI, newBaseURI);
+        badgeBaseURI = newBaseURI;
     }
+
+    /// @notice Achievement badges are soulbound and cannot be transferred.
+    function _update(address to, uint256 tokenId, address auth)
+        internal
+        override
+        returns (address)
+    {
+        address from = _ownerOf(tokenId);
+        if (from != address(0) && to != address(0)) revert("Badge is soulbound");
+        return super._update(to, tokenId, auth);
+    }
+
+    function tokenURI(uint256 tokenId) public view override returns (string memory) {
+        _requireOwned(tokenId);
+        return string.concat(badgeBaseURI, tokenId.toString());
+    }
+
+    // ─── Daily Check-in ──────────────────────────────────────────────
 
     /// @notice Meta-transaction check-in: user signs EIP-712 message, anyone can relay
     /// @param user      The user who signed the check-in request
@@ -385,20 +358,24 @@ contract ReplateQuest is
         weekFinalized[user][lastWeek] = true;
 
         WeeklyReport storage report = weeklyReports[user][lastWeek];
-        require(report.receiptCount > 0, "No receipts last week");
 
-        bool healthyWeek   = report.avgHealthScore   >= MIN_HEALTHY_SCORE;
-        bool nutritionWeek = report.avgNutritionScore >= 60;
+        bool healthyWeek = report.receiptCount > 0 &&
+            report.avgHealthScore >= MIN_HEALTHY_SCORE &&
+            report.avgNutritionScore >= 60;
+        bool consecutiveWeek = lastFinalizedWeek[user] + 1 == lastWeek;
 
-        if (healthyWeek && nutritionWeek) {
+        if (healthyWeek && consecutiveWeek) {
             streak[user] += 1;
             uint256 bonus = streak[user] * STREAK_BONUS;
             report.totalPoints += bonus;
             totalPoints[user]  += bonus;
+        } else if (healthyWeek) {
+            streak[user] = 1;
         } else {
             streak[user] = 0;
         }
 
+        lastFinalizedWeek[user] = lastWeek;
         emit WeekFinalized(user, lastWeek, report.totalPoints, streak[user]);
     }
 
@@ -413,7 +390,7 @@ contract ReplateQuest is
         uint8   householdSize,
         uint8   daysCovered,
         uint256 deadline,
-        bytes calldata signature
+        bytes calldata signatures
     ) external whenNotPaused nonReentrant {
 
         require(user != address(0),                             "Invalid user address");
@@ -425,96 +402,141 @@ contract ReplateQuest is
         require(householdSize >= 1 && householdSize <= 10,      "Household size must be 1-10");
         require(daysCovered >= 1 && daysCovered <= 30,          "Days covered must be 1-30");
 
-        // Verify EIP-712 signature in a separate scope to avoid stack-too-deep
-        _verifyReceiptSig(
-            user, receiptHash, totalItems, healthyItems, unhealthyItems,
-            fruitVegGrams, householdSize, daysCovered, deadline, signature
-        );
+        ReceiptAuthorization memory authorization = ReceiptAuthorization({
+            user: user,
+            receiptHash: receiptHash,
+            totalItems: totalItems,
+            healthyItems: healthyItems,
+            unhealthyItems: unhealthyItems,
+            fruitVegGrams: fruitVegGrams,
+            householdSize: householdSize,
+            daysCovered: daysCovered,
+            deadline: deadline
+        });
+        _verifyReceiptAuthorization(authorization, signatures);
 
         // ── Same logic as submitReceipt (without onlyValidator) ──
         usedReceiptHashes[receiptHash] = true;
         emit ReceiptHashConsumed(user, receiptHash);
 
-        _processReceipt(user, totalItems, healthyItems, unhealthyItems, fruitVegGrams, householdSize, daysCovered);
+        _processReceipt(authorization);
     }
 
-    /// @dev Internal: verify EIP-712 receipt signature
-    function _verifyReceiptSig(
-        address user,
-        bytes32 receiptHash,
-        uint8   totalItems,
-        uint8   healthyItems,
-        uint8   unhealthyItems,
-        uint16  fruitVegGrams,
-        uint8   householdSize,
-        uint8   daysCovered,
-        uint256 deadline,
-        bytes calldata signature
+    function _verifyReceiptAuthorization(
+        ReceiptAuthorization memory authorization,
+        bytes calldata signatures
     ) internal {
-        uint256 currentNonce = _useNonce(user);
+        (bytes memory userSignature, bytes memory validatorSignature) =
+            abi.decode(signatures, (bytes, bytes));
+        bytes32 digest = _receiptDigest(authorization, _useNonce(authorization.user));
+        require(SignatureChecker.isValidSignatureNow(authorization.user, digest, userSignature), "Invalid user signature");
+        require(SignatureChecker.isValidSignatureNow(validator, digest, validatorSignature), "Invalid validator attestation");
+    }
 
+    /// @dev Internal: build the receipt authorization digest.
+    function _receiptDigest(
+        ReceiptAuthorization memory authorization,
+        uint256 currentNonce
+    ) internal view returns (bytes32) {
         bytes32 structHash = keccak256(abi.encode(
             RECEIPT_TYPEHASH,
-            user,
-            receiptHash,
-            totalItems,
-            healthyItems,
-            unhealthyItems,
-            fruitVegGrams,
-            householdSize,
-            daysCovered,
+            authorization.user,
+            authorization.receiptHash,
+            authorization.totalItems,
+            authorization.healthyItems,
+            authorization.unhealthyItems,
+            authorization.fruitVegGrams,
+            authorization.householdSize,
+            authorization.daysCovered,
             currentNonce,
-            deadline
+            authorization.deadline
         ));
 
-        bytes32 digest = _hashTypedDataV4(structHash);
-        require(SignatureChecker.isValidSignatureNow(user, digest, signature), "Invalid signature");
+        return _hashTypedDataV4(structHash);
     }
 
     /// @dev Internal: process receipt data (shared by submitReceipt and submitReceiptWithSig)
     function _processReceipt(
-        address user,
-        uint8   totalItems,
-        uint8   healthyItems,
-        uint8   unhealthyItems,
-        uint16  fruitVegGrams,
-        uint8   householdSize,
-        uint8   daysCovered
+        ReceiptAuthorization memory authorization
     ) internal {
-        uint8 healthScore = _calcHealthScore(totalItems, healthyItems, unhealthyItems);
+        uint8 healthScore = _calcHealthScore(
+            authorization.totalItems,
+            authorization.healthyItems,
+            authorization.unhealthyItems
+        );
 
-        uint16 expectedGrams = uint16(householdSize)
-                             * uint16(daysCovered)
-                             * DAILY_FRUIT_VEG_PER_PERSON;
+        uint256 expectedGrams = uint256(authorization.householdSize)
+                              * uint256(authorization.daysCovered)
+                              * DAILY_FRUIT_VEG_PER_PERSON;
 
-        uint8 nutritionScore = _calcNutritionScore(fruitVegGrams, expectedGrams);
-        uint256 points = _calcPoints(healthScore, totalItems, healthyItems, nutritionScore);
+        uint256 today = block.timestamp / 1 days;
+        require(lastReceiptDay[authorization.user] < today, "Daily receipt limit reached");
+        lastReceiptDay[authorization.user] = today;
 
-        receipts[user].push(Receipt({
+        uint256 weekNum = block.timestamp / 7 days;
+        require(weeklyReports[authorization.user][weekNum].receiptCount < 7, "Weekly receipt limit reached");
+
+        uint8 nutritionScore = _calcNutritionScore(authorization.fruitVegGrams, expectedGrams);
+        uint256 points = _calcPoints(
+            healthScore,
+            authorization.totalItems,
+            authorization.healthyItems,
+            nutritionScore
+        );
+
+        receipts[authorization.user].push(Receipt({
             timestamp:      block.timestamp,
             healthScore:    healthScore,
             nutritionScore: nutritionScore,
-            totalItems:     totalItems,
-            healthyItems:   healthyItems,
-            unhealthyItems: unhealthyItems,
-            fruitVegGrams:  fruitVegGrams,
-            householdSize:  householdSize,
-            daysCovered:    daysCovered,
+            totalItems:     authorization.totalItems,
+            healthyItems:   authorization.healthyItems,
+            unhealthyItems: authorization.unhealthyItems,
+            fruitVegGrams:  authorization.fruitVegGrams,
+            householdSize:  authorization.householdSize,
+            daysCovered:    authorization.daysCovered,
             pointsEarned:   points
         }));
 
-        totalPoints[user] += points;
+        totalPoints[authorization.user] += points;
 
-        uint256 weekNum = block.timestamp / 7 days;
-        WeeklyReport storage report = weeklyReports[user][weekNum];
+        WeeklyReport storage report = weeklyReports[authorization.user][weekNum];
         report.receiptCount     += 1;
         report.totalPoints      += points;
         report.avgHealthScore    = _updateAvg(report.avgHealthScore,    healthScore,    report.receiptCount);
         report.avgNutritionScore = _updateAvg(report.avgNutritionScore, nutritionScore, report.receiptCount);
 
-        emit ReceiptSubmitted(user, healthScore, nutritionScore, points, expectedGrams, fruitVegGrams);
+        emit ReceiptSubmitted(
+            authorization.user,
+            healthScore,
+            nutritionScore,
+            points,
+            expectedGrams,
+            authorization.fruitVegGrams
+        );
+        _emitReceiptVerified(authorization, healthScore, nutritionScore, points, expectedGrams);
 
-        _checkAndMintBadge(user, healthScore, nutritionScore);
+        _checkAndMintBadge(authorization.user, healthScore, nutritionScore);
+    }
+
+    function _emitReceiptVerified(
+        ReceiptAuthorization memory authorization,
+        uint8 healthScore,
+        uint8 nutritionScore,
+        uint256 points,
+        uint256 expectedGrams
+    ) internal {
+        emit ReceiptVerified(
+            authorization.receiptHash,
+            authorization.user,
+            healthScore,
+            nutritionScore,
+            points,
+            authorization.totalItems,
+            authorization.healthyItems,
+            authorization.unhealthyItems,
+            authorization.fruitVegGrams,
+            expectedGrams
+        );
     }
 
     // ─── Internal Calculation Functions ──────────────────────────────
@@ -536,7 +558,7 @@ contract ReplateQuest is
     ///      Over-buying is penalized to discourage food waste
     function _calcNutritionScore(
         uint16 actualGrams,
-        uint16 expectedGrams
+        uint256 expectedGrams
     ) internal pure returns (uint8) {
         if (expectedGrams == 0) return 75;
         if (actualGrams == 0)   return 10;

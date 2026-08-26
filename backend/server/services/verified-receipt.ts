@@ -79,6 +79,7 @@ export async function verifyReceiptTransaction(txHash: string): Promise<Verified
   let nutritionScore = 0;
   let pointsEarned = 0;
   let submittedFruitVegGrams = -1;
+  let canonicalReceipt: ethers.Result | null = null;
 
   for (const log of receipt.logs) {
     if (!sameAddress(log.address, runtimeConfig.contractAddress)) continue;
@@ -89,6 +90,9 @@ export async function verifyReceiptTransaction(txHash: string): Promise<Verified
       continue;
     }
     if (!parsedLog) continue;
+    if (parsedLog.name === "ReceiptVerified") {
+      canonicalReceipt = parsedLog.args;
+    }
     if (parsedLog.name === "ReceiptHashConsumed") {
       consumedUser = String(parsedLog.args[0]);
       consumedHash = String(parsedLog.args[1]);
@@ -100,6 +104,16 @@ export async function verifyReceiptTransaction(txHash: string): Promise<Verified
       pointsEarned = toSafeNumber(BigInt(parsedLog.args[3]), "pointsEarned");
       submittedFruitVegGrams = toSafeNumber(BigInt(parsedLog.args[5]), "actualGrams");
     }
+  }
+
+  if (canonicalReceipt) {
+    consumedHash = String(canonicalReceipt[0]);
+    consumedUser = String(canonicalReceipt[1]);
+    submittedUser = consumedUser;
+    healthScore = toSafeNumber(BigInt(canonicalReceipt[2]), "healthScore");
+    nutritionScore = toSafeNumber(BigInt(canonicalReceipt[3]), "nutritionScore");
+    pointsEarned = toSafeNumber(BigInt(canonicalReceipt[4]), "pointsEarned");
+    submittedFruitVegGrams = toSafeNumber(BigInt(canonicalReceipt[8]), "actualGrams");
   }
 
   if (!consumedUser || !submittedUser || !sameAddress(consumedUser, submittedUser)) {
@@ -137,10 +151,10 @@ export async function verifyReceiptTransaction(txHash: string): Promise<Verified
       throw new VerifiedReceiptError("Receipt was not found in the Replate contract", 422, "RECEIPT_NOT_FOUND");
     }
     const stored = await contract.receipts(userAddress, BigInt(receiptCount - 1));
-    totalItems = toSafeNumber(BigInt(stored[3]), "totalItems");
-    healthyItems = toSafeNumber(BigInt(stored[4]), "healthyItems");
-    unhealthyItems = toSafeNumber(BigInt(stored[5]), "unhealthyItems");
-    fruitVegGrams = toSafeNumber(BigInt(stored[6]), "fruitVegGrams");
+    totalItems = canonicalReceipt ? toSafeNumber(BigInt(canonicalReceipt[5]), "totalItems") : toSafeNumber(BigInt(stored[3]), "totalItems");
+    healthyItems = canonicalReceipt ? toSafeNumber(BigInt(canonicalReceipt[6]), "healthyItems") : toSafeNumber(BigInt(stored[4]), "healthyItems");
+    unhealthyItems = canonicalReceipt ? toSafeNumber(BigInt(canonicalReceipt[7]), "unhealthyItems") : toSafeNumber(BigInt(stored[5]), "unhealthyItems");
+    fruitVegGrams = canonicalReceipt ? toSafeNumber(BigInt(canonicalReceipt[8]), "fruitVegGrams") : toSafeNumber(BigInt(stored[6]), "fruitVegGrams");
     householdSize = toSafeNumber(BigInt(stored[7]), "householdSize");
     daysCovered = toSafeNumber(BigInt(stored[8]), "daysCovered");
   }

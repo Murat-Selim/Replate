@@ -21,33 +21,6 @@ export const REPLATE_QUEST_ABI = [
     "type": "error"
   },
   {
-    "inputs": [],
-    "name": "ECDSAInvalidSignature",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "length",
-        "type": "uint256"
-      }
-    ],
-    "name": "ECDSAInvalidSignatureLength",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "bytes32",
-        "name": "s",
-        "type": "bytes32"
-      }
-    ],
-    "name": "ECDSAInvalidSignatureS",
-    "type": "error"
-  },
-  {
     "inputs": [
       {
         "internalType": "address",
@@ -276,6 +249,25 @@ export const REPLATE_QUEST_ABI = [
       }
     ],
     "name": "ApprovalForAll",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "oldBaseURI",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "newBaseURI",
+        "type": "string"
+      }
+    ],
+    "name": "BadgeBaseURIUpdated",
     "type": "event"
   },
   {
@@ -515,9 +507,9 @@ export const REPLATE_QUEST_ABI = [
       },
       {
         "indexed": false,
-        "internalType": "uint16",
+        "internalType": "uint256",
         "name": "expectedGrams",
-        "type": "uint16"
+        "type": "uint256"
       },
       {
         "indexed": false,
@@ -527,6 +519,73 @@ export const REPLATE_QUEST_ABI = [
       }
     ],
     "name": "ReceiptSubmitted",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "receiptHash",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint8",
+        "name": "healthScore",
+        "type": "uint8"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint8",
+        "name": "nutritionScore",
+        "type": "uint8"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "pointsEarned",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint8",
+        "name": "totalItems",
+        "type": "uint8"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint8",
+        "name": "healthyItems",
+        "type": "uint8"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint8",
+        "name": "unhealthyItems",
+        "type": "uint8"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint16",
+        "name": "fruitVegGrams",
+        "type": "uint16"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "expectedGrams",
+        "type": "uint256"
+      }
+    ],
+    "name": "ReceiptVerified",
     "type": "event"
   },
   {
@@ -746,6 +805,19 @@ export const REPLATE_QUEST_ABI = [
     "type": "function"
   },
   {
+    "inputs": [],
+    "name": "badgeBaseURI",
+    "outputs": [
+      {
+        "internalType": "string",
+        "name": "",
+        "type": "string"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [
       {
         "internalType": "address",
@@ -762,19 +834,6 @@ export const REPLATE_QUEST_ABI = [
       }
     ],
     "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "user",
-        "type": "address"
-      }
-    ],
-    "name": "checkIn",
-    "outputs": [],
-    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -1253,6 +1312,25 @@ export const REPLATE_QUEST_ABI = [
         "type": "address"
       }
     ],
+    "name": "lastFinalizedWeek",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
     "name": "lastReceiptDay",
     "outputs": [
       {
@@ -1534,6 +1612,19 @@ export const REPLATE_QUEST_ABI = [
   {
     "inputs": [
       {
+        "internalType": "string",
+        "name": "newBaseURI",
+        "type": "string"
+      }
+    ],
+    "name": "setBadgeBaseURI",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "uint256",
         "name": "_newFee",
         "type": "uint256"
@@ -1597,49 +1688,6 @@ export const REPLATE_QUEST_ABI = [
         "type": "address"
       },
       {
-        "internalType": "uint8",
-        "name": "totalItems",
-        "type": "uint8"
-      },
-      {
-        "internalType": "uint8",
-        "name": "healthyItems",
-        "type": "uint8"
-      },
-      {
-        "internalType": "uint8",
-        "name": "unhealthyItems",
-        "type": "uint8"
-      },
-      {
-        "internalType": "uint16",
-        "name": "fruitVegGrams",
-        "type": "uint16"
-      },
-      {
-        "internalType": "uint8",
-        "name": "householdSize",
-        "type": "uint8"
-      },
-      {
-        "internalType": "uint8",
-        "name": "daysCovered",
-        "type": "uint8"
-      }
-    ],
-    "name": "submitReceipt",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "user",
-        "type": "address"
-      },
-      {
         "internalType": "bytes32",
         "name": "receiptHash",
         "type": "bytes32"
@@ -1681,7 +1729,7 @@ export const REPLATE_QUEST_ABI = [
       },
       {
         "internalType": "bytes",
-        "name": "signature",
+        "name": "signatures",
         "type": "bytes"
       }
     ],
