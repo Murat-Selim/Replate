@@ -248,7 +248,7 @@ export async function submitReceiptToContract(
 
       const receiptEvent = receipt.logs.find((log: any) =>
         log.topics[0] ===
-        ethers.id("ReceiptSubmitted(address,uint8,uint8,uint256,uint16,uint16)")
+        ethers.id("ReceiptSubmitted(address,uint8,uint8,uint256,uint256,uint16)")
       );
 
       const badgeMinted = !!receipt.logs.find((log: any) =>
@@ -270,7 +270,7 @@ export async function submitReceiptToContract(
         };
       }
 
-      return calculateScores(data);
+      return { ...calculateScores(data), txHash: tx.hash, badgeMinted };
     });
   } catch (error: any) {
     console.error("❌ Contract submission failed:", error);
@@ -462,7 +462,7 @@ async function discoverUsersFromLogs(): Promise<string[]> {
   const contractAddr = (process.env.CONTRACT_ADDRESS || CONTRACT_ADDRESS).toLowerCase();
   const users = new Set<string>();
 
-  const receiptTopic = ethers.id("ReceiptSubmitted(address,uint8,uint8,uint256,uint16,uint16)");
+  const receiptTopic = ethers.id("ReceiptSubmitted(address,uint8,uint8,uint256,uint256,uint16)");
   const checkInTopic = ethers.id("CheckedIn(address,uint256,uint256,uint256)");
 
   // ── 0. Local database (users.json) ──
@@ -912,7 +912,7 @@ export async function submitReceiptWithSig(
 
       const receiptEvent = receipt.logs.find((log: any) =>
         log.topics[0] ===
-        ethers.id("ReceiptSubmitted(address,uint8,uint8,uint256,uint16,uint16)")
+        ethers.id("ReceiptSubmitted(address,uint8,uint8,uint256,uint256,uint16)")
       );
 
       const badgeMinted = !!receipt.logs.find((log: any) =>
@@ -934,7 +934,7 @@ export async function submitReceiptWithSig(
         };
       }
 
-      return calculateScores(data);
+      return { ...calculateScores(data), txHash: tx.hash, badgeMinted };
     });
   } catch (error: any) {
     console.error("❌ ReceiptWithSig failed:", error);

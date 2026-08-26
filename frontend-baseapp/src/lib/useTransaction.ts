@@ -205,7 +205,7 @@ export function useSubmitReceipt() {
           throw new Error(relayData.error || 'Receipt relay failed');
         }
         const txHash = relayData.data?.txHash;
-        if (!txHash) throw new Error('Wallet did not return a transaction hash');
+        if (!txHash) throw new Error('Receipt relay did not return a transaction hash');
 
         const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
         if (receipt.status !== 'success') {
