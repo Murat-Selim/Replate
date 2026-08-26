@@ -378,12 +378,12 @@ describe("ReplateQuest", function () {
           .withArgs(receiptHash, user1.address, 70, 10, 60, 10, 6, 2, 600, 90000);
       });
 
-      it("should enforce the daily receipt limit", async function () {
+      it("should allow multiple receipts on the same day and week", async function () {
         const block = await ethers.provider.getBlock("latest");
         const deadline = block!.timestamp + 3600;
 
-        for (const label of ["first", "second"]) {
-          const receiptHash = ethers.id(`same-day-${label}`);
+        for (const index of Array.from({ length: 8 }, (_, value) => value + 1)) {
+          const receiptHash = ethers.id(`same-period-${index}`);
           const nonce = await (replateV2 as any).nonces(user1.address);
           const message = {
             user: user1.address,
@@ -400,29 +400,17 @@ describe("ReplateQuest", function () {
           const signature = await user1.signTypedData(domain, RECEIPT_TYPES, message);
           const validatorSignature = await owner.signTypedData(domain, RECEIPT_TYPES, message);
 
-          if (label === "first") {
-            await (replateV2 as any).submitReceiptWithSig(
-              user1.address,
-              receiptHash,
-              10, 6, 2, 600, 2, 1,
-              deadline,
-              packReceiptSignatures(signature, validatorSignature),
-            );
-          } else {
-            await expect(
-              (replateV2 as any).submitReceiptWithSig(
-                user1.address,
-                receiptHash,
-                10, 6, 2, 600, 2, 1,
-                deadline,
-                packReceiptSignatures(signature, validatorSignature),
-              )
-            ).to.be.revertedWith("Daily receipt limit reached");
-          }
+          await (replateV2 as any).submitReceiptWithSig(
+            user1.address,
+            receiptHash,
+            10, 6, 2, 600, 2, 1,
+            deadline,
+            packReceiptSignatures(signature, validatorSignature),
+          );
         }
 
         const summary = await replateV2.getUserSummary(user1.address);
-        expect(summary._receiptCount).to.equal(1);
+        expect(summary._receiptCount).to.equal(8);
       });
 
       it("should reject invalid signature for receipt", async function () {

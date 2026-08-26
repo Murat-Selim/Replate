@@ -101,7 +101,7 @@ contract ReplateQuest is
     // ─── Security Mappings ───────────────────────────────────────────
     mapping(uint256 => bool)                             public weekDistributed;
     mapping(address => mapping(uint256 => bool))         public weekFinalized;
-    // Daily receipt throttle. The slot is legacy, but safe to reuse for this invariant.
+    // Legacy storage slot retained for UUPS layout compatibility; receipt submissions are unrestricted.
     mapping(address => uint256)                          public lastReceiptDay;
 
     // ─── Check-in Mappings ───────────────────────────────────────────
@@ -455,7 +455,7 @@ contract ReplateQuest is
         return _hashTypedDataV4(structHash);
     }
 
-    /// @dev Internal: process receipt data (shared by submitReceipt and submitReceiptWithSig)
+    /// @dev Internal: process receipt data (shared by submitReceiptWithSig)
     function _processReceipt(
         ReceiptAuthorization memory authorization
     ) internal {
@@ -469,12 +469,7 @@ contract ReplateQuest is
                               * uint256(authorization.daysCovered)
                               * DAILY_FRUIT_VEG_PER_PERSON;
 
-        uint256 today = block.timestamp / 1 days;
-        require(lastReceiptDay[authorization.user] < today, "Daily receipt limit reached");
-        lastReceiptDay[authorization.user] = today;
-
         uint256 weekNum = block.timestamp / 7 days;
-        require(weeklyReports[authorization.user][weekNum].receiptCount < 7, "Weekly receipt limit reached");
 
         uint8 nutritionScore = _calcNutritionScore(authorization.fruitVegGrams, expectedGrams);
         uint256 points = _calcPoints(
