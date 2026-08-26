@@ -44,7 +44,7 @@ export function normalizeTurkish(text: string): string {
 
 function parseWeightGrams(text: string, lineOnly = false): number {
   const normalized = text.replace(/\s+/g, " ").trim();
-  const weightPattern = /(\d+(?:\s*[.,]\s*\d{1,3})?)\s*(kg|g)\b/i;
+  const weightPattern = /(\d+(?:\s*[.,]\s*\d{1,3})?)\s*(kg|g|gr|grams?)\b/i;
   const match = (lineOnly
     ? normalized.match(new RegExp(`^${weightPattern.source}$`, "i"))
     : normalized.match(weightPattern));
@@ -238,7 +238,7 @@ function extractProductLines(lines: string[]): ExtractedProduct[] {
     if (SKIP_PATTERNS.some((p) => p.test(trimmed))) continue;
     if (trimmed.length < 4) continue;
 
-    const isUnitPriceLine = /^(?:\d+(?:\s*[.,]\s*\d{1,3})?\s*(?:KG)?|\d+\s*AD(?:ET)?)\s*x\s*\d+[.,]\d{2}\s*TL\s*\/\s*(?:KG|AD(?:ET)?)$/i.test(trimmed);
+    const isUnitPriceLine = /^(?:\d+(?:\s*[.,]\s*\d{1,3})?\s*(?:KG|G|GR|GRAMS?)?|\d+\s*AD(?:ET)?)\s*x\s*\d+[.,]\d{2}(?:\s*TL\s*\/\s*(?:KG|AD(?:ET)?))?$/i.test(trimmed);
     if (isUnitPriceLine) {
       const unitPriceWeight = parseWeightGrams(trimmed);
       if (unitPriceWeight) pendingWeightGrams = unitPriceWeight;
@@ -251,7 +251,7 @@ function extractProductLines(lines: string[]): ExtractedProduct[] {
       const nextLine = lines[i + 1]?.trim() ?? "";
       const startsNextUnitPrice =
         /^x\s*\d+[.,]\d{2}\s*TL\s*\/\s*(?:KG|AD(?:ET)?)$/i.test(nextLine) ||
-        /^(?:\d+(?:\s*[.,]\s*\d{1,3})?\s*(?:KG)?|\d+\s*AD(?:ET)?)\s*x\s*\d+[.,]\d{2}\s*TL\s*\/\s*(?:KG|AD(?:ET)?)$/i.test(nextLine);
+        /^(?:\d+(?:\s*[.,]\s*\d{1,3})?\s*(?:KG|G|GR|GRAMS?)?|\d+\s*AD(?:ET)?)\s*x\s*\d+[.,]\d{2}\s*TL\s*\/\s*(?:KG|AD(?:ET)?)$/i.test(nextLine);
 
       if (startsNextUnitPrice) {
         pendingWeightGrams = standaloneWeightGrams;
@@ -279,10 +279,10 @@ function extractProductLines(lines: string[]): ExtractedProduct[] {
     let quantity = 1;
 
     const previousLine = lines[i - 1]?.trim() ?? "";
-    const previousUnitPriceLine = /^(?:\d+(?:\s*[.,]\s*\d{1,3})?\s*(?:KG)?|\d+\s*AD(?:ET)?)\s*x\s*\d+[.,]\d{2}\s*TL\s*\/\s*(?:KG|AD(?:ET)?)$/i.test(previousLine);
+    const previousUnitPriceLine = /^(?:\d+(?:\s*[.,]\s*\d{1,3})?\s*(?:KG|G|GR|GRAMS?)?|\d+\s*AD(?:ET)?)\s*x\s*\d+[.,]\d{2}\s*TL\s*\/\s*(?:KG|AD(?:ET)?)$/i.test(previousLine);
     if (previousUnitPriceLine) {
       const previousWeight = previousLine.match(
-        /^(\d+(?:\s*[.,]\s*\d{1,3})?)\s*(?:KG)?\s*x\s*\d+[.,]\d{2}\s*TL\s*\/\s*KG$/i
+        /^(\d+(?:\s*[.,]\s*\d{1,3})?)\s*(?:KG|G|GR|GRAMS?)?\s*x\s*\d+[.,]\d{2}\s*TL\s*\/\s*KG$/i
       );
       if (previousWeight) actualWeightGrams = parseWeightGrams(`${previousWeight[1]} KG`);
       const previousQuantity = previousLine.match(/^(\d+)\s*AD(?:ET)?/i);
@@ -383,7 +383,7 @@ export function cleanProductLine(
     .trim();
 
   // Weights / volumes
-  cleaned = cleaned.replace(/\b\d+\s*G\b/gi, "").trim();
+  cleaned = cleaned.replace(/\b\d+\s*(?:G|GR|GRAMS?)\b/gi, "").trim();
   cleaned = cleaned.replace(/\b\d+\s*[.,]\s*\d{1,3}\s*kg\b/gi, "").trim();
   cleaned = cleaned.replace(/\b\d+\s*kg\b/gi, "").trim();
   cleaned = cleaned.replace(/\b\d+[.,]?\d*\s*L\b/gi, "").trim(); // 1 L, 1.5 L

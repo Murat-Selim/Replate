@@ -168,6 +168,12 @@ function testCleanProductLine() {
 
   const commaKg = cleanProductLine("0,85 kg DOMATES %01 *42,50");
   assert(commaKg.weightGrams === 850, `0,85 kg converts to 850g (got ${commaKg.weightGrams}g)`);
+
+  const gramWeight = cleanProductLine("710gram DOMATES");
+  assert(
+    gramWeight.weightGrams === 710 && normalizeTurkish(gramWeight.cleaned) === "domates",
+    `710gram converts to 710g (got ${gramWeight.weightGrams}g / "${gramWeight.cleaned}")`
+  );
 }
 
 function testOCRGates() {
@@ -341,6 +347,20 @@ async function testReceiptGolden() {
   assert(
     a101Photo.fruitVegGrams === 1895,
     `A101 unit price lines keep 710g + 670g + 515g (got ${a101Photo.fruitVegGrams}g)`
+  );
+
+  const marketPhoto = await classifyFoods([
+    "0,310 kg X 69,00", "M BIBER KOY KG",
+    "6,245 kg X 12,90", "M KARPUZ KG",
+    "1,156 kg X 59,00", "M UZUM CEKIRDEK",
+    "0,772 kg X 49,00", "M SALATALIK KG",
+    "0,098 kg X 119,00", "M LIMON KG",
+    "0,724 kg X 45,00", "M DOMATES KG",
+    "0,822 kg X 59,00", "M PATLICAN KEME",
+  ]);
+  assert(
+    marketPhoto.fruitVegGrams === 10127,
+    `market receipt keeps OCR weights (got ${marketPhoto.fruitVegGrams}g)`
   );
 
   const processedA101 = await classifyFoods([
