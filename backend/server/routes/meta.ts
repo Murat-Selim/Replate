@@ -5,10 +5,16 @@ import {
   submitReceiptWithSig,
 } from "../services/contract.js";
 import { clearLeaderboardCache } from "./leaderboard.js";
-import { verifyTypedData } from "viem";
+import { createPublicClient, http } from "viem";
+import { base } from "viem/chains";
 import { BASE_MAINNET_CHAIN_ID, CONTRACT_ADDRESS } from "../../src/lib/network.js";
+import { runtimeConfig } from "../config.js";
 
 const router = Router();
+const signatureClient = createPublicClient({
+  chain: base,
+  transport: http(runtimeConfig.rpcUrl || "https://mainnet.base.org"),
+});
 
 // ─── EIP-712 Domain ──────────────────────────────────────────────────
 const EIP712_DOMAIN = {
@@ -93,7 +99,7 @@ router.post("/checkin-sig", async (req: Request, res: Response) => {
     }
 
     // Verify signature off-chain first (saves gas on invalid sigs)
-    const isValid = await verifyTypedData({
+    const isValid = await signatureClient.verifyTypedData({
       address: userAddress as `0x${string}`,
       domain: EIP712_DOMAIN,
       types: CHECK_IN_TYPES,
@@ -185,7 +191,7 @@ router.post("/receipt-sig", async (req: Request, res: Response) => {
     }
 
     // Verify signature off-chain first
-    const isValid = await verifyTypedData({
+    const isValid = await signatureClient.verifyTypedData({
       address: userAddress as `0x${string}`,
       domain: EIP712_DOMAIN,
       types: RECEIPT_TYPES,
