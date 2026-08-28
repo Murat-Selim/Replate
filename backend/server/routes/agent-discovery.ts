@@ -84,6 +84,7 @@ function openApiDocument(origin: string) {
       title: "Replate Intelligence API",
       version: "1.0.0",
       description: "Paid receipt intelligence for users and autonomous agents.",
+      "x-guidance": "Use POST /api/intelligence/advanced with a verified receiptId, receiptHash, and userAddress. The first request returns a 402 challenge; pay $0.10 USDC on Base Mainnet with an x402-compatible client, then retry with the payment signature.",
     },
     servers: [{ url: origin }],
     paths: {
@@ -92,6 +93,10 @@ function openApiDocument(origin: string) {
           operationId: "getAdvancedIntelligence",
           summary: "Generate an advanced receipt intelligence report",
           description: "The first request returns 402. An x402-compatible client pays with Base USDC and retries the request.",
+          "x-payment-info": {
+            price: { mode: "fixed", currency: "USD", amount: "0.10" },
+            protocols: [{ x402: {} }],
+          },
           x402: x402Metadata(),
           requestBody: {
             required: true,
@@ -112,7 +117,19 @@ function openApiDocument(origin: string) {
           responses: {
             "200": {
               description: "Advanced intelligence report",
-              content: { "application/json": { schema: { type: "object", required: ["success", "report"] } } },
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    required: ["success", "receiptId", "report"],
+                    properties: {
+                      success: { type: "boolean" },
+                      receiptId: { type: "string" },
+                      report: { type: "object" },
+                    },
+                  },
+                },
+              },
               headers: { "PAYMENT-RESPONSE": { schema: { type: "string" } } },
             },
             "402": {
