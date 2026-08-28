@@ -287,6 +287,36 @@ async function testReceiptGolden() {
     "non-food item is detected but excluded from scoring"
   );
 
+  const newMarketReceipt = await classifyFoods([
+    "1.285 x39,90 TL/kg", "PATATES",
+    "1.125 x39,90 TL/kg", "SOGAN",
+    "BEYAZ PEYNIR SUZME 500 G PEYNEX01 *119,00",
+    "MADEN SUYU SADE 200 ML BEYPAZARI *11,00",
+    "AROMALI ICECEK UZUM 1 L JUSS x10 *55,00",
+    "MAYONEZ 550 G BURCU *95,00",
+    "DURUMLUK LAVAS 200 G NIMET", "%01", "*49,95",
+    "0.620 x104,90 TL/kg", "MUZ ITHAL *65,04",
+    "6.715", "x44,90 TL/kg", "DOMATES", "%01", "*32,10",
+    "GARNITUR 560 G COKCA *44,50",
+    "DOND. CORNETTO CLASSICO KIMY *50,00",
+    "SALAH PLLLC 250 G KESKINOGLU",
+    "0.590 x59,50 TL/kg", "*01", "*49,50", "ERIK HURDUM", "X01", "*35,11",
+    "DLS MAC. 100 ML CKK SIGNAL", "*10", "*32,50",
+    "KETCAP TATLI 250 G COKCA *29,50",
+    "2", "*16,95 L/4", "ACHA / POGACA 80 G NIMET", "*01", "*33,90",
+    "2", "*8,50 TL/ed", "BAR KAKAO KAPL. YER FISTIKLI 4X01",
+    "CLFT ACIALI HAZNELL KALEATRAS *10", "*17,00", "*29,50",
+  ]);
+  assert(
+    newMarketReceipt.detectedItems === 18 &&
+      newMarketReceipt.totalItems === 16 &&
+      newMarketReceipt.excludedItems === 2 &&
+      newMarketReceipt.fruitVegGrams === 4335,
+    "new market receipt keeps food totals and excludes non-food (got " +
+      newMarketReceipt.detectedItems + "/" + newMarketReceipt.totalItems + "/" +
+      newMarketReceipt.excludedItems + "/" + newMarketReceipt.fruitVegGrams + "g)"
+  );
+
   // Neutral staple
   const bread = await classifyFoods(["EKMEK BEYAZ 500 G %01 *15,00"]);
   assert(

@@ -158,7 +158,7 @@ const NON_FOOD_PATTERNS = [
   /\b(PED|H[Iİ]JYEN|PE[CÇ]ETE|HAVLU|KA[GĞ]IT|MEND[Iİ]L|DETERJAN|SABUN|[SŞ]AMPUAN|DURULAY|YUMU[SŞ]ATICI|[CÇ]AMA[SŞ]IR|BULA[SŞ]IK)\b/i,
   /\b(MOLPED|HOLPED|ORK[Iİ]D|KOTEX|ALWAYS|PR[Iİ]MA|PAMPERS|HUGGIES)\b/i,
   /\b([CÇ][OÖ]P\s*PO[SŞ]ET|TORBA|FIRIN TORBASI)\b/i,
-  /\b(AMPUL|P[Iİ]L|BATARYA|LAMBA|DEODORANT|KREM|LOSYON|TIRNAK|D[Iİ][SŞ]\s*FIR[CÇ]ASI|D[Iİ][SŞ]\s*MACUNU|DIPMACUNU|TRA[SŞ])\b/i,
+  /\b(AMPUL|P[Iİ]L|BATARYA|LAMBA|DEODORANT|KREM|LOSYON|TIRNAK|D[IİL][SŞ]\s*FIR[CÇ]ASI|D[IİL][SŞ]\s*MAC(?:UNU)?\.?|DIPMACUNU|TRA[SŞ]|KALE(?:M|A)?TRA[SŞ])\b/i,
   /SAKLAMA\s*KABI/i,
   /MENTOR.*(?:BIC|BI[CÇ]|TIRA[SŞ])/i,
   /\bMISTRAL\b.*\bK\.?\s*H\b/i,
@@ -228,6 +228,23 @@ export async function classifyFoods(
  * Phase 1: skip meta (totals, address, payment).
  * Phase 2: keep lines with product signals (price, KDV, weight, known food).
  */
+// ponytail: repair only decimal-leading OCR errors when the printed unit price proves the candidate.
+function correctOcrWeight(lines: string[], index: number, grams: number): number {
+  if (grams <= 5000) return grams;
+  const raw = lines[index].trim().match(/^(\d)[.,](\d{3})$/);
+  const unit = lines[index + 1]?.trim().match(/^x\s*(\d+)[.,](\d{2})\s*TL\s*\/\s*kg$/i);
+  const total = lines
+    .slice(index + 2, index + 7)
+    .map((line) => line.trim().match(/^\*?(\d+)[.,](\d{2})$/))
+    .find(Boolean);
+  if (!raw || !unit || !total) return grams;
+
+  const candidate = Number("0." + raw[2]) * 1000;
+  const expectedTotal = (candidate / 1000) * Number(unit[1] + "." + unit[2]);
+  const printedTotal = Number(total[1] + "." + total[2]);
+  return Math.abs(expectedTotal - printedTotal) <= 0.02 ? candidate : grams;
+}
+
 function extractProductLines(lines: string[]): ExtractedProduct[] {
   const products: ExtractedProduct[] = [];
   let pendingWeightGrams = 0;
@@ -239,8 +256,14 @@ function extractProductLines(lines: string[]): ExtractedProduct[] {
     if (trimmed.length < 4) continue;
 
     const isUnitPriceLine = /^(?:\d+(?:\s*[.,]\s*\d{1,3})?\s*(?:KG|G|GR|GRAMS?)?|\d+\s*AD(?:ET)?)\s*x\s*\d+[.,]\d{2}(?:\s*TL\s*\/\s*(?:KG|AD(?:ET)?))?$/i.test(trimmed);
-    if (isUnitPriceLine) {
-      const unitPriceWeight = parseWeightGrams(trimmed);
+    const isStandaloneAdetPriceLine = /^\*?\d+[.,]\d{2}\s*(?:TL\/(?:ad|ed)|L\/\d+)$/i.test(trimmed);
+    if (isUnitPriceLine || isStandaloneAdetPriceLine) {
+      const weightedUnitLine = trimmed.match(
+        /^(\d+(?:\s*[.,]\s*\d{1,3})?)\s*x\s*\d+[.,]\d{2}\s*TL\s*\/\s*KG$/i
+      );
+      const unitPriceWeight = weightedUnitLine
+        ? parseWeightGrams(weightedUnitLine[1] + " KG")
+        : parseWeightGrams(trimmed);
       if (unitPriceWeight) pendingWeightGrams = unitPriceWeight;
       continue;
     }
@@ -254,7 +277,7 @@ function extractProductLines(lines: string[]): ExtractedProduct[] {
         /^(?:\d+(?:\s*[.,]\s*\d{1,3})?\s*(?:KG|G|GR|GRAMS?)?|\d+\s*AD(?:ET)?)\s*x\s*\d+[.,]\d{2}\s*TL\s*\/\s*(?:KG|AD(?:ET)?)$/i.test(nextLine);
 
       if (startsNextUnitPrice) {
-        pendingWeightGrams = standaloneWeightGrams;
+        pendingWeightGrams = correctOcrWeight(lines, i, standaloneWeightGrams);
       } else if (products.length && !products[products.length - 1].actualWeightGrams) {
         products[products.length - 1].actualWeightGrams = standaloneWeightGrams;
       }
@@ -330,7 +353,8 @@ function extractProductLines(lines: string[]): ExtractedProduct[] {
       }
     }
 
-    if (!hasProductSignal && !matchesKnownFood) continue;
+    const matchesKnownNonFood = NON_FOOD_PATTERNS.some((p) => p.test(trimmed));
+    if (!hasProductSignal && !matchesKnownFood && !matchesKnownNonFood) continue;
 
     const { cleaned, weightGrams } = cleanProductLine(
       trimmed,
@@ -340,6 +364,7 @@ function extractProductLines(lines: string[]): ExtractedProduct[] {
 
     if (!cleaned || cleaned.length < 2) continue;
     if (cleaned.match(/^[\d\s\/\-:,.]+$/)) continue;
+    if (/^(?:TL\/\w+|L\/\d+)$/i.test(cleaned)) continue;
     if (/^[A-Z]{1,3}\d{1,3}$/i.test(cleaned)) continue;
     const excluded = NON_FOOD_PATTERNS.some((p) => p.test(cleaned));
 
