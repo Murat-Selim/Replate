@@ -40,6 +40,16 @@ function getBasketFeedback(result: VerificationResult) {
 
     return { positive, improvement };
 }
+
+function getIntelligenceTier(receiptCount: number) {
+    if (receiptCount >= 30) return { label: "Richer Replate Intelligence", detail: "Your 30-day history makes the $0.10 USDC report more personalized." };
+    if (receiptCount >= 10) return { label: "Behavior pattern + recommendation", detail: `${30 - receiptCount} more verified receipts unlock richer Replate Intelligence.` };
+    if (receiptCount >= 5) return { label: "30-day pattern analysis", detail: `${10 - receiptCount} more verified receipts unlock behavior patterns and recommendations.` };
+    if (receiptCount >= 3) return { label: "Richer comparison", detail: `${5 - receiptCount} more verified receipts unlock 30-day pattern analysis.` };
+    if (receiptCount >= 1) return { label: "Basic insight", detail: `${3 - receiptCount} more verified receipts unlock richer comparison.` };
+    return { label: "Start your Replate Intelligence", detail: "Verify 1 receipt to unlock your first basic insight." };
+}
+
 export default function SmartShop() {
     const { address } = useAccount();
     const { data: walletClient } = useWalletClient({ chainId: appChain.id });
@@ -56,8 +66,24 @@ export default function SmartShop() {
     const [showUploadModal, setShowUploadModal] = useState(false);
     const [isCameraActive, setIsCameraActive] = useState(false);
     const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+    const [verifiedReceiptCount, setVerifiedReceiptCount] = useState(0);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
+
+    useEffect(() => {
+        if (!address) {
+            setVerifiedReceiptCount(0);
+            return;
+        }
+        let cancelled = false;
+        fetch(getApiUrl(`/api/user/${address}`))
+            .then((response) => response.json())
+            .then((data) => {
+                if (!cancelled && data.success) setVerifiedReceiptCount(Number(data.data?.receiptCount || 0));
+            })
+            .catch(() => undefined);
+        return () => { cancelled = true; };
+    }, [address]);
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -232,6 +258,7 @@ export default function SmartShop() {
                 receiptId: String(confirmedData.data?.receiptId ?? confirmedData.receiptId),
                 txHash: txResult.txHash || "",
             });
+            setVerifiedReceiptCount((count) => count + 1);
         } catch (err) {
             setError(err instanceof Error ? err.message : "An error occurred");
         } finally {
@@ -288,7 +315,14 @@ export default function SmartShop() {
                     <p className="text-[#8c9790]">Scan or upload a grocery receipt to understand and verify your basket.</p>
                 </div>
                 <div className="rounded-2xl border border-[#00E36E]/20 bg-[#00E36E]/5 px-4 py-3 text-sm text-[#8c9790]">
-                    After your receipt is verified, pay <span className="font-bold text-white">$0.10 USDC via x402</span> to unlock <span className="font-bold text-[#00E36E]">Detailed Basket Analysis</span> on Base Mainnet.
+                    <p className="font-black text-[#00E36E]">Contribute data → unlock better intelligence</p>
+                    <p className="mt-1">The more verified data you contribute, the smarter your Replate Intelligence becomes.</p>
+                    <div className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-5">
+                        {["1 · Basic insight", "3 · Richer comparison", "5 · 30-day patterns", "10 · Behavior patterns", "30-day history · Richer Intelligence"].map((step) => (
+                            <div key={step} className="rounded-xl border border-[#00E36E]/15 bg-black/10 px-2 py-2 text-center font-bold text-white/80">{step}</div>
+                        ))}
+                    </div>
+                    <p className="mt-3 text-xs font-bold text-white">{verifiedReceiptCount} verified receipts · {getIntelligenceTier(verifiedReceiptCount).label}</p>
                 </div>
 
                 {/* Main Content — 2 column on desktop */}
@@ -502,14 +536,17 @@ export default function SmartShop() {
                                         )}
                                     </div>
                                 ) : (
-                                    <button
-                                        onClick={handleUnlockAdvanced}
-                                        disabled={isUnlocking}
-                                        className="w-full bg-[#00E36E] text-[#050806] py-3 px-4 rounded-xl font-black text-sm hover:bg-[#00FF66] disabled:opacity-60 transition-all flex items-center justify-center gap-2"
-                                    >
-                                        {isUnlocking ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-                                        {isUnlocking ? "Unlocking..." : "Unlock Basket Insights · 0.10 USDC"}
-                                    </button>
+                                    <div className="space-y-2">
+                                        <p className="text-xs text-brand-text/60">{getIntelligenceTier(verifiedReceiptCount).detail}</p>
+                                        <button
+                                            onClick={handleUnlockAdvanced}
+                                            disabled={isUnlocking}
+                                            className="w-full bg-[#00E36E] text-[#050806] py-3 px-4 rounded-xl font-black text-sm hover:bg-[#00FF66] disabled:opacity-60 transition-all flex items-center justify-center gap-2"
+                                        >
+                                            {isUnlocking ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+                                            {isUnlocking ? "Unlocking..." : "Unlock your higher-value report · 0.10 USDC"}
+                                        </button>
+                                    </div>
                                 )}
 
                                 <div className="flex flex-col gap-2">
