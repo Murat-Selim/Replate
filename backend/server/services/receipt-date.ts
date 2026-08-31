@@ -52,7 +52,7 @@ function parseDate(match: RegExpMatchArray): Date | null {
     : null;
 }
 
-export function assertRecentReceiptDate(lines: string[], now = new Date()): string {
+export function assertRecentReceiptDate(lines: string[], now = new Date(), enforceRange = true): string {
   const candidates = lines.flatMap((line) => {
     DATE_PATTERN.lastIndex = 0;
     return [...line.matchAll(DATE_PATTERN)].map((match) => ({ line, match }));
@@ -67,13 +67,15 @@ export function assertRecentReceiptDate(lines: string[], now = new Date()): stri
     throw new ReceiptDateError("Receipt date is invalid", "RECEIPT_DATE_INVALID");
   }
 
-  const today = turkeyToday(now);
-  const daysAgo = Math.floor((today.getTime() - receiptDate.getTime()) / DAY_MS);
-  if (daysAgo < 0 || daysAgo > MAX_RECEIPT_AGE_DAYS) {
-    throw new ReceiptDateError(
-      "Only receipts from today or the previous 30 days are accepted",
-      "RECEIPT_DATE_OUT_OF_RANGE"
-    );
+  if (enforceRange) {
+    const today = turkeyToday(now);
+    const daysAgo = Math.floor((today.getTime() - receiptDate.getTime()) / DAY_MS);
+    if (daysAgo < 0 || daysAgo > MAX_RECEIPT_AGE_DAYS) {
+      throw new ReceiptDateError(
+        "Only receipts from today or the previous 30 days are accepted",
+        "RECEIPT_DATE_OUT_OF_RANGE"
+      );
+    }
   }
 
   return receiptDate.toISOString().slice(0, 10);

@@ -7,6 +7,8 @@ import { clearLeaderboardCache } from "./leaderboard.js";
 import { assertCompleteReceipt, ReceiptDateError, ReceiptQualityError, assertRecentReceiptDate } from "../services/receipt-date.js";
 
 const router = Router();
+// Temporarily disabled; set true when the receipt date window should be enforced again.
+const ENABLE_RECEIPT_DATE_RANGE_CHECK = false;
 
 interface VerifyReceiptRequest {
   imageBase64: string;
@@ -70,7 +72,7 @@ router.post("/", async (req: Request, res: Response) => {
 
     // Gate: reject empty / low-quality scans before classification or on-chain submit
     assertUsableOCR(ocrResult);
-    const receiptDate = assertRecentReceiptDate(ocrResult.lines);
+    const receiptDate = assertRecentReceiptDate(ocrResult.lines, new Date(), ENABLE_RECEIPT_DATE_RANGE_CHECK);
     assertCompleteReceipt(ocrResult.lines);
 
     const receiptHash = createReceiptHash(ocrResult.lines, receiptDate);
