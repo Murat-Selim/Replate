@@ -13,6 +13,8 @@ assert.equal(assertRecentReceiptDate(["TARIH: 06.08.2026"], today), "2026-08-06"
 assert.equal(assertRecentReceiptDate(["TARIH : 31/07/2026"], today), "2026-07-31");
 assert.equal(assertRecentReceiptDate(["TARIH: 07.07.2026"], today), "2026-07-07");
 assert.equal(assertRecentReceiptDate(["TARIH: 06.07.2026"], today, false), "2026-07-06");
+assert.equal(assertRecentReceiptDate(["Receipt date: November 12 2025"], today, false), "2025-11-12");
+assert.equal(assertRecentReceiptDate(["DATE: November 12, 2025"], today, false), "2025-11-12");
 assert.doesNotThrow(() => assertCompleteReceipt(["TARIH: 06.08.2026", "TOPLAM 100,00"]));
 assert.throws(
   () => assertCompleteReceipt(["TARIH: 06.08.2026", "ELMA 1 KG"]),

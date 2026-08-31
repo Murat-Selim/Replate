@@ -1,6 +1,11 @@
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MAX_RECEIPT_AGE_DAYS = 30;
 const DATE_PATTERN = /(?<!\d)(\d{1,4})[./-](\d{1,2})[./-](\d{1,4})(?!\d)/g;
+const TEXT_DATE_PATTERN = /(?<!\d)(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2})\s*,?\s*(\d{4})(?!\d)/gi;
+const MONTHS: Record<string, number> = {
+  january: 0, february: 1, march: 2, april: 3, may: 4, june: 5,
+  july: 6, august: 7, september: 8, october: 9, november: 10, december: 11,
+};
 const DATE_LABEL = /(?:TAR(?:I|\u0130)H|DATE)/iu;
 const RECEIPT_END_MARKER = /(?:TOPLAM|TOTAL|FIS\s*NO|F[İI]S\s*NO|BELGE\s*NO|THANK|TE[ŞS]EKK[UÜ]R)/iu;
 
@@ -52,20 +57,35 @@ function parseDate(match: RegExpMatchArray): Date | null {
     : null;
 }
 
+function parseTextDate(match: RegExpMatchArray): Date | null {
+  const month = MONTHS[match[1].toLowerCase()];
+  const day = Number(match[2]);
+  const year = Number(match[3]);
+  const date = new Date(Date.UTC(year, month, day));
+
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month && date.getUTCDate() === day
+    ? date
+    : null;
+}
+
 export function assertRecentReceiptDate(lines: string[], now = new Date(), enforceRange = true): string {
   const candidates = lines.flatMap((line) => {
     DATE_PATTERN.lastIndex = 0;
-    return [...line.matchAll(DATE_PATTERN)].map((match) => ({ line, match }));
+    TEXT_DATE_PATTERN.lastIndex = 0;
+    return [
+      ...[...line.matchAll(DATE_PATTERN)].map((match) => ({ line, date: parseDate(match) })),
+      ...[...line.matchAll(TEXT_DATE_PATTERN)].map((match) => ({ line, date: parseTextDate(match) })),
+    ];
   });
   if (!candidates.length) {
     throw new ReceiptDateError("Receipt date could not be detected", "RECEIPT_DATE_NOT_FOUND");
   }
 
-  const candidate = candidates.find(({ line }) => DATE_LABEL.test(line)) ?? candidates[0];
-  const receiptDate = parseDate(candidate.match);
-  if (!receiptDate) {
+  const candidate = candidates.find(({ line, date }) => DATE_LABEL.test(line) && date) ?? candidates.find(({ date }) => date);
+  if (!candidate || !candidate.date) {
     throw new ReceiptDateError("Receipt date is invalid", "RECEIPT_DATE_INVALID");
   }
+  const receiptDate = candidate.date;
 
   if (enforceRange) {
     const today = turkeyToday(now);
