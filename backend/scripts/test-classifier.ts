@@ -403,6 +403,29 @@ async function testReceiptGolden() {
     `A101 nectar, ice cream and cocoa bar are unhealthy (got ${processedA101.unhealthyItems})`
   );
 
+  const splitEnglishReceipt = await classifyFoods([
+    "Order #483723",
+    "November 12, 2025",
+    "Thank you!",
+    "Bananas (1kg)", "S$2.40", "x1",
+    "Farm Fresh Milk", "S$3.20", "x1",
+    "Wholegrain Bread", "S$2.80", "x1",
+    "Eggs (10 pcs)", "S$3.50", "x1",
+    "Toilet Paper (6 rolls)", "S$4.90",
+    "Subtotal", "S$16.80",
+    "Shopping Bag", "S$0.10",
+    "Tax", "S$1.51",
+    "Total", "S$18.41",
+  ]);
+  assert(
+    splitEnglishReceipt.totalItems === 4 &&
+      splitEnglishReceipt.detectedItems === 6 &&
+      splitEnglishReceipt.excludedItems === 2 &&
+      splitEnglishReceipt.healthyItems === 3 &&
+      splitEnglishReceipt.fruitVegGrams === 1000,
+    `split English receipt parsing is correct (got ${splitEnglishReceipt.detectedItems}/${splitEnglishReceipt.totalItems}/${splitEnglishReceipt.healthyItems}/${splitEnglishReceipt.fruitVegGrams}g)`
+  );
+
   const previousOffApi = process.env.USE_OFF_API;
   process.env.USE_OFF_API = "false";
   const unknownProduct = await classifyFoods(["ORNEK URUN XYZ %01 *12,00"]);

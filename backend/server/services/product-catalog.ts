@@ -89,7 +89,7 @@ export const PRODUCT_CATALOG: CatalogEntry[] = [
   { id: "sardalya", category: "healthy" },
   { id: "dana", category: "healthy", aliases: ["dana kiyma", "dana kusbasi", "dana bonfile", "dana antrikot"] },
   { id: "kuzu", category: "healthy", aliases: ["kuzu kiyma", "kuzu pirzola"] },
-  { id: "yumurta", category: "healthy", healthyProcessed: true, aliases: ["egg"] },
+  { id: "yumurta", category: "healthy", healthyProcessed: true, aliases: ["egg", "eggs"] },
 
   // ── Dairy / drinks (healthy processed) ──────────────────────────────
   {

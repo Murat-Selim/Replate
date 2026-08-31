@@ -133,6 +133,7 @@ const SKIP_PATTERNS = [
   /^(BELGE|ETTN|FISC|KASA|DARA|ADET|ISKONTO|İSKONTO|INDIRIM|İNDİRİM)/i,
   /^\d{2}[./-]\d{2}[./-]\d{2,4}/, // dates
   /^[\d\/\-:,x\s]+$/, // pure numbers / weight lines
+  /^\s*(?:S\$|[$€£¥])\s*\d+[.,]\d{2}\s*$/i, // OCR may put currency-only prices on their own line
   /^[*\-=]+$/, // separator lines
   /^ALI[SŞ]VERI[SŞ]\s*PO[SŞ]ET/i, // bags
   /\bPO[SŞ]ET\b$/i,
@@ -155,6 +156,7 @@ const SKIP_PATTERNS = [
 // ─── Non-food products found on grocery receipts ──────────────────────
 const NON_FOOD_PATTERNS = [
   /\b(MARLBORO|SIGARA|CIGARET)\b/i,
+  /\b(TOILET\s+PAPER|PAPER\s+TOWEL|SHOPPING\s+BAG|PLASTIC\s+BAG|CARRY\s+BAG)\b/i,
   /\b(PED|H[Iİ]JYEN|PE[CÇ]ETE|HAVLU|KA[GĞ]IT|MEND[Iİ]L|DETERJAN|SABUN|[SŞ]AMPUAN|DURULAY|YUMU[SŞ]ATICI|[CÇ]AMA[SŞ]IR|BULA[SŞ]IK)\b/i,
   /\b(MOLPED|HOLPED|ORK[Iİ]D|KOTEX|ALWAYS|PR[Iİ]MA|PAMPERS|HUGGIES)\b/i,
   /\b([CÇ][OÖ]P\s*PO[SŞ]ET|TORBA|FIRIN TORBASI)\b/i,
