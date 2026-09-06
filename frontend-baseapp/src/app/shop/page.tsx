@@ -6,6 +6,8 @@ import { Minus, Plus, Sparkles, Camera, Check, Loader2, X, Leaf, Star, Trophy, I
 import { useAccount, useWalletClient } from "wagmi";
 import { appChain } from "@/lib/network";
 import { getApiUrl } from "@/lib/api";
+import { keccak256, toBytes } from "viem";
+import { BrowserMultiFormatReader } from "@zxing/browser";
 import { compressImage } from "@/lib/image";
 import { useSubmitReceipt } from "@/lib/useTransaction";
 import { unlockAdvancedIntelligence, type AdvancedReport } from "@/lib/intelligence";
@@ -67,6 +69,8 @@ export default function SmartShop() {
     const [isCameraActive, setIsCameraActive] = useState(false);
     const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
     const [verifiedReceiptCount, setVerifiedReceiptCount] = useState(0);
+    const [barcodeProduct, setBarcodeProduct] = useState<any>(null);
+    const [manualBarcode, setManualBarcode] = useState("");
     const fileInputRef = useRef<HTMLInputElement>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -88,6 +92,7 @@ export default function SmartShop() {
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
+            await detectBarcode(file);
             setIsCompressing(true);
             setError(null);
             try {
@@ -104,6 +109,50 @@ export default function SmartShop() {
                 setIsCompressing(false);
             }
         }
+    };
+
+    const lookupBarcode = async (value: string) => {
+        if (!/^\d{8,14}$/.test(value)) { setError("Enter a valid 8–14 digit barcode."); return false; }
+        try {
+            const response = await fetch(getApiUrl(`/api/products/barcode/${value}?wallet=${address || ""}`));
+            const data = await response.json();
+            if (!response.ok) { setError(data.error || "Product not found."); return false; }
+            setBarcodeProduct(data); setError(null);
+            if (address) await verifyBarcode(value, data);
+            return true;
+        } catch { setError("Product service is unavailable. Check the API connection."); return false; }
+    };
+
+    const verifyBarcode = async (gtin: string, data: any) => {
+        if (!address) return;
+        setIsLoading(true);
+        try {
+            const receiptDate = new Date().toISOString().slice(0, 10);
+            const receiptHash = keccak256(toBytes(`barcode|${gtin}|${receiptDate}|${address.toLowerCase()}`));
+            const product = { name: data.product.display_name, category: data.intelligence.category as "healthy" | "unhealthy" | "neutral", fruitVegGrams: 0, confidence: data.intelligence.confidence || 0.5, nutriscore: data.product.nutrition_grade || undefined };
+            const healthyItems = product.category === "healthy" ? 1 : 0;
+            const unhealthyItems = product.category === "unhealthy" ? 1 : 0;
+            const txResult = await submitReceipt({ receiptHash, totalItems: 1, healthyItems, unhealthyItems, fruitVegGrams: 0, householdSize, daysCovered: duration });
+            if (!txResult.success) throw new Error(txResult.error || "Barcode verification failed");
+            const confirmed = await fetch(getApiUrl("/api/receipts/confirmed"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ txHash: txResult.txHash, userAddress: address, receiptHash, receiptDate, totalItems: 1, healthyItems, unhealthyItems, fruitVegGrams: 0, householdSize, daysCovered: duration, products: [product], ocrConfidence: data.intelligence.confidence || 0.5 }) });
+            const confirmedData = await confirmed.json();
+            if (!confirmed.ok || !confirmedData.success) throw new Error(confirmedData.error || "Barcode receipt could not be saved");
+            setResult({ receiptId: String(confirmedData.receiptId), txHash: txResult.txHash || "", receiptHash, healthScore: healthyItems ? 100 : unhealthyItems ? 0 : 50, nutritionScore: 0, totalItems: 1, healthyItems, unhealthyItems, fruitVegGrams: 0, daysCovered: duration, pointsEarned: 0, badgeMinted: false });
+            setVerifiedReceiptCount((count) => count + 1);
+        } catch (error) { setError(error instanceof Error ? error.message : "Barcode verification failed"); }
+        finally { setIsLoading(false); }
+    };
+
+    const detectBarcode = async (file: File) => {
+        if (!("BarcodeDetector" in window)) return false;
+        try {
+            const Detector = (window as any).BarcodeDetector;
+            const detector = new Detector({ formats: ["ean_13", "ean_8", "upc_a", "upc_e"] });
+            const bitmap = await createImageBitmap(file);
+            const found = await detector.detect(bitmap);
+            bitmap.close();
+            return found[0]?.rawValue ? lookupBarcode(found[0].rawValue) : false;
+        } catch { return false; }
     };
 
     const triggerGalleryInput = () => {
@@ -135,6 +184,11 @@ export default function SmartShop() {
                     videoRef.current.srcObject = stream;
                 }
             }, 100);
+            const reader = new BrowserMultiFormatReader();
+            setTimeout(() => videoRef.current && reader.decodeFromStream(stream, videoRef.current, async (result) => {
+                const value = result?.getText();
+                if (value && await lookupBarcode(value)) stopCamera();
+            }), 500);
         } catch (err) {
             console.error("Failed to start camera stream", err);
             setError("Could not access camera. Please choose from gallery instead.");
@@ -311,9 +365,10 @@ export default function SmartShop() {
             <div className="space-y-8 animate-fade-in-up">
                 {/* Page Header */}
                 <div className="text-center lg:text-left space-y-2">
-                    <h1 className="text-3xl sm:text-4xl font-black text-[#00E36E] drop-shadow-[0_0_10px_rgba(0,227,110,0.15)]">Verify Your Receipt</h1>
-                    <p className="text-[#8c9790]">Scan or upload a grocery receipt to understand and verify your basket.</p>
+                <h1 className="text-3xl sm:text-4xl font-black text-[#00E36E] drop-shadow-[0_0_10px_rgba(0,227,110,0.15)]">Verify Your Receipt</h1>
+                    <p className="text-[#8c9790]">Scan a barcode or upload a grocery receipt to understand and verify your basket.</p>
                 </div>
+                {barcodeProduct && <div className="rounded-2xl border border-[#00E36E]/20 bg-[#00E36E]/5 px-4 py-3"><p className="font-black text-[#00E36E]">{barcodeProduct.product.display_name}</p><p className="text-sm text-[#8c9790]">Health score: {barcodeProduct.intelligence.healthScore}/100 · Informational only</p></div>}
                 <div className="rounded-2xl border border-[#00E36E]/20 bg-[#00E36E]/5 px-4 py-3 text-sm text-[#8c9790]">
                     <p className="font-black text-[#00E36E]">Contribute data → unlock better intelligence</p>
                     <p className="mt-1">The more verified data you contribute, the smarter your Replate Intelligence becomes.</p>
@@ -685,7 +740,7 @@ export default function SmartShop() {
                             className="w-full py-4 px-6 bg-[#00E36E] hover:bg-[#00FF66] text-[#050806] rounded-2xl font-black text-base active:scale-98 transition-all flex items-center justify-center gap-3 shadow-lg shadow-[#00E36E]/20 cursor-pointer"
                         >
                             <Camera size={20} />
-                            Take Photo (Camera)
+                                Scan Barcode (Camera)
                         </button>
                         
                         <button
@@ -696,6 +751,12 @@ export default function SmartShop() {
                             <Image size={20} />
                             Choose from Gallery
                         </button>
+
+                        <div className="flex gap-2">
+                            <input value={manualBarcode} onChange={(event) => setManualBarcode(event.target.value.replace(/\D/g, ""))} inputMode="numeric" maxLength={14} placeholder="Enter barcode manually" className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm text-white" />
+                            <button type="button" onClick={async () => { if (await lookupBarcode(manualBarcode)) { setManualBarcode(""); setShowUploadModal(false); } }} className="rounded-xl border border-[#00E36E]/30 px-3 text-xs font-black text-[#00E36E]">Use Code</button>
+                        </div>
+                        {error && <p className="text-xs text-red-300">{error}</p>}
                     </div>
                     
                     <button

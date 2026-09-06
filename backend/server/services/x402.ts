@@ -177,11 +177,7 @@ export function createX402Middleware(): RequestHandler | null {
         scheme: "exact",
         network: runtimeConfig.x402Network,
         payTo: runtimeConfig.x402PayTo,
-        price: {
-          amount: runtimeConfig.x402PriceAtomic,
-          asset: runtimeConfig.x402Asset,
-          extra: { name: "USD Coin", version: "2" },
-        },
+        price: { amount: runtimeConfig.x402PriceAtomic, asset: runtimeConfig.x402Asset, extra: { name: "USD Coin", version: "2" } },
         maxTimeoutSeconds: 300,
       },
       extensions: {

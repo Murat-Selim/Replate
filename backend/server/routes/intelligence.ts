@@ -8,6 +8,7 @@ const router = Router();
 const HASH = /^0x[a-fA-F0-9]{64}$/;
 const ADDRESS = /^0x[a-fA-F0-9]{40}$/;
 
+
 router.post("/advanced", async (req: Request, res: Response) => {
   try {
     if (!x402Configured) {

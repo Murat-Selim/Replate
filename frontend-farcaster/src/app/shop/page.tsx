@@ -6,6 +6,8 @@ import { Minus, Plus, Sparkles, Camera, Check, Loader2, X, Leaf, Star, Trophy, I
 import { sdk } from "@farcaster/miniapp-sdk";
 import { useFarcasterAccount } from "@/hooks/useFarcasterAccount";
 import { getApiUrl } from "@/lib/api";
+import { keccak256, toBytes } from "viem";
+import { BrowserMultiFormatReader } from "@zxing/browser";
 import { compressImage } from "@/lib/image";
 import { useAccount, useWalletClient } from "wagmi";
 import { appChain } from "@/lib/network";
@@ -76,6 +78,8 @@ export default function SmartShop() {
     const [isCameraActive, setIsCameraActive] = useState(false);
     const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
     const [verifiedReceiptCount, setVerifiedReceiptCount] = useState(0);
+    const [barcodeProduct, setBarcodeProduct] = useState<any>(null);
+    const [manualBarcode, setManualBarcode] = useState("");
     const fileInputRef = useRef<HTMLInputElement>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -115,6 +119,7 @@ export default function SmartShop() {
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
+            await detectBarcode(file);
             setIsCompressing(true);
             setError(null);
             try {
@@ -131,6 +136,26 @@ export default function SmartShop() {
                 setIsCompressing(false);
             }
         }
+    };
+
+    const lookupBarcode = async (value: string) => {
+        if (!/^\d{8,14}$/.test(value)) { setError("Enter a valid 8–14 digit barcode."); return false; }
+        try {
+            const response = await fetch(getApiUrl(`/api/products/barcode/${value}?wallet=${address || ""}`));
+            const data = await response.json();
+            if (!response.ok) { setError(data.error || "Product not found."); return false; }
+            setBarcodeProduct(data); setError(null); return true;
+        } catch { setError("Product service is unavailable. Check the API connection."); return false; }
+    };
+
+    const detectBarcode = async (file: File) => {
+        if (!("BarcodeDetector" in window)) return false;
+        try {
+            const detector = new (window as any).BarcodeDetector({ formats: ["ean_13", "ean_8", "upc_a", "upc_e"] });
+            const bitmap = await createImageBitmap(file);
+            const found = await detector.detect(bitmap); bitmap.close();
+            return found[0]?.rawValue ? lookupBarcode(found[0].rawValue) : false;
+        } catch { return false; }
     };
 
     const triggerGalleryInput = () => {
@@ -165,6 +190,11 @@ export default function SmartShop() {
             });
             setCameraStream(stream);
             setIsCameraActive(true);
+            const reader = new BrowserMultiFormatReader();
+            setTimeout(() => videoRef.current && reader.decodeFromStream(stream, videoRef.current, async (result) => {
+                const value = result?.getText();
+                if (value && await lookupBarcode(value)) stopCamera();
+            }), 500);
             
             // Connect stream to video element
             setTimeout(() => {
@@ -365,7 +395,7 @@ Join me in reducing food waste!`,
                         <span className="text-[11px] font-extrabold uppercase tracking-[0.25em] text-[#22D97A] font-heading">
                             Smart Verification
                         </span>
-                        <h1 className="text-4xl font-black text-white font-heading uppercase tracking-wide">Verify Your Receipt</h1>
+                        <h1 className="text-4xl font-black text-white font-heading uppercase tracking-wide">Verify Receipt or Barcode</h1>
                         <p className="text-[#A6B0B5] text-sm">Scan or upload a grocery receipt to understand and verify your basket.</p>
                     </div>
                     <div className="rounded-[22px] border border-[#22D97A]/20 bg-[#22D97A]/5 px-4 py-3 text-left text-xs text-[#A6B0B5] leading-relaxed">
@@ -688,7 +718,7 @@ Join me in reducing food waste!`,
                                 className="w-full py-4 px-6 bg-[#22D97A] text-[#0B1114] rounded-2xl font-black text-sm uppercase tracking-wider flex items-center justify-center gap-3 shadow-lg shadow-brand-primary/10 cursor-pointer transition-all active:scale-98"
                             >
                                 <Camera size={18} strokeWidth={3} />
-                                Take Photo (Camera)
+                                Scan Barcode (Camera)
                             </button>
                             
                             <button
@@ -708,6 +738,11 @@ Join me in reducing food waste!`,
                         >
                             Cancel
                         </button>
+                        <div className="flex gap-2">
+                            <input value={manualBarcode} onChange={(event) => setManualBarcode(event.target.value.replace(/\D/g, ""))} inputMode="numeric" maxLength={14} placeholder="Enter barcode manually" className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm text-white" />
+                            <button type="button" onClick={async () => { if (await lookupBarcode(manualBarcode)) setShowUploadModal(false); }} className="rounded-xl border border-[#00E36E]/30 px-3 text-xs font-black text-[#00E36E]">Use Code</button>
+                        </div>
+                        {error && <p className="text-xs text-red-300">{error}</p>}
                     </div>
                 </div>
             )}
