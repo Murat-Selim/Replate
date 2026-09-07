@@ -1,4 +1,5 @@
 const LOCAL_API_URL = "http://localhost:3001";
+const PRODUCTION_API_URL = "https://replate-backend61.vercel.app";
 
 function normalizeBaseUrl(url: string) {
   return url.endsWith("/") ? url.slice(0, -1) : url;
@@ -15,7 +16,7 @@ export function getApiBaseUrl() {
     return normalizeBaseUrl(configuredUrl);
   }
 
-  return "";
+  return PRODUCTION_API_URL;
 }
 
 export function getApiUrl(path: string) {
