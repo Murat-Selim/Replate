@@ -4,6 +4,7 @@ import path from "path";
 import { REPLATE_QUEST_ABI, CONTRACT_ADDRESS } from "../../src/lib/contract.js";
 import { BASE_MAINNET_CHAIN_ID } from "../../src/lib/network.js";
 import { runtimeConfig } from "../config.js";
+import { getDatabasePool } from "../db.js";
 
 // ─── Sabitler ─────────────────────────────────────────────────────────
 // FIX: Duplicate'di, modül seviyesine taşındı
@@ -529,6 +530,14 @@ async function discoverUsersFromLogs(): Promise<string[]> {
     }
   }
 
+  if (process.env.DATABASE_URL) {
+    try {
+      const result = await getDatabasePool().query<{ wallet_address: string }>("SELECT wallet_address FROM users");
+      for (const row of result.rows) users.add(row.wallet_address.toLowerCase());
+    } catch (error) {
+      console.warn("Database user discovery failed:", error instanceof Error ? error.message : error);
+    }
+  }
   const addresses = Array.from(users);
   console.log(`✅ Total unique users discovered: ${addresses.length}`);
 
