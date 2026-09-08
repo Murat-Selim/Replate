@@ -154,11 +154,19 @@ export default function SmartShop() {
 
     const detectBarcode = async (file: File) => {
         try {
-            const url = URL.createObjectURL(file);
-            try {
-                const value = (await new BrowserMultiFormatReader().decodeFromImageUrl(url)).getText();
-                return lookupBarcode(value);
-            } finally { URL.revokeObjectURL(url); }
+            const image = await createImageBitmap(file);
+            const reader = new BrowserMultiFormatReader();
+            for (const zoom of [1, 0.8, 0.6, 0.45, 0.3]) {
+                const sourceWidth = image.width * zoom;
+                const sourceHeight = image.height * zoom;
+                const canvas = document.createElement("canvas");
+                canvas.width = 1800;
+                canvas.height = Math.round(1800 * sourceHeight / sourceWidth);
+                canvas.getContext("2d")?.drawImage(image, (image.width - sourceWidth) / 2, (image.height - sourceHeight) / 2, sourceWidth, sourceHeight, 0, 0, canvas.width, canvas.height);
+                try { image.close(); return lookupBarcode(reader.decodeFromCanvas(canvas).getText()); } catch {}
+            }
+            image.close();
+            throw new Error("not detected");
         } catch { setError("Barcode not detected. Keep the full barcode sharp and try again."); return false; }
     };
 
