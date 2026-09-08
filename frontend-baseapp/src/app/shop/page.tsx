@@ -74,6 +74,7 @@ export default function SmartShop() {
     const [manualBarcode, setManualBarcode] = useState("");
     const fileInputRef = useRef<HTMLInputElement>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
+    const scannerControls = useRef<{ stop: () => void } | null>(null);
 
     useEffect(() => {
         if (!address) {
@@ -173,6 +174,18 @@ export default function SmartShop() {
         try {
             setError(null);
             setCameraMode(mode);
+            if (mode === "barcode") {
+                setIsCameraActive(true);
+                const reader = new BrowserMultiFormatReader();
+                setTimeout(async () => {
+                    if (!videoRef.current) return;
+                    scannerControls.current = await reader.decodeFromConstraints({ video: { facingMode: "environment" }, audio: false }, videoRef.current, async (result) => {
+                        const value = result?.getText();
+                        if (value && await lookupBarcode(value)) stopCamera();
+                    });
+                }, 200);
+                return;
+            }
             const stream = await navigator.mediaDevices.getUserMedia({
                 video: { facingMode: "environment" },
                 audio: false
@@ -198,6 +211,8 @@ export default function SmartShop() {
     };
 
     const stopCamera = () => {
+        scannerControls.current?.stop();
+        scannerControls.current = null;
         if (cameraStream) {
             cameraStream.getTracks().forEach(track => track.stop());
             setCameraStream(null);
