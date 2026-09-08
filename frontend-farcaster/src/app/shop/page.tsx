@@ -178,7 +178,7 @@ export default function SmartShop() {
             setError(null);
             setCameraMode(mode);
             if (mode === "barcode") {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
                 setCameraStream(stream);
                 await stream.getVideoTracks()[0]?.applyConstraints({ advanced: [{ focusMode: "continuous" }] } as unknown as MediaTrackConstraints).catch(() => undefined);
                 setIsCameraActive(true);
@@ -188,7 +188,7 @@ export default function SmartShop() {
                     videoRef.current.srcObject = stream;
                     await videoRef.current.play();
                     const canvas = document.createElement("canvas");
-                    const scan = async () => { if (!videoRef.current || !stream.getTracks().some((track) => track.readyState === "live")) return; canvas.width = videoRef.current.videoWidth; canvas.height = videoRef.current.videoHeight; canvas.getContext("2d")?.drawImage(videoRef.current, 0, 0); try { const value = reader.decodeFromCanvas(canvas).getText(); if (value && await lookupBarcode(value)) return stopCamera(); } catch {} setTimeout(scan, 200); };
+                    const scan = async () => { if (!videoRef.current || !stream.getTracks().some((track) => track.readyState === "live")) return; const width = videoRef.current.videoWidth || 1280; const height = videoRef.current.videoHeight || 720; canvas.width = width * 2; canvas.height = height * 2; canvas.getContext("2d")?.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height); try { const value = reader.decodeFromCanvas(canvas).getText(); if (value && await lookupBarcode(value)) return stopCamera(); } catch {} setTimeout(scan, 200); };
                     scan();
                 }, 200);
                 return;
