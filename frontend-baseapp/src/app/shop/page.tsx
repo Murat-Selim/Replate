@@ -178,13 +178,15 @@ export default function SmartShop() {
             if (mode === "barcode") {
                 setIsCameraActive(true);
                 setTimeout(async () => {
-                    const { Html5Qrcode } = await import("html5-qrcode");
-                    const scanner = new Html5Qrcode("barcode-reader");
-                    html5Scanner.current = scanner;
-                    await scanner.start({ facingMode: "environment" }, { fps: 12, qrbox: { width: 280, height: 120 } }, async (value) => {
-                        setManualBarcode(value);
-                        if (await lookupBarcode(value)) stopCamera();
-                    }, undefined);
+                    try {
+                        const { Html5Qrcode, Html5QrcodeSupportedFormats: F } = await import("html5-qrcode");
+                        const scanner = new Html5Qrcode("barcode-reader", { verbose: false, formatsToSupport: [F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E, F.CODE_128, F.CODE_39] });
+                        html5Scanner.current = scanner;
+                        await scanner.start({ facingMode: "environment" }, { fps: 15, qrbox: { width: 300, height: 140 } }, async (value) => {
+                            setManualBarcode(value);
+                            if (await lookupBarcode(value)) stopCamera();
+                        }, undefined);
+                    } catch (error) { setError(error instanceof Error ? error.message : "Barcode camera could not start."); }
                 }, 100);
                 return;
             }
