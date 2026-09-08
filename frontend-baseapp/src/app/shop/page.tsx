@@ -67,6 +67,7 @@ export default function SmartShop() {
     const [error, setError] = useState<string | null>(null);
     const [showUploadModal, setShowUploadModal] = useState(false);
     const [isCameraActive, setIsCameraActive] = useState(false);
+    const [cameraMode, setCameraMode] = useState<"barcode" | "receipt">("receipt");
     const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
     const [verifiedReceiptCount, setVerifiedReceiptCount] = useState(0);
     const [barcodeProduct, setBarcodeProduct] = useState<any>(null);
@@ -162,15 +163,16 @@ export default function SmartShop() {
     const handleSelectOption = (option: "camera" | "gallery") => {
         setShowUploadModal(false);
         if (option === "camera") {
-            startCamera();
+            startCamera("barcode");
         } else {
             triggerGalleryInput();
         }
     };
 
-    const startCamera = async () => {
+    const startCamera = async (mode: "barcode" | "receipt" = "receipt") => {
         try {
             setError(null);
+            setCameraMode(mode);
             const stream = await navigator.mediaDevices.getUserMedia({
                 video: { facingMode: "environment" },
                 audio: false
@@ -774,7 +776,7 @@ export default function SmartShop() {
         {isCameraActive && (
             <div className="fixed inset-0 z-50 bg-black flex flex-col justify-between p-6">
                 <div className="flex justify-between items-center text-white">
-                    <h3 className="text-lg font-bold">Align Receipt</h3>
+                    <h3 className="text-lg font-bold">{cameraMode === "barcode" ? "Scan Barcode" : "Align Receipt"}</h3>
                     <button 
                         onClick={stopCamera}
                         type="button"
@@ -795,13 +797,13 @@ export default function SmartShop() {
                     {/* Overlay frame guide */}
                     <div className="absolute inset-8 border-2 border-dashed border-white/30 rounded-2xl pointer-events-none flex items-center justify-center">
                         <span className="text-white/50 text-xs font-medium uppercase tracking-wider bg-black/40 px-3 py-1.5 rounded-full text-center">
-                            Place receipt inside frame
+                            {cameraMode === "barcode" ? "Place barcode inside frame" : "Place receipt inside frame"}
                         </span>
                     </div>
                 </div>
                 
                 <div className="flex justify-center pb-4">
-                    <button
+                    {cameraMode === "receipt" && <button
                         onClick={capturePhoto}
                         type="button"
                         className="w-20 h-20 rounded-full bg-[#00E36E] p-1 border-4 border-[#050806] active:scale-90 transition-transform shadow-2xl cursor-pointer shadow-[#00E36E]/20"
@@ -809,7 +811,7 @@ export default function SmartShop() {
                         <div className="w-full h-full rounded-full bg-[#050806] flex items-center justify-center text-[#00E36E]">
                             <Camera size={28} />
                         </div>
-                    </button>
+                    </button>}
                 </div>
             </div>
         )}

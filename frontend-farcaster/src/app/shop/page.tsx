@@ -76,6 +76,7 @@ export default function SmartShop() {
     const [error, setError] = useState<string | null>(null);
     const [showUploadModal, setShowUploadModal] = useState(false);
     const [isCameraActive, setIsCameraActive] = useState(false);
+    const [cameraMode, setCameraMode] = useState<"barcode" | "receipt">("receipt");
     const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
     const [verifiedReceiptCount, setVerifiedReceiptCount] = useState(0);
     const [barcodeProduct, setBarcodeProduct] = useState<any>(null);
@@ -165,15 +166,16 @@ export default function SmartShop() {
     const handleSelectOption = (option: "camera" | "gallery") => {
         setShowUploadModal(false);
         if (option === "camera") {
-            startCamera();
+            startCamera("barcode");
         } else {
             triggerGalleryInput();
         }
     };
 
-    const startCamera = async () => {
+    const startCamera = async (mode: "barcode" | "receipt" = "receipt") => {
         try {
             setError(null);
+            setCameraMode(mode);
             
             // Request permissions via Farcaster SDK first if available
             try {
@@ -751,7 +753,7 @@ Join me in reducing food waste!`,
             {isCameraActive && (
                 <div className="fixed inset-0 z-50 bg-[#0B1114] flex flex-col justify-between p-6">
                     <div className="flex justify-between items-center text-white">
-                        <h3 className="text-lg font-black font-heading uppercase tracking-wide">Align Receipt</h3>
+                        <h3 className="text-lg font-black font-heading uppercase tracking-wide">{cameraMode === "barcode" ? "Scan Barcode" : "Align Receipt"}</h3>
                         <button 
                             onClick={stopCamera}
                             type="button"
@@ -772,13 +774,13 @@ Join me in reducing food waste!`,
                         {/* Overlay frame guide */}
                         <div className="absolute inset-8 border-2 border-dashed border-[#22D97A]/30 rounded-2xl pointer-events-none flex items-center justify-center">
                             <span className="text-white text-[10px] font-black uppercase tracking-widest bg-[#0B1114]/80 border border-[#22D97A]/10 px-4 py-2 rounded-full text-center">
-                                Place receipt inside frame
+                            {cameraMode === "barcode" ? "Place barcode inside frame" : "Place receipt inside frame"}
                             </span>
                         </div>
                     </div>
                     
                     <div className="flex justify-center pb-4">
-                        <button
+                    {cameraMode === "receipt" && <button
                             onClick={capturePhoto}
                             type="button"
                             className="w-20 h-20 rounded-full bg-white p-1 border-4 border-[#1E2A2F] active:scale-90 transition-transform shadow-2xl cursor-pointer"
@@ -786,7 +788,7 @@ Join me in reducing food waste!`,
                             <div className="w-full h-full rounded-full bg-[#22D97A] flex items-center justify-center text-[#0B1114]">
                                 <Camera size={28} strokeWidth={2.5} />
                             </div>
-                        </button>
+                    </button>}
                     </div>
                 </div>
             )}
