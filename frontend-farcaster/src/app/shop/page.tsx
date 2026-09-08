@@ -808,6 +808,7 @@ Join me in reducing food waste!`,
                             </span>
                         </div>
                     </div>
+                    {error && <p className="mb-4 rounded-xl bg-red-500/20 px-4 py-3 text-center text-sm font-bold text-red-200">{error}</p>}
                     
                     <div className="flex justify-center pb-4">
                     {cameraMode === "barcode" ? <button onClick={captureBarcode} type="button" className="rounded-2xl bg-[#22D97A] px-6 py-4 font-black text-[#0B1114]">Capture & Scan</button> : <button
