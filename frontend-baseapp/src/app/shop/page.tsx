@@ -240,6 +240,18 @@ export default function SmartShop() {
         }
     };
 
+    const captureBarcode = async () => {
+        const video = videoRef.current;
+        if (!video || !video.videoWidth) return setError("Camera is not ready yet.");
+        const canvas = document.createElement("canvas");
+        canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+        canvas.getContext("2d")?.drawImage(video, 0, 0);
+        try {
+            const value = new BrowserMultiFormatReader().decodeFromCanvas(canvas).getText();
+            if (await lookupBarcode(value)) stopCamera();
+        } catch { setError("Barcode not detected. Move closer and try again."); }
+    };
+
     const compressCapturedImage = async (dataUrl: string) => {
         setIsCompressing(true);
         setError(null);
@@ -821,7 +833,7 @@ export default function SmartShop() {
                 </div>
                 
                 <div className="flex justify-center pb-4">
-                    {cameraMode === "receipt" && <button
+                    {cameraMode === "barcode" ? <button onClick={captureBarcode} type="button" className="rounded-2xl bg-[#00E36E] px-6 py-4 font-black text-black">Capture & Scan</button> : <button
                         onClick={capturePhoto}
                         type="button"
                         className="w-20 h-20 rounded-full bg-[#00E36E] p-1 border-4 border-[#050806] active:scale-90 transition-transform shadow-2xl cursor-pointer shadow-[#00E36E]/20"
