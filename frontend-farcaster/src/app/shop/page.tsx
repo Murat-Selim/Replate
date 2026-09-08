@@ -361,12 +361,12 @@ export default function SmartShop() {
 
     const captureBarcode = async () => {
         const video = videoRef.current;
-        if (!video || !video.videoWidth) return setError("Camera is not ready yet.");
+        if (!video || video.readyState < 2) return setError("Camera is not ready yet.");
         const canvas = document.createElement("canvas");
-        canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+        canvas.width = video.videoWidth || 1280; canvas.height = video.videoHeight || 720;
         canvas.getContext("2d")?.drawImage(video, 0, 0);
         try {
-            const value = new BrowserMultiFormatReader().decodeFromCanvas(canvas).getText();
+            const value = (await new BrowserMultiFormatReader().decodeFromImageUrl(canvas.toDataURL("image/jpeg", 0.95))).getText();
             if (await lookupBarcode(value)) stopCamera();
         } catch { setError("Barcode not detected. Move closer and try again."); }
     };
