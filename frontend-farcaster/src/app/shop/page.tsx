@@ -193,10 +193,10 @@ export default function SmartShop() {
             setCameraStream(stream);
             setIsCameraActive(true);
             const reader = new BrowserMultiFormatReader();
-            setTimeout(() => videoRef.current && reader.decodeFromStream(stream, videoRef.current, async (result) => {
+            setTimeout(async () => { if (videoRef.current) await videoRef.current.play(); if (videoRef.current) reader.decodeFromStream(stream, videoRef.current, async (result) => {
                 const value = result?.getText();
                 if (value && await lookupBarcode(value)) stopCamera();
-            }), 500);
+            }); }, 1000);
             
             // Connect stream to video element
             setTimeout(() => {
