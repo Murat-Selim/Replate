@@ -178,14 +178,17 @@ export default function SmartShop() {
             setError(null);
             setCameraMode(mode);
             if (mode === "barcode") {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
+                setCameraStream(stream);
                 setIsCameraActive(true);
                 const reader = new BrowserMultiFormatReader();
                 setTimeout(async () => {
                     if (!videoRef.current) return;
-                    scannerControls.current = await reader.decodeFromConstraints({ video: { facingMode: "environment" }, audio: false }, videoRef.current, async (result) => {
-                        const value = result?.getText();
-                        if (value && await lookupBarcode(value)) stopCamera();
-                    });
+                    videoRef.current.srcObject = stream;
+                    await videoRef.current.play();
+                    const canvas = document.createElement("canvas");
+                    const scan = async () => { if (!videoRef.current || !stream.getTracks().some((track) => track.readyState === "live")) return; canvas.width = videoRef.current.videoWidth; canvas.height = videoRef.current.videoHeight; canvas.getContext("2d")?.drawImage(videoRef.current, 0, 0); try { const value = reader.decodeFromCanvas(canvas).getText(); if (value && await lookupBarcode(value)) return stopCamera(); } catch {} setTimeout(scan, 200); };
+                    scan();
                 }, 200);
                 return;
             }
