@@ -180,6 +180,7 @@ export default function SmartShop() {
             if (mode === "barcode") {
                 const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
                 setCameraStream(stream);
+                await stream.getVideoTracks()[0]?.applyConstraints({ advanced: [{ focusMode: "continuous" }] } as unknown as MediaTrackConstraints).catch(() => undefined);
                 setIsCameraActive(true);
                 const reader = new BrowserMultiFormatReader();
                 setTimeout(async () => {
@@ -368,7 +369,16 @@ export default function SmartShop() {
         try {
             const value = (await new BrowserMultiFormatReader().decodeFromImageUrl(canvas.toDataURL("image/jpeg", 0.95))).getText();
             if (await lookupBarcode(value)) stopCamera();
-        } catch { setError("Barcode not detected. Move closer and try again."); }
+        } catch {
+            try {
+                const crop = document.createElement("canvas");
+                const size = Math.min(canvas.width, canvas.height) * 0.75;
+                crop.width = size * 2; crop.height = size * 2;
+                crop.getContext("2d")?.drawImage(canvas, (canvas.width - size) / 2, (canvas.height - size) / 2, size, size, 0, 0, crop.width, crop.height);
+                const value = (await new BrowserMultiFormatReader().decodeFromImageUrl(crop.toDataURL("image/jpeg", 0.98))).getText();
+                if (await lookupBarcode(value)) stopCamera();
+            } catch { setError("Barcode not detected. Keep it steady and avoid getting too close."); }
+        }
     };
 
     const handleUnlockAdvanced = async () => {
