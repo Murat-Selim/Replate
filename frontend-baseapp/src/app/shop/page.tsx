@@ -75,6 +75,7 @@ export default function SmartShop() {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
     const scannerControls = useRef<{ stop: () => void } | null>(null);
+    const html5Scanner = useRef<any>(null);
 
     useEffect(() => {
         if (!address) {
@@ -175,19 +176,16 @@ export default function SmartShop() {
             setError(null);
             setCameraMode(mode);
             if (mode === "barcode") {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
-                setCameraStream(stream);
-                await stream.getVideoTracks()[0]?.applyConstraints({ advanced: [{ focusMode: "continuous" }] } as unknown as MediaTrackConstraints).catch(() => undefined);
                 setIsCameraActive(true);
-                const reader = new BrowserMultiFormatReader();
                 setTimeout(async () => {
-                    if (!videoRef.current) return;
-                    videoRef.current.srcObject = stream;
-                    await videoRef.current.play();
-                    const canvas = document.createElement("canvas");
-                    const scan = async () => { if (!videoRef.current || !stream.getTracks().some((track) => track.readyState === "live")) return; const width = videoRef.current.videoWidth || 1280; const height = videoRef.current.videoHeight || 720; canvas.width = width * 2; canvas.height = height * 2; canvas.getContext("2d")?.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height); try { const value = reader.decodeFromCanvas(canvas).getText(); if (value && await lookupBarcode(value)) return stopCamera(); } catch {} setTimeout(scan, 200); };
-                    scan();
-                }, 200);
+                    const { Html5Qrcode } = await import("html5-qrcode");
+                    const scanner = new Html5Qrcode("barcode-reader");
+                    html5Scanner.current = scanner;
+                    await scanner.start({ facingMode: "environment" }, { fps: 12, qrbox: { width: 280, height: 120 } }, async (value) => {
+                        setManualBarcode(value);
+                        if (await lookupBarcode(value)) stopCamera();
+                    }, undefined);
+                }, 100);
                 return;
             }
             const stream = await navigator.mediaDevices.getUserMedia({
@@ -215,6 +213,8 @@ export default function SmartShop() {
     };
 
     const stopCamera = () => {
+        html5Scanner.current?.stop().catch(() => undefined);
+        html5Scanner.current = null;
         scannerControls.current?.stop();
         scannerControls.current = null;
         if (cameraStream) {
@@ -827,13 +827,13 @@ export default function SmartShop() {
                 </div>
                 
                 <div className="relative flex-1 my-6 bg-zinc-900 rounded-3xl overflow-hidden flex items-center justify-center">
-                    <video 
+                    {cameraMode === "barcode" ? <div id="barcode-reader" className="h-full w-full" /> : <video 
                         ref={videoRef}
                         autoPlay 
                         playsInline 
                         muted
                         className="w-full h-full object-cover"
-                    />
+                    />}
                     {/* Overlay frame guide */}
                     <div className="absolute inset-8 border-2 border-dashed border-white/30 rounded-2xl pointer-events-none flex items-center justify-center">
                         <span className="text-white/50 text-xs font-medium uppercase tracking-wider bg-black/40 px-3 py-1.5 rounded-full text-center">
@@ -844,7 +844,7 @@ export default function SmartShop() {
                 {error && <p className="mb-4 rounded-xl bg-red-500/20 px-4 py-3 text-center text-sm font-bold text-red-200">{error}</p>}
                 
                 <div className="flex justify-center pb-4">
-                    {cameraMode === "barcode" ? <button onClick={captureBarcode} type="button" className="rounded-2xl bg-[#00E36E] px-6 py-4 font-black text-black">Capture & Scan</button> : <button
+                    {cameraMode === "barcode" ? <p className="text-sm font-bold text-[#00E36E]">Scanning automatically…</p> : <button
                         onClick={capturePhoto}
                         type="button"
                         className="w-20 h-20 rounded-full bg-[#00E36E] p-1 border-4 border-[#050806] active:scale-90 transition-transform shadow-2xl cursor-pointer shadow-[#00E36E]/20"
