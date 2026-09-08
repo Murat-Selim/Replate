@@ -82,6 +82,7 @@ export default function SmartShop() {
     const [barcodeProduct, setBarcodeProduct] = useState<any>(null);
     const [manualBarcode, setManualBarcode] = useState("");
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const barcodeInputRef = useRef<HTMLInputElement>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
     const scannerControls = useRef<{ stop: () => void } | null>(null);
     const html5Scanner = useRef<any>(null);
@@ -152,13 +153,19 @@ export default function SmartShop() {
     };
 
     const detectBarcode = async (file: File) => {
-        if (!("BarcodeDetector" in window)) return false;
         try {
-            const detector = new (window as any).BarcodeDetector({ formats: ["ean_13", "ean_8", "upc_a", "upc_e"] });
-            const bitmap = await createImageBitmap(file);
-            const found = await detector.detect(bitmap); bitmap.close();
-            return found[0]?.rawValue ? lookupBarcode(found[0].rawValue) : false;
-        } catch { return false; }
+            const url = URL.createObjectURL(file);
+            try {
+                const value = (await new BrowserMultiFormatReader().decodeFromImageUrl(url)).getText();
+                return lookupBarcode(value);
+            } finally { URL.revokeObjectURL(url); }
+        } catch { setError("Barcode not detected. Keep the full barcode sharp and try again."); return false; }
+    };
+
+    const handleBarcodePhoto = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (file) await detectBarcode(file);
+        event.target.value = "";
     };
 
     const triggerGalleryInput = () => {
@@ -168,7 +175,7 @@ export default function SmartShop() {
     const handleSelectOption = (option: "camera" | "gallery") => {
         setShowUploadModal(false);
         if (option === "camera") {
-            startCamera("barcode");
+            barcodeInputRef.current?.click();
         } else {
             triggerGalleryInput();
         }
@@ -458,6 +465,7 @@ Join me in reducing food waste!`,
                                 accept="image/*"
                                 className="hidden"
                             />
+                            <input ref={barcodeInputRef} type="file" accept="image/*" capture="environment" onChange={handleBarcodePhoto} className="hidden" />
                             <div 
                                 onClick={() => setShowUploadModal(true)}
                                 className="relative group cursor-pointer"
