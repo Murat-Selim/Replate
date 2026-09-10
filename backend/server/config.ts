@@ -27,6 +27,12 @@ export const runtimeConfig = {
   allowMockContract: !isProduction && process.env.USE_MOCK_CONTRACT === "true",
 };
 
+const REPLATE_VERCEL_ORIGIN = /^https:\/\/replate-(?:webapp|farcaster)(?:-[a-z0-9-]+)?\.vercel\.app$/i;
+
+export function isAllowedFrontendOrigin(origin: string, allowedOrigins: string[]): boolean {
+  return allowedOrigins.includes(origin) || REPLATE_VERCEL_ORIGIN.test(origin);
+}
+
 export function validateRuntimeConfig(): void {
   const errors: string[] = [];
   if (!ethers.isAddress(runtimeConfig.contractAddress)) errors.push("CONTRACT_ADDRESS must be a valid EVM address");
@@ -60,7 +66,7 @@ export function validateRuntimeConfig(): void {
   if (isProduction) {
     if (!runtimeConfig.rpcUrl) errors.push("RPC_URL or BASE_RPC_URL is required");
     if (!runtimeConfig.validatorPrivateKey) errors.push("VALIDATOR_PRIVATE_KEY is required");
-    if (!process.env.GOOGLE_APPLICATION_CREDENTIALS && !process.env.GOOGLE_CREDENTIALS_JSON) errors.push("Google Vision credentials are required");
+    if (!process.env.GOOGLE_APPLICATION_CREDENTIALS && !process.env.GOOGLE_CREDENTIALS_JSON && !process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) errors.push("Google Vision credentials are required");
     if (!(process.env.FRONTEND_URL || "").trim()) errors.push("FRONTEND_URL is required");
   }
   if (errors.length > 0) throw new Error(`Invalid runtime configuration: ${errors.join("; ")}`);

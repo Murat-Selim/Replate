@@ -426,6 +426,28 @@ async function testReceiptGolden() {
     `split English receipt parsing is correct (got ${splitEnglishReceipt.detectedItems}/${splitEnglishReceipt.totalItems}/${splitEnglishReceipt.healthyItems}/${splitEnglishReceipt.fruitVegGrams}g)`
   );
 
+  const market2Receipt = await classifyFoods([
+    "DATE 06/01/2016",
+    "ZUCCHINI GREEN $4.66", "0.778kg NET @ $5.99/kg",
+    "BANANA CAVENDISH $1.32", "0.442kg NET @ $2.99/kg",
+    "SPECIAL $0.99", "SPECIAL $1.50",
+    "POTATOES BRUSHED $3.97", "1.328kg NET @ $2.99/kg",
+    "BROCCOLI $4.84", "0.808kg NET @ $5.99/kg",
+    "BRUSSEL SPROUTS $5.15", "0.322kg NET @ $15.99/kg",
+    "SPECIAL $0.99",
+    "GRAPES GREEN $7.03", "1.174kg NET @ $5.99/kg",
+    "PEAS $3.27", "0.218kg NET @ $14.99/kg",
+    "TOMATOES GRAPE $2.99",
+    "LETTUCE ICEBERG $2.49",
+    "TOTAL $24.20",
+  ]);
+  assert(
+    market2Receipt.totalItems === 9 &&
+      market2Receipt.healthyItems === 9 &&
+      market2Receipt.fruitVegGrams === 5270,
+    `market2 NET weight lines are attached to 9 named products (got ${market2Receipt.totalItems}/${market2Receipt.healthyItems}/${market2Receipt.fruitVegGrams}g)`
+  );
+
   const previousOffApi = process.env.USE_OFF_API;
   process.env.USE_OFF_API = "false";
   const unknownProduct = await classifyFoods(["ORNEK URUN XYZ %01 *12,00"]);

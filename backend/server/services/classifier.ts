@@ -129,6 +129,7 @@ const STRIP_TOKEN_REGEX = new RegExp(
 const SKIP_PATTERNS = [
   /\b(ORTAK\s+POS|POS|ONAY\s+KODU|REF\s+NO|TERMINAL\s+ID|BATCH\s+NO)\b/i,
   /^(TOTAL|SUBTOTAL|TAX|DATE|STORE|CASHIER|CHANGE|RECEIPT)/i,
+  /^SPECIAL(?:\s|$)/i,
   /^(TOPLAM|KDV|FIS|FİŞ|SAAT|TARIH|ARA TOPLAM|ALISVERIS|ALIŞVERİŞ|NAKIT|BANKA)/i,
   /^(BELGE|ETTN|FISC|KASA|DARA|ADET|ISKONTO|İSKONTO|INDIRIM|İNDİRİM)/i,
   /^\d{2}[./-]\d{2}[./-]\d{2,4}/, // dates
@@ -256,6 +257,12 @@ function extractProductLines(lines: string[]): ExtractedProduct[] {
 
     if (SKIP_PATTERNS.some((p) => p.test(trimmed))) continue;
     if (trimmed.length < 4) continue;
+
+    const netWeightLine = /^(\d+(?:\s*[.,]\s*\d{1,3})?)\s*kg\b.*(?:S\$|[$€£¥])\s*\d+[.,]\d{2}\s*\/\s*kg$/i.test(trimmed);
+    if (netWeightLine && products.length) {
+      products[products.length - 1].actualWeightGrams = parseWeightGrams(trimmed);
+      continue;
+    }
 
     const isUnitPriceLine = /^(?:\d+(?:\s*[.,]\s*\d{1,3})?\s*(?:KG|G|GR|GRAMS?)?|\d+\s*AD(?:ET)?)\s*x\s*\d+[.,]\d{2}(?:\s*TL\s*\/\s*(?:KG|AD(?:ET)?))?$/i.test(trimmed);
     const isStandaloneAdetPriceLine = /^\*?\d+[.,]\d{2}\s*(?:TL\/(?:ad|ed)|L\/\d+)$/i.test(trimmed);
@@ -391,7 +398,7 @@ export function cleanProductLine(
 
   cleaned = cleaned.replace(/%\d{1,2}/g, "").trim();
   cleaned = cleaned.replace(/\bx\d+[.,]?\d*\b/gi, "").trim();
-  cleaned = cleaned.replace(/[*]?\d+[.,]\d{2}\s*$/, "").trim();
+  cleaned = cleaned.replace(/(?:S\$|[$€£¥])?\s*[*]?\d+[.,]\d{2}\s*$/, "").trim();
   cleaned = cleaned.replace(/TL\/(kg|ad|lt|adet)/gi, "").trim();
   cleaned = cleaned.replace(/\bTL\b\s*$/i, "").trim();
 

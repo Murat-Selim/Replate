@@ -4,7 +4,7 @@ import helmet from "helmet";
 import * as cron from "node-cron";
 import * as dotenv from "dotenv";
 import { timingSafeEqual } from "crypto";
-import { runtimeConfig, validateRuntimeConfig } from "./config.js";
+import { isAllowedFrontendOrigin, runtimeConfig, validateRuntimeConfig } from "./config.js";
 
 import verifyReceiptRouter from "./routes/verify-receipt.js";
 import confirmedReceiptRouter from "./routes/confirmed-receipt.js";
@@ -46,7 +46,7 @@ app.use(cors({
     if (!origin) return callback(null, true);
     // Tanımlı liste varsa kontrol et
     if (allowedOrigins.length > 0) {
-      if (allowedOrigins.includes(origin)) {
+      if (isAllowedFrontendOrigin(origin, allowedOrigins)) {
         return callback(null, true);
       }
       return callback(new Error("CORS: origin not allowed"));

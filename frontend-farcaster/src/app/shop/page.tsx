@@ -118,7 +118,7 @@ export default function SmartShop() {
             setIsCompressing(true);
             setError(null);
             try {
-                const compressed = await compressImage(file, 3000, 4000, 0.92);
+                const compressed = await compressImage(file, 2000, 3000, 0.8);
                 setImagePreview(compressed);
             } catch (err) {
                 console.error("Image compression failed, falling back to original", err);
@@ -204,7 +204,7 @@ export default function SmartShop() {
             const response = await fetch(dataUrl);
             const blob = await response.blob();
             const file = new File([blob], "captured-receipt.jpg", { type: "image/jpeg" });
-            const compressed = await compressImage(file, 3000, 4000, 0.92);
+            const compressed = await compressImage(file, 2000, 3000, 0.8);
             setImagePreview(compressed);
         } catch (err) {
             console.error("Captured image compression failed", err);
