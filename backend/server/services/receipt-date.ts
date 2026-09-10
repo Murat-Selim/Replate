@@ -77,13 +77,9 @@ export function assertRecentReceiptDate(lines: string[], now = new Date(), enfor
       ...[...line.matchAll(TEXT_DATE_PATTERN)].map((match) => ({ line, date: parseTextDate(match) })),
     ];
   });
-  if (!candidates.length) {
-    throw new ReceiptDateError("Receipt date could not be detected", "RECEIPT_DATE_NOT_FOUND");
-  }
-
   const candidate = candidates.find(({ line, date }) => DATE_LABEL.test(line) && date) ?? candidates.find(({ date }) => date);
   if (!candidate || !candidate.date) {
-    throw new ReceiptDateError("Receipt date is invalid", "RECEIPT_DATE_INVALID");
+    return turkeyToday(now).toISOString().slice(0, 10);
   }
   const receiptDate = candidate.date;
 
