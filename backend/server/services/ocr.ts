@@ -24,11 +24,11 @@ export class OCRError extends Error {
 
 /**
  * Resolve Google credentials from env:
- * - GOOGLE_CREDENTIALS_JSON = raw JSON string OR path to a .json key file
+ * - GOOGLE_CREDENTIALS_JSON or GOOGLE_APPLICATION_CREDENTIALS_JSON = raw JSON string OR path to a .json key file
  * - else GOOGLE_APPLICATION_CREDENTIALS (ADC / file path handled by client)
  */
 function loadGoogleCredentials(): object | null {
-  const raw = process.env.GOOGLE_CREDENTIALS_JSON?.trim();
+  const raw = (process.env.GOOGLE_CREDENTIALS_JSON || process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON)?.trim();
   if (!raw) return null;
 
   // Inline JSON object
@@ -149,7 +149,8 @@ export function assertUsableOCR(result: OCRResult): void {
 export async function processOCR(imageBase64: string): Promise<OCRResult> {
   const hasCredentials =
     process.env.GOOGLE_APPLICATION_CREDENTIALS ||
-    process.env.GOOGLE_CREDENTIALS_JSON;
+    process.env.GOOGLE_CREDENTIALS_JSON ||
+    process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON;
 
   const mockRequested =
     process.env.NODE_ENV !== "production" && process.env.USE_MOCK_OCR === "true";

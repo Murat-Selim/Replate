@@ -6,8 +6,6 @@ import { Minus, Plus, Sparkles, Camera, Check, Loader2, X, Leaf, Star, Trophy, I
 import { sdk } from "@farcaster/miniapp-sdk";
 import { useFarcasterAccount } from "@/hooks/useFarcasterAccount";
 import { getApiUrl } from "@/lib/api";
-import { keccak256, toBytes } from "viem";
-import { BrowserMultiFormatReader } from "@zxing/browser";
 import { compressImage } from "@/lib/image";
 import { useAccount, useWalletClient } from "wagmi";
 import { appChain } from "@/lib/network";
@@ -76,16 +74,10 @@ export default function SmartShop() {
     const [error, setError] = useState<string | null>(null);
     const [showUploadModal, setShowUploadModal] = useState(false);
     const [isCameraActive, setIsCameraActive] = useState(false);
-    const [cameraMode, setCameraMode] = useState<"barcode" | "receipt">("receipt");
     const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
     const [verifiedReceiptCount, setVerifiedReceiptCount] = useState(0);
-    const [barcodeProduct, setBarcodeProduct] = useState<any>(null);
-    const [manualBarcode, setManualBarcode] = useState("");
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const barcodeInputRef = useRef<HTMLInputElement>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
-    const scannerControls = useRef<{ stop: () => void } | null>(null);
-    const html5Scanner = useRef<any>(null);
 
     useEffect(() => {
         const fetchContext = async () => {
@@ -123,7 +115,6 @@ export default function SmartShop() {
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            await detectBarcode(file);
             setIsCompressing(true);
             setError(null);
             try {
@@ -142,40 +133,6 @@ export default function SmartShop() {
         }
     };
 
-    const lookupBarcode = async (value: string) => {
-        if (!/^\d{8,14}$/.test(value)) { setError("Enter a valid 8–14 digit barcode."); return false; }
-        try {
-            const response = await fetch(getApiUrl(`/api/products/barcode/${value}?wallet=${address || ""}`));
-            const data = await response.json();
-            if (!response.ok) { setError(data.error || "Product not found."); return false; }
-            setBarcodeProduct(data); setError(null); return true;
-        } catch { setError("Product service is unavailable. Check the API connection."); return false; }
-    };
-
-    const detectBarcode = async (file: File) => {
-        try {
-            const image = await createImageBitmap(file);
-            const reader = new BrowserMultiFormatReader();
-            for (const zoom of [1, 0.8, 0.6, 0.45, 0.3]) {
-                const sourceWidth = image.width * zoom;
-                const sourceHeight = image.height * zoom;
-                const canvas = document.createElement("canvas");
-                canvas.width = 1800;
-                canvas.height = Math.round(1800 * sourceHeight / sourceWidth);
-                canvas.getContext("2d")?.drawImage(image, (image.width - sourceWidth) / 2, (image.height - sourceHeight) / 2, sourceWidth, sourceHeight, 0, 0, canvas.width, canvas.height);
-                try { image.close(); return lookupBarcode(reader.decodeFromCanvas(canvas).getText()); } catch {}
-            }
-            image.close();
-            throw new Error("not detected");
-        } catch { setError("Barcode not detected. Keep the full barcode sharp and try again."); return false; }
-    };
-
-    const handleBarcodePhoto = async (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (file) await detectBarcode(file);
-        event.target.value = "";
-    };
-
     const triggerGalleryInput = () => {
         fileInputRef.current?.click();
     };
@@ -183,33 +140,17 @@ export default function SmartShop() {
     const handleSelectOption = (option: "camera" | "gallery") => {
         setShowUploadModal(false);
         if (option === "camera") {
-            barcodeInputRef.current?.click();
+            startCamera();
         } else {
             triggerGalleryInput();
         }
     };
 
-    const startCamera = async (mode: "barcode" | "receipt" = "receipt") => {
+    const startCamera = async () => {
         try {
             setError(null);
-            setCameraMode(mode);
             if (typeof window !== "undefined" && sdk?.actions?.requestCameraAndMicrophoneAccess) {
                 await sdk.actions.requestCameraAndMicrophoneAccess().catch(() => undefined);
-            }
-            if (mode === "barcode") {
-                setIsCameraActive(true);
-                setTimeout(async () => {
-                    try {
-                        const { Html5Qrcode, Html5QrcodeSupportedFormats: F } = await import("html5-qrcode");
-                        const scanner = new Html5Qrcode("barcode-reader", { verbose: false, formatsToSupport: [F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E, F.CODE_128, F.CODE_39] });
-                        html5Scanner.current = scanner;
-                        await scanner.start({ facingMode: "environment" }, { fps: 15, qrbox: { width: 300, height: 140 } }, async (value) => {
-                            setManualBarcode(value);
-                            if (await lookupBarcode(value)) stopCamera();
-                        }, undefined);
-                    } catch (error) { setError(error instanceof Error ? error.message : "Barcode camera could not start."); }
-                }, 100);
-                return;
             }
             
             // Request permissions via Farcaster SDK first if available
@@ -219,12 +160,6 @@ export default function SmartShop() {
             });
             setCameraStream(stream);
             setIsCameraActive(true);
-            const reader = new BrowserMultiFormatReader();
-            setTimeout(async () => { if (videoRef.current) await videoRef.current.play(); if (videoRef.current) reader.decodeFromStream(stream, videoRef.current, async (result) => {
-                const value = result?.getText();
-                if (value && await lookupBarcode(value)) stopCamera();
-            }); }, 1000);
-            
             // Connect stream to video element
             setTimeout(() => {
                 if (videoRef.current) {
@@ -238,10 +173,6 @@ export default function SmartShop() {
     };
 
     const stopCamera = () => {
-        html5Scanner.current?.stop().catch(() => undefined);
-        html5Scanner.current = null;
-        scannerControls.current?.stop();
-        scannerControls.current = null;
         if (cameraStream) {
             cameraStream.getTracks().forEach(track => track.stop());
             setCameraStream(null);
@@ -372,27 +303,6 @@ export default function SmartShop() {
         }
     };
 
-    const captureBarcode = async () => {
-        const video = videoRef.current;
-        if (!video || video.readyState < 2) return setError("Camera is not ready yet.");
-        const canvas = document.createElement("canvas");
-        canvas.width = video.videoWidth || 1280; canvas.height = video.videoHeight || 720;
-        canvas.getContext("2d")?.drawImage(video, 0, 0);
-        try {
-            const value = (await new BrowserMultiFormatReader().decodeFromImageUrl(canvas.toDataURL("image/jpeg", 0.95))).getText();
-            if (await lookupBarcode(value)) stopCamera();
-        } catch {
-            try {
-                const crop = document.createElement("canvas");
-                const size = Math.min(canvas.width, canvas.height) * 0.75;
-                crop.width = size * 2; crop.height = size * 2;
-                crop.getContext("2d")?.drawImage(canvas, (canvas.width - size) / 2, (canvas.height - size) / 2, size, size, 0, 0, crop.width, crop.height);
-                const value = (await new BrowserMultiFormatReader().decodeFromImageUrl(crop.toDataURL("image/jpeg", 0.98))).getText();
-                if (await lookupBarcode(value)) stopCamera();
-            } catch { setError("Barcode not detected. Keep it steady and avoid getting too close."); }
-        }
-    };
-
     const handleUnlockAdvanced = async () => {
         const targetAddress = address || userContext.address;
         if (!result || !targetAddress || !walletClient) {
@@ -449,7 +359,7 @@ Join me in reducing food waste!`,
                         <span className="text-[11px] font-extrabold uppercase tracking-[0.25em] text-[#22D97A] font-heading">
                             Smart Verification
                         </span>
-                        <h1 className="text-4xl font-black text-white font-heading uppercase tracking-wide">Verify Receipt or Barcode</h1>
+                        <h1 className="text-4xl font-black text-white font-heading uppercase tracking-wide">Verify Your Receipt</h1>
                         <p className="text-[#A6B0B5] text-sm">Scan or upload a grocery receipt to understand and verify your basket.</p>
                     </div>
                     <div className="rounded-[22px] border border-[#22D97A]/20 bg-[#22D97A]/5 px-4 py-3 text-left text-xs text-[#A6B0B5] leading-relaxed">
@@ -473,7 +383,6 @@ Join me in reducing food waste!`,
                                 accept="image/*"
                                 className="hidden"
                             />
-                            <input ref={barcodeInputRef} type="file" accept="image/*" capture="environment" onChange={handleBarcodePhoto} className="hidden" />
                             <div 
                                 onClick={() => setShowUploadModal(true)}
                                 className="relative group cursor-pointer"
@@ -773,7 +682,7 @@ Join me in reducing food waste!`,
                                 className="w-full py-4 px-6 bg-[#22D97A] text-[#0B1114] rounded-2xl font-black text-sm uppercase tracking-wider flex items-center justify-center gap-3 shadow-lg shadow-brand-primary/10 cursor-pointer transition-all active:scale-98"
                             >
                                 <Camera size={18} strokeWidth={3} />
-                                Scan Barcode (Camera)
+                                Take Receipt Photo
                             </button>
                             
                             <button
@@ -793,11 +702,6 @@ Join me in reducing food waste!`,
                         >
                             Cancel
                         </button>
-                        <div className="flex gap-2">
-                            <input value={manualBarcode} onChange={(event) => setManualBarcode(event.target.value.replace(/\D/g, ""))} inputMode="numeric" maxLength={14} placeholder="Enter barcode manually" className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm text-white" />
-                            <button type="button" onClick={async () => { if (await lookupBarcode(manualBarcode)) setShowUploadModal(false); }} className="rounded-xl border border-[#00E36E]/30 px-3 text-xs font-black text-[#00E36E]">Use Code</button>
-                        </div>
-                        {error && <p className="text-xs text-red-300">{error}</p>}
                     </div>
                 </div>
             )}
@@ -806,7 +710,7 @@ Join me in reducing food waste!`,
             {isCameraActive && (
                 <div className="fixed inset-0 z-50 bg-[#0B1114] flex flex-col justify-between p-6">
                     <div className="flex justify-between items-center text-white">
-                        <h3 className="text-lg font-black font-heading uppercase tracking-wide">{cameraMode === "barcode" ? "Scan Barcode" : "Align Receipt"}</h3>
+                        <h3 className="text-lg font-black font-heading uppercase tracking-wide">Align Receipt</h3>
                         <button 
                             onClick={stopCamera}
                             type="button"
@@ -817,24 +721,24 @@ Join me in reducing food waste!`,
                     </div>
                     
                     <div className="relative flex-1 my-6 bg-[#131C20] rounded-3xl overflow-hidden flex items-center justify-center border border-[#22D97A]/10 shadow-[inset_0_0_20px_rgba(0,0,0,0.8)]">
-                        {cameraMode === "barcode" ? <div id="barcode-reader" className="h-full w-full" /> : <video 
+                        <video
                             ref={videoRef}
                             autoPlay 
                             playsInline 
                             muted
                             className="w-full h-full object-cover"
-                        />}
+                        />
                         {/* Overlay frame guide */}
                         <div className="absolute inset-8 border-2 border-dashed border-[#22D97A]/30 rounded-2xl pointer-events-none flex items-center justify-center">
                             <span className="text-white text-[10px] font-black uppercase tracking-widest bg-[#0B1114]/80 border border-[#22D97A]/10 px-4 py-2 rounded-full text-center">
-                            {cameraMode === "barcode" ? "Place barcode inside frame" : "Place receipt inside frame"}
+                            Place receipt inside frame
                             </span>
                         </div>
                     </div>
                     {error && <p className="mb-4 rounded-xl bg-red-500/20 px-4 py-3 text-center text-sm font-bold text-red-200">{error}</p>}
                     
                     <div className="flex justify-center pb-4">
-                    {cameraMode === "barcode" ? <p className="text-sm font-bold text-[#22D97A]">Scanning automatically…</p> : <button
+                    <button
                             onClick={capturePhoto}
                             type="button"
                             className="w-20 h-20 rounded-full bg-white p-1 border-4 border-[#1E2A2F] active:scale-90 transition-transform shadow-2xl cursor-pointer"
@@ -842,7 +746,7 @@ Join me in reducing food waste!`,
                             <div className="w-full h-full rounded-full bg-[#22D97A] flex items-center justify-center text-[#0B1114]">
                                 <Camera size={28} strokeWidth={2.5} />
                             </div>
-                    </button>}
+                    </button>
                     </div>
                 </div>
             )}
