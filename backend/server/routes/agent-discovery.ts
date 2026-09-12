@@ -5,7 +5,7 @@ import { x402Configured } from "../services/x402.js";
 const router = Router();
 type Method = "GET" | "POST";
 type Price = { usd: string; atomic: string };
-type Input = { name: string; in: "path" | "json"; required: boolean; description: string };
+type Input = { name: string; in: "path" | "query" | "header" | "json"; required: boolean; description: string };
 type Capability = {
   id: string;
   name: string;
@@ -52,12 +52,12 @@ const capabilities: Capability[] = [
   { id: "basket", name: "Basket Intelligence", method: "GET", path: "/api/intelligence/basket/{receiptId}", description: "Return structured basket metrics for a verified receipt.", price: INTELLIGENCE_PRICING.basket, status: "live", input: receiptPathInput("receiptId"), output: ["basketScore", "basketDiversity", "healthyItemRatio", "fruitVegRatio", "categories"], authorization: "x402 payer must own the receipt" },
   { id: "receiptPrice", name: "Receipt Price Intelligence", method: "GET", path: "/api/intelligence/price/receipt/{receiptId}", description: "Compare receipt item prices with observed product averages.", price: INTELLIGENCE_PRICING.receiptPrice, status: "live", input: receiptPathInput("receiptId"), output: ["items.paidPrice", "items.marketAverage", "items.priceScore", "items.dealScore", "items.sampleSize", "items.confidence"], authorization: "x402 payer must own the receipt" },
   { id: "productPrice", name: "Product Price Intelligence", method: "GET", path: "/api/intelligence/price/product/{canonicalProductId}", description: "Return aggregate historical price intelligence for a canonical product.", price: INTELLIGENCE_PRICING.productPrice, status: "live", input: receiptPathInput("canonicalProductId"), output: ["averagePrice", "minPrice", "maxPrice", "priceMomentum30d", "sampleSize", "confidence"] },
-  { id: "behavior", name: "Behavior Intelligence", method: "GET", path: "/api/intelligence/behavior/me", description: "Return privacy-preserving purchase behavior for the paying wallet.", price: INTELLIGENCE_PRICING.behavior, status: "live", input: [], output: ["purchaseFrequency", "topCategories", "basketTrend", "repeatPurchaseRatio"], authorization: "x402 payer must be a registered wallet" },
+  { id: "behavior", name: "Behavior Intelligence", method: "GET", path: "/api/intelligence/behavior/me", description: "Return privacy-preserving purchase behavior for the paying wallet.", price: INTELLIGENCE_PRICING.behavior, status: "live", input: [{ name: "PAYMENT-SIGNATURE", in: "header", required: false, description: "Optional x402 payment signature; omit it first to receive the 402 payment challenge." }], output: ["purchaseFrequency", "topCategories", "basketTrend", "repeatPurchaseRatio"], authorization: "x402 payer must be a registered wallet" },
   { id: "recommendation", name: "Receipt Recommendations", method: "GET", path: "/api/intelligence/recommendation/{receiptId}", description: "Return actionable price, basket, and nutrition recommendations.", price: INTELLIGENCE_PRICING.recommendation, status: "live", input: receiptPathInput("receiptId"), output: ["recommendations"], authorization: "x402 payer must own the receipt" },
-  { id: "bundle", name: "Intelligence Bundle", method: "POST", path: "/api/intelligence/bundle", description: "Return selected basket, price, and recommendation resources in one paid request.", price: INTELLIGENCE_PRICING.bundle, status: "live", input: [
+  { id: "bundle", name: "Intelligence Bundle", method: "POST", path: "/api/intelligence/bundle", description: "Return selected basket, price, recommendation, behavior, and product price resources in one paid request.", price: INTELLIGENCE_PRICING.bundle, status: "live", input: [
     { name: "receiptId", in: "json", required: true, description: "Verified receipt ID." },
-    { name: "include", in: "json", required: false, description: "Any of basket, price, recommendation." },
-  ], output: ["basket", "price", "recommendations"], authorization: "x402 payer must own the receipt" },
+    { name: "include", in: "json", required: false, description: "Any of basket, price, recommendation, behavior, or productPrice." },
+  ], output: ["basket", "price", "recommendations", "behavior", "productPrices"], authorization: "x402 payer must own the receipt" },
   { id: "productSignal", name: "Product Signal", method: "GET", path: "/api/signals/product/{canonicalProductId}", description: "Product signals are coming soon / Yakında.", price: INTELLIGENCE_PRICING.productSignal, status: "soon", input: receiptPathInput("canonicalProductId"), output: ["priceScore", "dealScore", "demandScore", "priceMomentum", "sampleSize", "confidence", "signalVersion", "calculationVersion"] },
   { id: "categorySignal", name: "Category Signal", method: "GET", path: "/api/signals/category/{category}", description: "Category signals are coming soon / Yakında.", price: INTELLIGENCE_PRICING.categorySignal, status: "soon", input: receiptPathInput("category"), output: ["priceMomentum30d", "demandMomentum30d", "observationCount", "confidence", "signalVersion", "calculationVersion"] },
   { id: "merchantSignal", name: "Merchant Signal", method: "GET", path: "/api/signals/merchant/{merchantId}", description: "Merchant signals are coming soon / Yakında.", price: INTELLIGENCE_PRICING.merchantSignal, status: "soon", input: receiptPathInput("merchantId"), output: ["average_basket_value", "price_competitiveness", "category_strength", "deal_frequency", "observation_count", "confidence"] },
@@ -79,6 +79,7 @@ function endpointDescription(capability: Capability): Record<string, unknown> {
         "409": { description: "Data or signal is not ready." },
       },
   };
+  if (capability.status === "soon") operation.security = [];
   if (capability.status === "live" && capability.price) {
     const payment = x402Metadata(capability.price);
     operation["x-payment-info"] = { price: { mode: "fixed", currency: "USDC", amount: capability.price.usd }, protocols: [{ x402: {} }] };

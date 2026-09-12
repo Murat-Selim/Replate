@@ -77,6 +77,8 @@ export interface BundleIntelligence {
   basket?: BasketIntelligence;
   price?: ReceiptPriceAnalysis;
   recommendations?: Recommendation[];
+  behavior?: BehaviorIntelligence;
+  productPrices?: ProductPriceIntelligence[];
 }
 
 function clamp(value: number, min = 0, max = 100): number {
@@ -302,11 +304,19 @@ export async function buildRecommendations(db: Db, receiptId: string, wallet: st
 
 export async function buildBundle(db: Db, receiptId: string, wallet: string, include: string[]): Promise<BundleIntelligence | null> {
   if (!await findReceipt(db, receiptId, wallet)) return null;
-  const allowed = new Set(include.length ? include : ["basket", "price", "recommendation"]);
+  const allowed = new Set(include.length ? include : ["basket", "price", "recommendation", "behavior", "productPrice"]);
   const bundle: BundleIntelligence = { receiptId };
   if (allowed.has("basket")) bundle.basket = (await buildBasketIntelligence(db, receiptId, wallet)) || undefined;
   if (allowed.has("price")) bundle.price = (await buildReceiptPriceAnalysis(db, receiptId, wallet)) || undefined;
   if (allowed.has("recommendation")) bundle.recommendations = (await buildRecommendations(db, receiptId, wallet)) || undefined;
+  if (allowed.has("behavior")) bundle.behavior = await buildBehaviorIntelligence(db, wallet);
+  if (allowed.has("productPrice")) {
+    const price = bundle.price || await buildReceiptPriceAnalysis(db, receiptId, wallet);
+    const productIds = [...new Set((price?.items || []).flatMap((item) => item.canonicalProductId ? [item.canonicalProductId] : []))];
+    bundle.productPrices = (await Promise.all(productIds.map((productId) => buildProductPriceIntelligence(db, productId)))).filter(
+      (value): value is ProductPriceIntelligence => Boolean(value),
+    );
+  }
   return bundle;
 }
 

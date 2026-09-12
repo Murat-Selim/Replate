@@ -214,7 +214,7 @@ router.post("/bundle", async (req: Request, res: Response) => {
     const payer = assertPayer(req);
     const receiptId = String(req.body?.receiptId || "");
     const include = Array.isArray(req.body?.include) ? req.body.include.filter((value: unknown): value is string => typeof value === "string") : [];
-    if (!/^\d+$/.test(receiptId) || include.some((value: string) => !["basket", "price", "recommendation"].includes(value))) {
+    if (!/^\d+$/.test(receiptId) || include.some((value: string) => !["basket", "price", "recommendation", "behavior", "productPrice"].includes(value))) {
       return res.status(400).json({ success: false, error: "receiptId and valid include values are required" });
     }
     assertDatabaseConfigured();

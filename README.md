@@ -171,7 +171,7 @@ API resolution works like this in both frontends:
 | `/api/intelligence/price/product/{canonicalProductId}` | `GET` | Returns aggregate product price intelligence (`$0.01 USDC`). |
 | `/api/intelligence/behavior/me` | `GET` | Returns the paying wallet's behavior intelligence (`$0.02 USDC`). |
 | `/api/intelligence/recommendation/{receiptId}` | `GET` | Returns receipt recommendations (`$0.02 USDC`). |
-| `/api/intelligence/bundle` | `POST` | Returns selected receipt intelligence in one request (`$0.03 USDC`). |
+| `/api/intelligence/bundle` | `POST` | Returns selected receipt, behavior, and product price intelligence in one request (`$0.03 USDC`). |
 | `/api/signals/product/{canonicalProductId}` | `GET` | Soon / Yakında; signal API currently closed. |
 | `/api/signals/category/{category}` | `GET` | Soon / Yakında; signal API currently closed. |
 | `/api/signals/merchant/{merchantId}` | `GET` | Soon / Yakında; signal API currently closed. |

@@ -10,7 +10,19 @@ import { compressImage } from "@/lib/image";
 import { useAccount, useWalletClient } from "wagmi";
 import { appChain } from "@/lib/network";
 import { useSubmitReceipt } from "@/lib/useTransaction";
-import { unlockAdvancedIntelligence, type AdvancedReport } from "@/lib/intelligence";
+import {
+    unlockAdvancedIntelligence,
+    fetchBasketIntelligence,
+    fetchReceiptPriceIntelligence,
+    fetchBehaviorIntelligence,
+    fetchRecommendationIntelligence,
+    fetchProductPriceIntelligence,
+    type AdvancedReport,
+    type BasketIntelligence,
+    type ReceiptPriceAnalysis,
+    type BehaviorIntelligence,
+    type ProductPriceIntelligence,
+} from "@/lib/intelligence";
 
 interface VerificationResult {
     receiptId: string;
@@ -70,6 +82,12 @@ export default function SmartShop() {
     const [isCompressing, setIsCompressing] = useState(false);
     const [result, setResult] = useState<VerificationResult | null>(null);
     const [advancedReport, setAdvancedReport] = useState<AdvancedReport | null>(null);
+    const [basketIntelligence, setBasketIntelligence] = useState<BasketIntelligence | null>(null);
+    const [receiptPriceIntelligence, setReceiptPriceIntelligence] = useState<ReceiptPriceAnalysis | null>(null);
+    const [behaviorIntelligence, setBehaviorIntelligence] = useState<BehaviorIntelligence | null>(null);
+    const [recommendations, setRecommendations] = useState<{ type: string; priority: string; message: string }[] | null>(null);
+    const [productPrices, setProductPrices] = useState<Record<string, ProductPriceIntelligence>>({});
+    const [activeIntelligenceCall, setActiveIntelligenceCall] = useState<string | null>(null);
     const [isUnlocking, setIsUnlocking] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [showUploadModal, setShowUploadModal] = useState(false);
@@ -312,17 +330,59 @@ export default function SmartShop() {
         setIsUnlocking(true);
         setError(null);
         try {
-            setAdvancedReport(await unlockAdvancedIntelligence(walletClient, {
+            const report = await unlockAdvancedIntelligence(walletClient, {
                 receiptId: result.receiptId,
                 receiptHash: result.receiptHash,
                 userAddress: targetAddress,
-            }));
+            });
+            setAdvancedReport(report);
         } catch (err) {
-            setError(err instanceof Error ? err.message : "Advanced Intelligence could not be unlocked");
+            setError(err instanceof Error ? err.message : "Replate Intelligence could not be unlocked");
         } finally {
             setIsUnlocking(false);
         }
     };
+
+    const runIntelligenceCall = async (callId: string, request: () => Promise<void>) => {
+        if (!walletClient) {
+            setError("Connect a Base wallet to call Replate Intelligence");
+            return;
+        }
+        setActiveIntelligenceCall(callId);
+        setError(null);
+        try {
+            await request();
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Replate Intelligence call failed");
+        } finally {
+            setActiveIntelligenceCall(null);
+        }
+    };
+
+    const handleCallBasket = () => runIntelligenceCall("basket", async () => {
+        if (!result) return;
+        setBasketIntelligence(await fetchBasketIntelligence(walletClient!, result.receiptId));
+    });
+
+    const handleCallReceiptPrice = () => runIntelligenceCall("receipt-price", async () => {
+        if (!result) return;
+        setReceiptPriceIntelligence(await fetchReceiptPriceIntelligence(walletClient!, result.receiptId));
+    });
+
+    const handleCallBehavior = () => runIntelligenceCall("behavior", async () => {
+        setBehaviorIntelligence(await fetchBehaviorIntelligence(walletClient!));
+    });
+
+    const handleCallRecommendations = () => runIntelligenceCall("recommendation", async () => {
+        if (!result) return;
+        const response = await fetchRecommendationIntelligence(walletClient!, result.receiptId);
+        setRecommendations(response.recommendations);
+    });
+
+    const handleCallProductPrice = (canonicalProductId: string) => runIntelligenceCall(`product-price-${canonicalProductId}`, async () => {
+        const price = await fetchProductPriceIntelligence(walletClient!, canonicalProductId);
+        setProductPrices((current) => ({ ...current, [canonicalProductId]: price }));
+    });
 
     const handleShare = async () => {
         if (!result) return;
@@ -347,8 +407,21 @@ Join me in reducing food waste!`,
         setImagePreview(null);
         setResult(null);
         setAdvancedReport(null);
+        setBasketIntelligence(null);
+        setReceiptPriceIntelligence(null);
+        setBehaviorIntelligence(null);
+        setRecommendations(null);
+        setProductPrices({});
+        setActiveIntelligenceCall(null);
         setError(null);
     };
+
+    const intelligenceOptions: Array<{ id: string; name: string; price: string; handler: () => Promise<void>; loaded: boolean }> = [
+        { id: "basket", name: "Basket Intelligence", price: "0.01 USDC", handler: handleCallBasket, loaded: Boolean(basketIntelligence) },
+        { id: "receipt-price", name: "Receipt Price", price: "0.01 USDC", handler: handleCallReceiptPrice, loaded: Boolean(receiptPriceIntelligence) },
+        { id: "behavior", name: "Behavior Intelligence", price: "0.02 USDC", handler: handleCallBehavior, loaded: Boolean(behaviorIntelligence) },
+        { id: "recommendation", name: "Recommendation", price: "0.02 USDC", handler: handleCallRecommendations, loaded: Boolean(recommendations) },
+    ];
 
     return (
         <>
@@ -570,6 +643,7 @@ Join me in reducing food waste!`,
                                     </div>
 
                                     {advancedReport ? (
+                                        <>
                                         <div className="bg-[#22D97A]/5 border border-[#22D97A]/20 rounded-[22px] p-4 space-y-3">
                                             <p className="text-sm font-black text-[#22D97A] font-heading">Personalized Basket Insights</p>
                                             {[...advancedReport.insights, ...advancedReport.recommendations].map((item, index) => (
@@ -579,6 +653,7 @@ Join me in reducing food waste!`,
                                                 <p className="text-xs text-[#A6B0B5]">Your basket has no additional rule-based recommendations.</p>
                                             )}
                                         </div>
+                                        </>
                                     ) : (
                                         <div className="space-y-2">
                                             <p className="text-xs text-[#A6B0B5]/70">{getIntelligenceTier(verifiedReceiptCount).detail}</p>
@@ -588,10 +663,34 @@ Join me in reducing food waste!`,
                                                 className="w-full bg-[#22D97A] text-[#07100B] py-3.5 px-4 rounded-xl font-black text-xs hover:bg-[#39ed8b] disabled:opacity-60 transition-all flex items-center justify-center gap-2"
                                             >
                                                 {isUnlocking ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-                                                {isUnlocking ? "Unlocking..." : "Unlock your higher-value report · 0.05 USDC"}
+                                                {isUnlocking ? "Unlocking..." : "Unlock Advanced Report · 0.05 USDC"}
                                             </button>
                                         </div>
                                     )}
+
+                                    <div className="bg-[#22D97A]/5 border border-[#22D97A]/15 rounded-[22px] p-4 space-y-3">
+                                        <p className="text-sm font-black text-[#22D97A] font-heading">Choose Intelligence APIs</p>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                            {intelligenceOptions.map(({ id, name, price, handler, loaded }) => (
+                                                <button key={id as string} onClick={handler as () => void} disabled={activeIntelligenceCall !== null} className="rounded-xl border border-[#22D97A]/15 bg-black/10 px-3 py-3 text-left hover:border-[#22D97A]/40 disabled:opacity-50">
+                                                    <span className="block text-xs font-black text-white">{activeIntelligenceCall === id ? "Calling..." : loaded ? `${name} · Loaded` : name}</span>
+                                                    <span className="block mt-1 text-[10px] text-[#A6B0B5]/60">{price} · separate x402 call</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                        {receiptPriceIntelligence && receiptPriceIntelligence.items.some((item) => item.canonicalProductId) && (
+                                            <div className="space-y-2 border-t border-[#22D97A]/10 pt-3">
+                                                <p className="text-xs font-black text-[#22D97A]">Product Price</p>
+                                                {receiptPriceIntelligence.items.filter((item) => item.canonicalProductId).map((item) => {
+                                                    const productId = item.canonicalProductId!;
+                                                    const loaded = productPrices[productId];
+                                                    const callId = `product-price-${productId}`;
+                                                    return <button key={productId} onClick={() => handleCallProductPrice(productId)} disabled={activeIntelligenceCall !== null} className="flex w-full items-center justify-between rounded-xl border border-[#22D97A]/15 bg-black/10 px-3 py-2 text-left text-xs disabled:opacity-50"><span className="font-bold text-white">{item.itemName}</span><span className="text-[10px] font-black text-[#22D97A]">{activeIntelligenceCall === callId ? "Calling..." : loaded ? "Loaded" : "0.01 USDC"}</span></button>;
+                                                })}
+                                            </div>
+                                        )}
+                                        {recommendations && <p className="text-xs text-[#A6B0B5]">{recommendations.length ? recommendations.map((item) => item.message).join(" ") : "No additional recommendations."}</p>}
+                                    </div>
 
                                     <div className="flex gap-2 pt-2">
                                         <button
