@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import MiniAppReady from "@/components/MiniAppReady";
 import FarcasterProvider from "@/components/FarcasterProvider";
+import { Analytics } from "@vercel/analytics/next";
 
 export async function generateMetadata(): Promise<Metadata> {
     const URL = process.env.NEXT_PUBLIC_URL || process.env.NEXT_PUBLIC_APP_URL || "https://replate-farcaster.vercel.app";
@@ -43,6 +44,7 @@ export default function RootLayout({
           <MiniAppReady />
           {children}
         </FarcasterProvider>
+        <Analytics />
       </body>
     </html>
   );
