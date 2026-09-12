@@ -42,7 +42,7 @@ function getBasketFeedback(result: VerificationResult) {
 }
 
 function getIntelligenceTier(receiptCount: number) {
-    if (receiptCount >= 30) return { label: "Richer Replate Intelligence", detail: "Your 30-day history makes the $0.10 USDC report more personalized." };
+    if (receiptCount >= 30) return { label: "Richer Replate Intelligence", detail: "Your 30-day history makes the $0.05 USDC report more personalized." };
     if (receiptCount >= 10) return { label: "Behavior pattern + recommendation", detail: `${30 - receiptCount} more verified receipts unlock richer Replate Intelligence.` };
     if (receiptCount >= 5) return { label: "30-day pattern analysis", detail: `${10 - receiptCount} more verified receipts unlock behavior patterns and recommendations.` };
     if (receiptCount >= 3) return { label: "Richer comparison", detail: `${5 - receiptCount} more verified receipts unlock 30-day pattern analysis.` };
@@ -288,13 +288,13 @@ export default function SmartShop() {
 
     const handleShareWarpcast = () => {
         if (!result) return;
-        const shareText = `Just verified my grocery run on Replate\n\nHealth Score: ${result.healthScore}/100\nEarned: ${result.pointsEarned} XP\n\nShop smart. Nourish well. Earn onchain.`;
+        const shareText = `Just verified my grocery run on Replate\n\nHealth Score: ${result.healthScore}/100\nEarned: ${result.pointsEarned} RP\n\nShop smart. Nourish well. Earn onchain.`;
         window.open(`https://warpcast.com/~/compose?text=${encodeURIComponent(shareText)}`, '_blank');
     };
 
     const handleShareTwitter = () => {
         if (!result) return;
-        const shareText = `Just verified my grocery run on @replate\n\nHealth Score: ${result.healthScore}/100\nEarned: ${result.pointsEarned} XP\n\nShop smart. Nourish well. Earn onchain.\n\nhttps://replate.app`;
+        const shareText = `Just verified my grocery run on @replate\n\nHealth Score: ${result.healthScore}/100\nEarned: ${result.pointsEarned} RP\n\nShop smart. Nourish well. Earn onchain.\n\nhttps://replate.app`;
         window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}`, '_blank');
     };
 
@@ -492,7 +492,7 @@ export default function SmartShop() {
                                             <Trophy size={18} fill="currentColor" />
                                         </div>
                                         <p className="text-3xl font-black text-brand-primary">+{result.pointsEarned}</p>
-                                        <p className="text-[10px] font-bold text-brand-text/50 uppercase tracking-wider">XP Earned</p>
+                                        <p className="text-[10px] font-bold text-brand-text/50 uppercase tracking-wider">RP Earned</p>
                                     </div>
                                     <div className="bg-brand-accent/30 p-5 rounded-2xl text-center space-y-1">
                                         <div className="flex items-center justify-center text-green-600">
@@ -544,7 +544,7 @@ export default function SmartShop() {
                                             className="w-full bg-[#00E36E] text-[#050806] py-3 px-4 rounded-xl font-black text-sm hover:bg-[#00FF66] disabled:opacity-60 transition-all flex items-center justify-center gap-2"
                                         >
                                             {isUnlocking ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-                                            {isUnlocking ? "Unlocking..." : "Unlock your higher-value report · 0.10 USDC"}
+                                            {isUnlocking ? "Unlocking..." : "Unlock your higher-value report · 0.05 USDC"}
                                         </button>
                                     </div>
                                 )}
@@ -603,9 +603,9 @@ export default function SmartShop() {
                                             <Trophy size={16} />
                                         </div>
                                         <div>
-                                            <p className="font-extrabold text-sm text-[#00E36E]">XP Points</p>
+                                            <p className="font-extrabold text-sm text-[#00E36E]">Replate Points (RP)</p>
                                             <p className="text-xs text-[#8c9790] leading-relaxed">
-                                                Earn up to 150 XP per receipt based on your scores, plus streak bonuses for consistent healthy shopping.
+                                                Earn up to 150 RP per receipt based on your scores, plus streak bonuses for consistent healthy shopping.
                                             </p>
                                         </div>
                                     </div>
@@ -633,11 +633,16 @@ export default function SmartShop() {
                                 </p>
                                 <div className="space-y-2">
                                     {[
-                                        ["Advanced Receipt Report", "POST /api/intelligence/advanced", "0.10 USDC", "Live"],
-                                        ["Basket Intelligence", "GET /api/intelligence/basket/{receiptId}", "0.01 USDC", "Planned"],
-                                        ["Price Intelligence", "GET /api/intelligence/price/{receiptId}", "0.01 USDC", "Planned"],
-                                        ["Behavior Intelligence", "GET /api/intelligence/behavior/{wallet}", "0.02 USDC", "Planned"],
-                                        ["Recommendation", "GET /api/intelligence/recommendation/{receiptId}", "0.03 USDC", "Planned"],
+                                        ["Advanced Receipt Report", "POST /api/intelligence/advanced", "0.05 USDC", "Live"],
+                                        ["Basket Intelligence", "GET /api/intelligence/basket/{receiptId}", "0.01 USDC", "Live"],
+                                        ["Receipt Price", "GET /api/intelligence/price/receipt/{receiptId}", "0.01 USDC", "Live"],
+                                        ["Product Price", "GET /api/intelligence/price/product/{canonicalProductId}", "0.01 USDC", "Live"],
+                                        ["Behavior Intelligence", "GET /api/intelligence/behavior/me", "0.02 USDC", "Live"],
+                                        ["Recommendation", "GET /api/intelligence/recommendation/{receiptId}", "0.02 USDC", "Live"],
+                                        ["Intelligence Bundle", "POST /api/intelligence/bundle", "0.03 USDC", "Live"],
+                                        ["Product Signal", "GET /api/signals/product/{canonicalProductId}", "0.005 USDC", "Soon"],
+                                        ["Category Signal", "GET /api/signals/category/{category}", "0.005 USDC", "Soon"],
+                                        ["Merchant Signal", "GET /api/signals/merchant/{merchantId}", "0.005 USDC", "Soon"],
                                     ].map(([name, endpoint, price, status]) => (
                                         <div key={endpoint} className="flex items-center justify-between gap-3 rounded-xl border border-white/5 bg-black/10 px-3 py-2.5">
                                             <div className="min-w-0">

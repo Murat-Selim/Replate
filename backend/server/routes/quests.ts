@@ -30,7 +30,7 @@ const QUEST_POOL: QuestTemplate[] = [
   { id: "health-65", title: "Smart Swap", metric: "avgHealthScore", target: 65, bonusSeasonalXp: 100, description: "Make one healthier swap in your next basket." },
   { id: "nutrition-70", title: "Green Basket", metric: "avgNutritionScore", target: 70, bonusSeasonalXp: 100, description: "Add fruit or leafy greens to your next basket." },
   { id: "checkin-streak-3", title: "Streak Run", metric: "checkInStreak", target: 3, bonusSeasonalXp: 70, description: "Check in three days in a row." },
-  { id: "week-points-300", title: "XP Sprint", metric: "weekPoints", target: 300, bonusSeasonalXp: 120, description: "Stack receipt and check-in points this week." },
+  { id: "week-points-300", title: "RP Sprint", metric: "weekPoints", target: 300, bonusSeasonalXp: 120, description: "Stack receipt and check-in points this week." },
 ];
 
 function getUtcWeekKey(now = new Date()): string {
@@ -104,7 +104,7 @@ router.get("/:address", async (req: Request, res: Response) => {
           ? { type: "cosmetic_badge_fragment", amount: 1 }
           : { type: "seasonal_xp", amount: 25 },
       },
-      note: "Completed quests can be claimed once as on-chain XP through the validator.",
+      note: "Completed quests can be claimed once as on-chain RP through the validator.",
     });
   } catch (error) {
     console.error("Quest status fetch failed:", error);
@@ -141,7 +141,7 @@ router.post("/:address/claim", async (req: Request, res: Response) => {
       return;
     }
     if (claimed[questIndex]) {
-      res.status(409).json({ success: false, error: "Quest XP already claimed" });
+      res.status(409).json({ success: false, error: "Quest RP already claimed" });
       return;
     }
 
@@ -149,9 +149,9 @@ router.post("/:address/claim", async (req: Request, res: Response) => {
     clearLeaderboardCache();
     res.json({ ...result, questId: quest.id, weekKey: currentWeekKey });
   } catch (error: any) {
-    const message = error?.message || "Quest XP claim failed";
+    const message = error?.message || "Quest RP claim failed";
     const status = message.includes("already claimed") ? 409 : 502;
-    console.error("Quest XP claim failed:", error);
+    console.error("Quest RP claim failed:", error);
     res.status(status).json({ success: false, error: message });
   }
 });

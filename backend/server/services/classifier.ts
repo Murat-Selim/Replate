@@ -84,6 +84,7 @@ export interface ClassificationResult {
   name: string;
   category: "healthy" | "unhealthy" | "neutral" | "excluded";
   nutriscore?: string;
+  paidPrice?: number;
   fruitVegGrams: number;
   confidence: number;
 }
@@ -93,6 +94,7 @@ interface ExtractedProduct {
   actualWeightGrams: number; // 0 = use estimate
   /** Piece count when sold by adet (default 1) */
   quantity: number;
+  paidPrice?: number;
   excluded: boolean;
 }
 
@@ -185,7 +187,10 @@ export async function classifyFoods(
   // Parallel classification (helps when USE_OFF_API=true)
   const products = await Promise.all(
     productLines.map((item) =>
-      classifyProduct(item.name, item.actualWeightGrams, item.quantity, item.excluded)
+      classifyProduct(item.name, item.actualWeightGrams, item.quantity, item.excluded).then((result) => ({
+        ...result,
+        paidPrice: item.paidPrice,
+      }))
     )
   );
 
@@ -304,8 +309,12 @@ function extractProductLines(lines: string[]): ExtractedProduct[] {
     // separate lines: "KAŞAR 1 KG TARABYA" / "%08" / "*34,95".
     const nextLine = lines[i + 1]?.trim() ?? "";
     const lineAfterNext = lines[i + 2]?.trim() ?? "";
+    const standaloneReceiptPrice = /^(?:S\$|[$€£¥])?\s*\*?\d+[.,]\d{2}$/;
     const hasSplitReceiptPrice =
-      /^%\d{1,2}$/.test(nextLine) && /^\*?\d+[.,]\d{2}$/.test(lineAfterNext);
+      standaloneReceiptPrice.test(nextLine) ||
+      (/^%\d{1,2}$/.test(nextLine) && standaloneReceiptPrice.test(lineAfterNext));
+    const splitPriceLine = standaloneReceiptPrice.test(nextLine) ? nextLine : lineAfterNext;
+    const paidPrice = parsePaidPrice(trimmed) ?? (hasSplitReceiptPrice ? parsePaidPrice(splitPriceLine) : undefined);
 
     let actualWeightGrams = pendingWeightGrams;
     let quantity = 1;
@@ -377,12 +386,21 @@ function extractProductLines(lines: string[]): ExtractedProduct[] {
     if (/^[A-Z]{1,3}\d{1,3}$/i.test(cleaned)) continue;
     const excluded = NON_FOOD_PATTERNS.some((p) => p.test(cleaned));
 
-    products.push({ name: cleaned, actualWeightGrams, quantity, excluded });
+    products.push({ name: cleaned, actualWeightGrams, quantity, paidPrice, excluded });
     pendingWeightGrams = 0;
 
   }
 
   return products;
+}
+
+function parsePaidPrice(text: string): number | undefined {
+  const matches = [...text.matchAll(/(?:\*\s*)?(\d{1,3}(?:[.\s]\d{3})*,\d{2}|\d+[.,]\d{2})(?!\d)/g)];
+  const raw = matches.at(-1)?.[1];
+  if (!raw) return undefined;
+  const normalized = raw.includes(",") ? raw.replace(/[.\s]/g, "").replace(",", ".") : raw;
+  const price = Number(normalized);
+  return Number.isFinite(price) && price >= 0 ? Number(price.toFixed(2)) : undefined;
 }
 
 /**

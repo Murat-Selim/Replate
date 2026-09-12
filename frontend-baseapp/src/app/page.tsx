@@ -40,7 +40,7 @@ export default function Home() {
 
                         <div className="pt-2">
                             <Link
-                                href="/shop"
+                                href="/verify-receipt"
                                 className="flex sm:inline-flex w-full sm:w-auto items-center justify-center gap-3 bg-[#00E36E] hover:bg-[#00FF66] text-[#050806] py-4 px-8 rounded-2xl font-black text-lg shadow-[0_0_20px_rgba(0,227,110,0.3)] hover:shadow-[0_0_30px_rgba(0,227,110,0.5)] transition-all hover:scale-[1.02] active:scale-[0.98] group"
                             >
                                 Verify Receipt
@@ -91,7 +91,7 @@ export default function Home() {
                         <span className="text-xs font-black uppercase tracking-[0.2em] text-[#00E36E]">Agent-native service</span>
                         <h2 className="text-2xl font-black text-white">Personalized Basket Insights via x402</h2>
                         <p className="text-sm text-[#8c9790] max-w-2xl leading-relaxed">
-                            Autonomous agents can request receipt-based basket insights with a programmatic payment of $0.10 USDC on Base Mainnet.
+                            Autonomous agents can request receipt-based basket insights with a programmatic payment of $0.05 USDC on Base Mainnet.
                         </p>
                     </div>
                     <a
@@ -154,7 +154,7 @@ export default function Home() {
                     })}
                 </section>
 
-                {/* Dashboard Grid (Dashboard, Leaderboard, Weekly XP) */}
+                {/* Dashboard Grid (Dashboard, Leaderboard, Weekly RP) */}
                 <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in-up-delay-3">
                     {/* Card 1: Your Dashboard */}
                     <div className="bg-[#0c1310]/90 border border-[#00E36E]/12 backdrop-blur-2xl rounded-2xl p-6 flex flex-col justify-between h-80 relative overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
@@ -167,9 +167,9 @@ export default function Home() {
                         </div>
 
                         <div className="my-auto space-y-2 pt-2">
-                            <span className="text-xs text-[#8c9790] font-bold uppercase tracking-wider block">Community XP</span>
+                            <span className="text-xs text-[#8c9790] font-bold uppercase tracking-wider block">Community RP</span>
                             <span className="text-4xl font-black text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.1)]">
-                                420 XP
+                                420 RP
                             </span>
                             
                             {/* Mock line chart */}
@@ -193,8 +193,8 @@ export default function Home() {
                                 <span className="text-sm font-extrabold text-white">18</span>
                             </div>
                             <div>
-                                <span className="text-[10px] text-[#8c9790] block font-bold">XP Earned</span>
-                                <span className="text-sm font-extrabold text-white">420 XP</span>
+                                <span className="text-[10px] text-[#8c9790] block font-bold">RP Earned</span>
+                                <span className="text-sm font-extrabold text-white">420 RP</span>
                             </div>
                             <div>
                                 <span className="text-[10px] text-[#8c9790] block font-bold">Avg. Score</span>
@@ -214,9 +214,9 @@ export default function Home() {
 
                         <div className="space-y-3.5 my-auto pt-2">
                             {[
-                                { rank: 1, name: "Alex Carter", xp: "40 XP", color: "bg-amber-500", text: "text-black" },
-                                { rank: 2, name: "Jamie Rivera", xp: "35 XP", color: "bg-gray-400", text: "text-black" },
-                                { rank: 3, name: "Taylor Morgan", xp: "30 XP", color: "bg-amber-700", text: "text-white" }
+                                { rank: 1, name: "Alex Carter", rp: "40 RP", color: "bg-amber-500", text: "text-black" },
+                                { rank: 2, name: "Jamie Rivera", rp: "35 RP", color: "bg-gray-400", text: "text-black" },
+                                { rank: 3, name: "Taylor Morgan", rp: "30 RP", color: "bg-amber-700", text: "text-white" }
                             ].map((user) => (
                                 <div key={user.rank} className="flex items-center justify-between bg-white/[0.02] border border-white/[0.04] p-2.5 rounded-xl">
                                     <div className="flex items-center gap-3">
@@ -230,7 +230,7 @@ export default function Home() {
                                         </div>
                                         <div>
                                             <span className="text-sm font-bold text-white block leading-none">{user.name}</span>
-                                            <span className="text-[10px] text-[#8c9790] font-semibold">{user.xp}</span>
+                                            <span className="text-[10px] text-[#8c9790] font-semibold">{user.rp}</span>
                                         </div>
                                     </div>
 
@@ -239,10 +239,10 @@ export default function Home() {
                         </div>
                     </div>
 
-                    {/* Card 3: Weekly XP */}
+                    {/* Card 3: Weekly RP */}
                     <div className="bg-[#0c1310]/90 border border-[#00E36E]/12 backdrop-blur-2xl rounded-2xl p-6 flex flex-col justify-between h-80 relative overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
                         <div className="flex items-center justify-between">
-                            <h3 className="font-bold text-white text-base">Weekly XP</h3>
+                            <h3 className="font-bold text-white text-base">Weekly RP</h3>
                             <button className="flex items-center gap-1.5 text-xs text-[#8c9790] font-bold hover:text-white transition-colors">
                                 This Week
                                 <ChevronDown size={14} />
@@ -251,9 +251,9 @@ export default function Home() {
 
                         <div className="flex items-center justify-between my-auto pt-2">
                             <div className="space-y-2">
-                                <span className="text-xs text-[#8c9790] font-bold uppercase tracking-wider block">Weekly XP</span>
+                                <span className="text-xs text-[#8c9790] font-bold uppercase tracking-wider block">Weekly RP</span>
                                 <span className="text-4xl font-black text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.1)] block">
-                                    420 XP
+                                    420 RP
                                 </span>
                                 <span className="text-[11px] text-[#8c9790] font-semibold block leading-none">
                                     Earned through verified progress
@@ -280,8 +280,8 @@ export default function Home() {
                                 <span className="text-sm font-extrabold text-white">186</span>
                             </div>
                             <div>
-                                <span className="text-[10px] text-[#8c9790] block font-bold">Avg. XP</span>
-                                <span className="text-sm font-extrabold text-white">35 XP</span>
+                                <span className="text-[10px] text-[#8c9790] block font-bold">Avg. RP</span>
+                                <span className="text-sm font-extrabold text-white">35 RP</span>
                             </div>
                         </div>
                     </div>
@@ -294,7 +294,7 @@ export default function Home() {
                             { icon: Shield, title: "AI-Powered", desc: "Smarter analysis for healthier choices" },
                             { icon: Lock, title: "Secure & Private", desc: "Your data is encrypted and never shared" },
                             { icon: Users, title: "Community Driven", desc: "Join a growing movement of smart shoppers" },
-                            { icon: Gift, title: "XP Progress", desc: "Build your weekly streak and health score" }
+                            { icon: Gift, title: "RP Progress", desc: "Build your weekly streak and health score" }
                         ].map((item, i) => {
                             const Icon = item.icon;
                             return (

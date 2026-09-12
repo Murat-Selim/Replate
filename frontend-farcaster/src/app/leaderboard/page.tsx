@@ -173,7 +173,7 @@ export default function Leaderboard() {
                                                 isCurrentUser ? "text-[#050806]/55" : "text-brand-text/20"
                                             }`}
                                         >
-                                            XP
+                                            RP
                                         </p>
                                     </div>
                                 </div>

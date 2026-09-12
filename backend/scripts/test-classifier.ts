@@ -176,6 +176,18 @@ function testCleanProductLine() {
   );
 }
 
+async function testPaidPriceExtraction() {
+  console.log("\n=== paid price extraction ===");
+  const inline = await classifyFoods(["ELMA STARKING %01 *42,51"]);
+  assert(inline.products[0]?.paidPrice === 42.51, `inline receipt price is captured (got ${inline.products[0]?.paidPrice})`);
+
+  const split = await classifyFoods(["ELMA STARKING", "*42,51"]);
+  assert(split.products[0]?.paidPrice === 42.51, `split receipt price is captured (got ${split.products[0]?.paidPrice})`);
+
+  const currency = await classifyFoods(["Bananas", "S$2.40"]);
+  assert(currency.products[0]?.paidPrice === 2.4, `currency receipt price is captured (got ${currency.products[0]?.paidPrice})`);
+}
+
 function testOCRGates() {
   console.log("\n=== OCR usability gates ===");
 
@@ -465,6 +477,7 @@ async function main() {
   await testNormalizeTurkish();
   testCatalog();
   testCleanProductLine();
+  await testPaidPriceExtraction();
   testOCRGates();
   await testReceiptGolden();
 

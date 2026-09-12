@@ -4,7 +4,7 @@
 
 Replate is a receipt intelligence and rewards protocol built for health-focused users in the Base and Farcaster ecosystems.
 
-Users upload grocery receipts, receive a **Health Score** and **Nutrition Score**, and can verify their progress on Base from their own wallet. Over time, Replate tracks XP, streaks, badges, and behavioral history to turn everyday grocery shopping into measurable progress.
+Users upload grocery receipts, receive a **Health Score** and **Nutrition Score**, and can verify their progress on Base from their own wallet. Over time, Replate tracks RP (Replate Points), streaks, badges, and behavioral history to turn everyday grocery shopping into measurable progress.
 
 ### How Replate Works
 
@@ -12,7 +12,7 @@ Users upload grocery receipts, receive a **Health Score** and **Nutrition Score*
 → OCR + Product Classification  
 → Health & Nutrition Score  
 → User-Signed Base Verification  
-→ XP / Streaks / Badges**
+→ RP / Streaks / Badges**
 
 The basic experience is designed to remain accessible without forcing users to pay for every receipt.
 
@@ -34,7 +34,7 @@ The long-term architecture is:
 → Behavioral History  
 → Replate Intelligence**
 
-PostgreSQL acts as the intelligence and historical data layer, while Base remains the verification, ownership, XP, badge, and rewards layer.
+PostgreSQL acts as the intelligence and historical data layer, while Base remains the verification, ownership, RP, badge, and rewards layer.
 
 ---
 
@@ -46,7 +46,7 @@ A planned premium membership, **Replate Intelligence+**, may be offered for:
 
 **5 USDC · 30 days**
 
-Potential benefits include advanced receipt analysis, personalized recommendations, 30 / 60 / 90-day trends, advanced weekly reports, premium quests, early feature access, premium profile benefits, and a proposed **1.5x XP** on eligible verified activity.
+Potential benefits include advanced receipt analysis, personalized recommendations, 30 / 60 / 90-day trends, advanced weekly reports, premium quests, early feature access, premium profile benefits, and a proposed **1.5x RP** on eligible verified activity.
 
 ---
 
@@ -122,4 +122,3 @@ Its long-term evolution is:
 ### Real behavior. Verified intelligence. Machine-to-machine commerce.
 
 **Shop Smart. Eat All. Replate.**
-

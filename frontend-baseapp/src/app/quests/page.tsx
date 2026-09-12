@@ -59,7 +59,7 @@ export default function QuestsPage() {
         body: JSON.stringify({ questId, weekKey: data.weekKey }),
       });
       const payload = await response.json();
-      if (!response.ok || !payload.success) throw new Error(payload.error || "XP claim failed");
+      if (!response.ok || !payload.success) throw new Error(payload.error || "RP claim failed");
       setData((current) => current && {
         ...current,
         quests: current.quests.map((quest) => quest.id === questId
@@ -67,7 +67,7 @@ export default function QuestsPage() {
           : quest),
       });
     } catch (claimError) {
-      setError(claimError instanceof Error ? claimError.message : "XP claim failed");
+      setError(claimError instanceof Error ? claimError.message : "RP claim failed");
     } finally {
       setClaimingQuest(null);
     }
@@ -101,7 +101,7 @@ export default function QuestsPage() {
                   <article key={quest.id} className="rounded-3xl border border-brand-primary/15 bg-[#0c1310] p-6">
                     <div className="mb-5 flex items-center justify-between">
                       <span className="text-3xl">{["🥗", "🔥", "⭐"][index]}</span>
-                      <span className="text-xs font-black text-yellow-400">+{quest.bonusSeasonalXp} seasonal XP</span>
+                      <span className="text-xs font-black text-yellow-400">+{quest.bonusSeasonalXp} seasonal RP</span>
                     </div>
                     <h2 className="min-h-12 text-lg font-black text-white">{quest.title}</h2>
                     <p className="mt-2 min-h-10 text-sm leading-5 text-brand-text/55">{quest.description}</p>
@@ -111,7 +111,7 @@ export default function QuestsPage() {
                     <div className="mt-2 flex justify-between text-xs text-brand-text/50">
                       <span>{quest.progress}/{quest.target}</span><span>{percent}%</span>
                     </div>
-                    {quest.claimed && <p className="mt-4 font-bold text-brand-primary">XP claimed</p>}
+                    {quest.claimed && <p className="mt-4 font-bold text-brand-primary">RP claimed</p>}
                     {quest.claimable && (
                       <button
                         type="button"
@@ -119,7 +119,7 @@ export default function QuestsPage() {
                         onClick={() => claimQuest(quest.id)}
                         className="mt-4 rounded-xl bg-brand-primary px-4 py-2 text-sm font-black text-black disabled:opacity-50"
                       >
-                        {claimingQuest === quest.id ? "Claiming…" : `Claim +${quest.bonusSeasonalXp} XP`}
+                        {claimingQuest === quest.id ? "Claiming…" : `Claim +${quest.bonusSeasonalXp} RP`}
                       </button>
                     )}
                     {quest.completed && <p className="mt-4 font-bold text-brand-primary">✅ Quest complete</p>}

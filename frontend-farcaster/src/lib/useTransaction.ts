@@ -191,7 +191,7 @@ export function useSubmitReceipt() {
 
         const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
         if (receipt.status !== 'success') {
-          return { success: false, error: 'Receipt transaction was reverted. No XP was awarded.' };
+          return { success: false, error: 'Receipt transaction was reverted. No RP was awarded.' };
         }
 
         // Clear leaderboard cache

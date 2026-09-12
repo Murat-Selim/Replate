@@ -3,6 +3,7 @@ export const INTELLIGENCE_RULE_VERSION = "v1";
 export interface IntelligenceFeatureSet {
   health_score: number;
   nutrition_score: number;
+  healthy_item_ratio?: number;
   basket_diversity: number;
   processed_food_ratio: number;
   fruit_veg_ratio: number;

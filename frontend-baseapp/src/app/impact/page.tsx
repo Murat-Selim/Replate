@@ -122,7 +122,7 @@ export default function YourImpact() {
     };
 
     const handleShare = () => {
-        const shareText = `🔥 My Replate Streak: ${currentStreak} days!\n\n⭐ Total XP: ${userData.totalPoints}\n🛒 Receipts verified: ${userData.receiptCount}\n\nJoin me in reducing food waste!`;
+        const shareText = `🔥 My Replate Streak: ${currentStreak} days!\n\n⭐ Total RP: ${userData.totalPoints}\n🛒 Receipts verified: ${userData.receiptCount}\n\nJoin me in reducing food waste!`;
         window.open(`https://warpcast.com/~/compose?text=${encodeURIComponent(shareText)}`, '_blank');
     };
 
@@ -212,7 +212,7 @@ export default function YourImpact() {
                                     <Star size={20} fill="currentColor" />
                                 </div>
                                 <div>
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-[#8c9790]/50">Total XP</p>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-[#8c9790]/50">Total RP</p>
                                     <p className="text-2xl sm:text-3xl font-black text-white tabular-nums">{userData.totalPoints.toLocaleString()}</p>
                                 </div>
                             </div>
@@ -255,7 +255,7 @@ export default function YourImpact() {
                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                                     <div className="text-center sm:text-left">
                                         <p className="text-3xl font-black text-brand-primary tabular-nums">{weekReport.weekPoints}</p>
-                                        <p className="text-xs font-bold text-brand-text/50 uppercase">Week XP</p>
+                                        <p className="text-xs font-bold text-brand-text/50 uppercase">Week RP</p>
                                     </div>
                                     <div className="text-center sm:text-left">
                                         <p className="text-3xl font-black text-brand-primary tabular-nums">{weekReport.avgHealthScore}</p>

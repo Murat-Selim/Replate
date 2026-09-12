@@ -1,20 +1,42 @@
 import { Router, Request, Response } from "express";
 import { assertDatabaseConfigured, getDatabasePool } from "../db.js";
 import { buildIntelligenceReport, IntelligenceFeatureSet } from "../services/intelligence-rules.js";
-import { x402Configured } from "../services/x402.js";
-import { payerAddress, paymentIdentifier } from "../services/x402.js";
+import { payerAddress, payerAddressFromHeader, paymentIdentifier, x402Configured } from "../services/x402.js";
+import {
+  buildBasketIntelligence,
+  buildBehaviorIntelligence,
+  buildBundle,
+  buildProductPriceIntelligence,
+  buildReceiptPriceAnalysis,
+  buildRecommendations,
+} from "../services/intelligence-data.js";
 
 const router = Router();
 const HASH = /^0x[a-fA-F0-9]{64}$/;
 const ADDRESS = /^0x[a-fA-F0-9]{40}$/;
 
+router.use((_req, res, next) => {
+  if (!x402Configured) {
+    res.status(503).json({ success: false, error: "x402 is not configured", errorCode: "X402_NOT_CONFIGURED" });
+    return;
+  }
+  next();
+});
+
+function requestPayer(req: Request): string {
+  const header = req.header("payment-signature") || req.header("x-payment") || "";
+  return payerAddressFromHeader(header);
+}
+
+function assertPayer(req: Request): string {
+  const payer = requestPayer(req);
+  if (!ADDRESS.test(payer)) throw new Error("Payment payer could not be identified");
+  return payer;
+}
+
 
 router.post("/advanced", async (req: Request, res: Response) => {
   try {
-    if (!x402Configured) {
-      res.status(503).json({ success: false, error: "x402 is not configured", errorCode: "X402_NOT_CONFIGURED" });
-      return;
-    }
     const { receiptId, receiptHash, userAddress } = req.body as { receiptId?: string | number; receiptHash?: string; userAddress?: string };
     if (!/^\d+$/.test(String(receiptId || "")) || !HASH.test(receiptHash || "") || !ADDRESS.test(userAddress || "")) {
       res.status(400).json({ success: false, error: "receiptId, receiptHash and userAddress are required", errorCode: "INVALID_INTELLIGENCE_REQUEST" });
@@ -116,6 +138,93 @@ router.post("/advanced/retry", async (req: Request, res: Response) => {
   } catch (error) {
     res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Internal server error" });
   }
+});
+
+router.get("/basket/:receiptId", async (req: Request, res: Response) => {
+  try {
+    const payer = assertPayer(req);
+    const receiptId = String(req.params.receiptId);
+    if (!/^\d+$/.test(receiptId)) return res.status(400).json({ success: false, error: "Invalid receipt ID" });
+    assertDatabaseConfigured();
+    const client = await getDatabasePool().connect();
+    try {
+      const basket = await buildBasketIntelligence(client, receiptId, payer);
+      if (!basket) return res.status(404).json({ success: false, error: "Verified receipt not found", errorCode: "RECEIPT_NOT_FOUND" });
+      return res.json({ success: true, ...basket });
+    } finally { client.release(); }
+  } catch (error) { return res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Internal server error" }); }
+});
+
+router.get("/price/receipt/:receiptId", async (req: Request, res: Response) => {
+  try {
+    const payer = assertPayer(req);
+    const receiptId = String(req.params.receiptId);
+    if (!/^\d+$/.test(receiptId)) return res.status(400).json({ success: false, error: "Invalid receipt ID" });
+    assertDatabaseConfigured();
+    const client = await getDatabasePool().connect();
+    try {
+      const price = await buildReceiptPriceAnalysis(client, receiptId, payer);
+      if (!price) return res.status(404).json({ success: false, error: "Verified receipt not found", errorCode: "RECEIPT_NOT_FOUND" });
+      return res.json({ success: true, ...price });
+    } finally { client.release(); }
+  } catch (error) { return res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Internal server error" }); }
+});
+
+router.get("/price/product/:canonicalProductId", async (req: Request, res: Response) => {
+  try {
+    const productId = String(req.params.canonicalProductId);
+    if (!/^\d+$/.test(productId)) return res.status(400).json({ success: false, error: "Invalid canonical product ID" });
+    assertDatabaseConfigured();
+    const client = await getDatabasePool().connect();
+    try {
+      const price = await buildProductPriceIntelligence(client, productId);
+      if (!price) return res.status(404).json({ success: false, error: "Product price observations are not ready", errorCode: "PRICE_NOT_READY" });
+      return res.json({ success: true, ...price });
+    } finally { client.release(); }
+  } catch (error) { return res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Internal server error" }); }
+});
+
+router.get("/behavior/me", async (req: Request, res: Response) => {
+  try {
+    const payer = assertPayer(req);
+    assertDatabaseConfigured();
+    const client = await getDatabasePool().connect();
+    try { return res.json({ success: true, ...(await buildBehaviorIntelligence(client, payer)) }); }
+    finally { client.release(); }
+  } catch (error) { return res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Internal server error" }); }
+});
+
+router.get("/recommendation/:receiptId", async (req: Request, res: Response) => {
+  try {
+    const payer = assertPayer(req);
+    const receiptId = String(req.params.receiptId);
+    if (!/^\d+$/.test(receiptId)) return res.status(400).json({ success: false, error: "Invalid receipt ID" });
+    assertDatabaseConfigured();
+    const client = await getDatabasePool().connect();
+    try {
+      const recommendations = await buildRecommendations(client, receiptId, payer);
+      if (!recommendations) return res.status(404).json({ success: false, error: "Verified receipt not found", errorCode: "RECEIPT_NOT_FOUND" });
+      return res.json({ success: true, receiptId, recommendations });
+    } finally { client.release(); }
+  } catch (error) { return res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Internal server error" }); }
+});
+
+router.post("/bundle", async (req: Request, res: Response) => {
+  try {
+    const payer = assertPayer(req);
+    const receiptId = String(req.body?.receiptId || "");
+    const include = Array.isArray(req.body?.include) ? req.body.include.filter((value: unknown): value is string => typeof value === "string") : [];
+    if (!/^\d+$/.test(receiptId) || include.some((value: string) => !["basket", "price", "recommendation"].includes(value))) {
+      return res.status(400).json({ success: false, error: "receiptId and valid include values are required" });
+    }
+    assertDatabaseConfigured();
+    const client = await getDatabasePool().connect();
+    try {
+      const bundle = await buildBundle(client, receiptId, payer, include);
+      if (!bundle) return res.status(404).json({ success: false, error: "Verified receipt not found", errorCode: "RECEIPT_NOT_FOUND" });
+      return res.json({ success: true, ...bundle });
+    } finally { client.release(); }
+  } catch (error) { return res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Internal server error" }); }
 });
 
 export default router;

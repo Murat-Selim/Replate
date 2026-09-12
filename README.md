@@ -1,12 +1,12 @@
 # Replate 🥗
 
-Turn receipts into healthier insights you can verify. Scan a grocery receipt to understand your basket's health and nutrition balance, then save the proof onchain. Replate is a Web3 mini-app built on the **Base** blockchain that encourages healthy grocery shopping and reduces food waste. Users upload grocery receipts, the system analyzes them using Google Cloud Vision OCR + Open Food Facts API, and verified results are recorded on-chain as XP, streaks, and NFT badges.
+Turn receipts into healthier insights you can verify. Scan a grocery receipt to understand your basket's health and nutrition balance, then save the proof onchain. Replate is a Web3 mini-app built on the **Base** blockchain that encourages healthy grocery shopping and reduces food waste. Users upload grocery receipts, the system analyzes them using Google Cloud Vision OCR + Open Food Facts API, and verified results are recorded on-chain as RP (Replate Points), streaks, and NFT badges.
 
 ## Current Status
 
 Production runs on Base mainnet. The canonical `ReplateQuest` proxy is upgraded to V5, and both frontend clients plus the backend use the matching ABI.
 
-Receipt submissions are permanently `FREE` with no contract-level daily limit. Detailed Basket Analysis is the separate x402 product at `$0.10 USDC` per request.
+Receipt submissions are permanently `FREE` with no contract-level daily limit. Detailed Basket Analysis is the separate x402 product at `$0.05 USDC` per request.
 
 ---
 
@@ -16,10 +16,10 @@ Receipt submissions are permanently `FREE` with no contract-level daily limit. D
 - **Health & Nutrition Scoring**: Local product catalog classification with optional Open Food Facts enrichment.
 - **EIP-712 Receipt Flow**: Users sign receipt data and the client/relayer submits it through `submitReceiptWithSig`.
 - **Replay Protection**: Each `receiptHash` can be consumed only once on-chain.
-- **Progress and Rewards**: XP, health streaks, daily check-ins, weekly reports, and ERC-721 badges.
-- **Paid Basket Insights**: Personalized Basket Insights unlocked with a `$0.10 USDC` x402 payment on Base Mainnet.
+- **Progress and Rewards**: RP (Replate Points), health streaks, daily check-ins, weekly reports, and ERC-721 badges.
+- **Paid Basket Insights**: Personalized Basket Insights unlocked with a `$0.05 USDC` x402 payment on Base Mainnet.
 - **Weekly Leaderboard**: Top 100 users can share the weekly leaderboard; receipt submissions do not charge USDC.
-- **Quest Previews**: Weekly quest progress is currently off-chain and does not promise tokens, XP, or USDC.
+- **Quest Previews**: Weekly quest progress is currently off-chain and does not promise tokens, RP, or USDC.
 
 ---
 
@@ -47,8 +47,8 @@ Receipt submissions are permanently `FREE` with no contract-level daily limit. D
 4.  **Scoring and Hashing**: Health/nutrition scores are calculated and normalized receipt text becomes a deterministic `receiptHash`.
 5.  **User Approval**: The user signs receipt data with EIP-712 typed data containing the hash, nonce, and deadline.
 6.  **On-Chain Submit**: The client or relayer submits `submitReceiptWithSig` to `ReplateQuest`.
-7.  **Rewards**: The contract records XP, weekly reports, streaks, and eligible ERC-721 badges.
-8.  **Insight Payment**: An agent or user wallet signs a `$0.10 USDC` x402 payment on Base Mainnet.
+7.  **Rewards**: The contract records RP (Replate Points), weekly reports, streaks, and eligible ERC-721 badges.
+8.  **Insight Payment**: An agent or user wallet signs a `$0.05 USDC` x402 payment on Base Mainnet.
 9.  **Settlement**: Coinbase CDP verifies and settles the payment to the configured receiver wallet.
 10. **Personalized Basket Insights**: The backend returns rule-based recommendations from the stored derived features.
 
@@ -165,10 +165,20 @@ API resolution works like this in both frontends:
 | `/api/verify-receipt` | `POST` | Validates and analyzes a receipt, returns the normalized `receiptHash`, and can relay on-chain. |
 | `/api/receipts/confirmed` | `POST` | Verifies and persists a successful on-chain receipt. |
 | `/api/receipts/latest?userAddress=0x...` | `GET` | Restores the latest verified receipt for a wallet. |
-| `/api/intelligence/advanced` | `POST` | Returns Personalized Basket Insights after a `$0.10 USDC` x402 payment. |
+| `/api/intelligence/advanced` | `POST` | Returns advanced receipt intelligence after a `$0.05 USDC` x402 payment. |
+| `/api/intelligence/basket/{receiptId}` | `GET` | Returns structured basket metrics for the receipt owner (`$0.01 USDC`). |
+| `/api/intelligence/price/receipt/{receiptId}` | `GET` | Compares paid item prices with observed averages (`$0.01 USDC`). |
+| `/api/intelligence/price/product/{canonicalProductId}` | `GET` | Returns aggregate product price intelligence (`$0.01 USDC`). |
+| `/api/intelligence/behavior/me` | `GET` | Returns the paying wallet's behavior intelligence (`$0.02 USDC`). |
+| `/api/intelligence/recommendation/{receiptId}` | `GET` | Returns receipt recommendations (`$0.02 USDC`). |
+| `/api/intelligence/bundle` | `POST` | Returns selected receipt intelligence in one request (`$0.03 USDC`). |
+| `/api/signals/product/{canonicalProductId}` | `GET` | Soon / Yakında; signal API currently closed. |
+| `/api/signals/category/{category}` | `GET` | Soon / Yakında; signal API currently closed. |
+| `/api/signals/merchant/{merchantId}` | `GET` | Soon / Yakında; signal API currently closed. |
 | `/.well-known/agent.json` | `GET` | Agent discovery card with x402 and endpoint metadata. |
+| `/openapi.json` | `GET` | OpenAPI discovery document with prices, schemas, and authorization rules. |
 | `/.well-known/agent-card.json` | `GET` | Alternate agent card route. |
-| `/api/leaderboard` | `GET` | Fetches the top XP earners. |
+| `/api/leaderboard` | `GET` | Fetches the top RP earners. |
 | `/api/user/:address` | `GET` | Returns user summary, streaks, reports, and pool state. |
 | `/api/check-in` | `POST` | Records a daily user check-in. |
 | `/api/quests/:address` | `GET` | Returns the current off-chain weekly quest preview/progress. |
@@ -193,7 +203,7 @@ curl -i -X POST https://replate-backend61.vercel.app/api/intelligence/advanced \
   -H "Content-Type: application/json" \
   -d '{"receiptId":"1","receiptHash":"0x_VERIFIED_RECEIPT_HASH","userAddress":"0x_AGENT_WALLET_ADDRESS"}'
 
-# Payment: $0.10 USDC · Base Mainnet · exact EIP-3009
+# Payment: $0.05 USDC · Base Mainnet · exact EIP-3009
 
 # Discovery
 GET https://replate-backend61.vercel.app/openapi.json

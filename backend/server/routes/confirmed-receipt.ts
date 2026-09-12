@@ -14,6 +14,7 @@ interface ProductInput {
   category: "healthy" | "unhealthy" | "neutral" | "excluded";
   fruitVegGrams: number;
   confidence: number;
+  paidPrice?: number;
   nutriscore?: string;
 }
 
@@ -107,6 +108,9 @@ function validateRequest(body: ConfirmedReceiptRequest): void {
       !Number.isFinite(product.confidence) || product.confidence < 0 || product.confidence > 1) {
       fail("Product classification is invalid", "INVALID_PRODUCT");
     }
+    if (product.paidPrice !== undefined && (!Number.isFinite(product.paidPrice) || product.paidPrice < 0 || product.paidPrice > 100000000)) {
+      fail("Product price is invalid", "INVALID_PRODUCT_PRICE");
+    }
   }
 }
 
@@ -195,9 +199,9 @@ router.post("/confirmed", async (req: Request, res: Response) => {
       }
       const item = await client.query<{ id: string }>(
         `INSERT INTO receipt_items
-         (receipt_id, item_name, canonical_product_id, quantity, weight_grams, fruit_veg_grams, normalization_version, normalization_confidence)
-         VALUES ($1,$2,$3,1,0,$4,'catalog-v1',$5) RETURNING id`,
-        [receiptId, product.name.trim(), canonicalProductId, product.fruitVegGrams, normalized.confidence],
+         (receipt_id, item_name, canonical_product_id, quantity, weight_grams, fruit_veg_grams, paid_price, normalization_version, normalization_confidence)
+         VALUES ($1,$2,$3,1,0,$4,$5,'catalog-v1',$6) RETURNING id`,
+        [receiptId, product.name.trim(), canonicalProductId, product.fruitVegGrams, product.paidPrice ?? null, normalized.confidence],
       );
       await client.query(
         `INSERT INTO classifications (receipt_item_id, model_version_id, category, confidence, nutriscore)

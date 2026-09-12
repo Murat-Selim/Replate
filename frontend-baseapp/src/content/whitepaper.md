@@ -51,12 +51,12 @@ Replate scoring is informational feedback, not medical advice.
 
 ---
 
-## 3. XP, streaks, and badges  
+## 3. RP (Replate Points), streaks, and badges
 **Live**
 
-Verified receipts can produce XP and update weekly progress.
+Verified receipts can produce RP (Replate Points) and update weekly progress.
 
-Daily check-ins use a separate XP and streak mechanic.
+Daily check-ins use a separate RP and streak mechanic.
 
 A Replate Badge NFT can be minted when defined health and nutrition thresholds are reached.
 
@@ -95,7 +95,7 @@ Blockchain remains the verification and reward layer, while PostgreSQL provides 
 ## 6. x402 Detailed Basket Analysis and agent access
 **Live**
 
-After a receipt is verified, a user can unlock **Detailed Basket Analysis** for **$0.10 USDC** on Base Mainnet through the x402 payment flow.
+After a receipt is verified, a user can unlock **Detailed Basket Analysis** for **$0.05 USDC** on Base Mainnet through the x402 payment flow.
 
 The paid endpoint is `POST /api/intelligence/advanced`. It returns a report based on the already verified receipt and the derived intelligence features. Coinbase CDP acts as the facilitator and ERC-8021 Builder Code attribution is supported.
 
@@ -110,16 +110,16 @@ The service is also discoverable by autonomous agents through the `.well-known/a
 
 Receipt submissions on the upgraded Base contract are permanently free and have no contract-level daily receipt limit. Receipt-hash replay protection remains active for signed submissions.
 
-The legacy `PAID` phase and fee storage remain only for UUPS upgrade compatibility; they are not used to charge for receipt submissions. The separate paid product is the x402-powered Detailed Basket Analysis endpoint.
+The legacy `PAID` phase and fee storage remain only for UUPS upgrade compatibility; they are not used to charge for receipt submissions. Paid agent access is provided by the x402-powered Replate Intelligence APIs.
 
 ---
 
 # PLANNED
 
-## 8. Extended intelligence roadmap
-**Planned**
+## 8. Agent intelligence API
+**Live**
 
-The foundational PostgreSQL intelligence layer is live. The following historical and aggregated intelligence extensions remain planned.
+The foundational PostgreSQL intelligence layer and the x402 agent intelligence layer are live.
 
 The proposed pipeline is:
 
@@ -127,22 +127,25 @@ The proposed pipeline is:
 → Behavioral History
 → Replate Intelligence**
 
-Planned extensions include:
+Live paid capabilities include:
 
-- 30 / 60 / 90-day trends
-- historical improvement
-- shopping consistency
-- aggregate consumer signals
-- permissioned reputation
+- Advanced Receipt Intelligence
+- Basket Intelligence
+- Receipt and Product Price Intelligence
+- Behavior Intelligence for the paying wallet
+- Receipt Recommendations and Bundles
+- Signals API (Product, Category, Merchant): Soon / Yakında
+
+Signals remain closed while the aggregate data layer is being prepared.
 
 Blockchain remains the verification and reward layer.
 
-Historical analysis, aggregation, and permissioned intelligence remain planned extensions.
+Longer historical trends, MCP tools, and permissioned intelligence remain planned extensions.
 
 ---
 
 ## 9. Premium consumer model
-**Planned**
+**Partially live**
 
 The basic Replate experience is intended to remain accessible without charging for every receipt.
 
@@ -160,32 +163,32 @@ Potential benefits include:
 - premium quests
 - early feature access
 - selected seasonal benefits
-- proposed **1.5x XP multiplier** on eligible verified activity
+- proposed **1.5x RP multiplier** on eligible verified activity
 
 Subscription status would be managed by Replate while x402 acts as the payment rail.
 
 ---
 
 ## 10. Extended x402, MCP, and AI infrastructure
-**Planned**
+**Partially live**
 
-The x402 consumer report and agent payment path are live. Planned extensions include:
+The x402 consumer report and agent payment path are live. The API now exposes receipt, personal, and aggregate commerce capabilities:
 
 **AI Agent / Web3 Application
 → Replate API or MCP Tool
 → x402 Payment
 → Extended Replate Intelligence**
 
-Potential paid services include:
+Live paid services include:
 
 - Basket Intelligence
 - Nutrition Intelligence
 - Behavioral Trend Analysis
 - Recommendation Intelligence
-- Aggregated Consumer Insights
-- Permissioned Reputation Signals
+- Product Price Intelligence
+- Product, Category, and Merchant Signals: Soon / Yakında
 
-MCP-compatible tools, broader B2B APIs, historical trend products, aggregate consumer insights, and permissioned reputation signals remain planned.
+MCP-compatible tools, historical trend products, and permissioned reputation signals remain planned.
 
 ---
 
@@ -243,7 +246,7 @@ A native token and mass-market wallet-abstracted experience remain conditional o
 
 Replate combines OCR, product classification, household context, AI analysis, and Base blockchain verification to turn grocery receipts into health feedback, verifiable progress, and privacy-conscious behavioral intelligence.
 
-Today, Replate includes receipt analysis, Health Score, Nutrition Score, XP, streaks, badges, weekly progress, user-signed onchain verification, Neon-backed intelligence features, and x402-paid Detailed Basket Analysis for users and agents.
+Today, Replate includes receipt analysis, Health Score, Nutrition Score, RP (Replate Points), streaks, badges, weekly progress, user-signed onchain verification, Neon-backed intelligence features, and x402-paid Detailed Basket Analysis for users and agents.
 
 The long-term vision is to build **Replate Intelligence**: a structured intelligence layer that can serve users, AI agents, and Web3 applications through premium consumer features, x402-powered APIs, and MCP-compatible tools.
 
@@ -326,7 +329,7 @@ Replate is designed around three participants.
 
 ### Users
 
-Users contribute verified real-world activity and receive health feedback, XP, streaks, badges, onchain progress, paid Detailed Basket Analysis, and potential future rewards.
+Users contribute verified real-world activity and receive health feedback, RP (Replate Points), streaks, badges, onchain progress, paid Detailed Basket Analysis, and potential future rewards.
 
 ### AI and Web3 applications
 
@@ -345,7 +348,7 @@ Potential revenue sources include:
 
 A portion of future infrastructure revenue may support ecosystem growth and recurring reward pools.
 
-The legacy contract PAID receipt mechanism is disabled; receipt submissions are free and the x402-powered intelligence endpoint is the separate paid product.
+The legacy contract PAID receipt mechanism is disabled; receipt submissions are free and x402-powered Replate Intelligence APIs are the separate paid products.
 
 ---
 

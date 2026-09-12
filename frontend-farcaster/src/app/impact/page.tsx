@@ -149,7 +149,7 @@ export default function YourImpact() {
             await sdk.actions.composeCast({
                 text: `🔥 My Replate Streak: ${userData.checkInStreak} days!
 
-⭐ Total XP: ${userData.totalPoints}
+⭐ Total RP: ${userData.totalPoints}
 🛒 Receipts verified: ${userData.receiptCount}
 
 Join me in reducing food waste!`,
@@ -212,7 +212,7 @@ Join me in reducing food waste!`,
                                     <Star size={18} fill="currentColor" />
                                 </div>
                                 <div>
-                                    <p className="text-[9px] font-black uppercase tracking-widest text-[#A6B0B5]">Total XP</p>
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-[#A6B0B5]">Total RP</p>
                                     <p className="text-2xl font-black text-white font-heading mt-0.5">{userData.totalPoints}</p>
                                 </div>
                             </div>
@@ -255,7 +255,7 @@ Join me in reducing food waste!`,
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="text-center">
                                         <p className="text-3xl font-black text-white font-heading">{weekReport.weekPoints}</p>
-                                        <p className="text-[9px] font-black text-[#A6B0B5] uppercase tracking-wider">Week XP</p>
+                                        <p className="text-[9px] font-black text-[#A6B0B5] uppercase tracking-wider">Week RP</p>
                                     </div>
                                     <div className="text-center">
                                         <p className="text-3xl font-black text-white font-heading">{weekReport.avgHealthScore}</p>

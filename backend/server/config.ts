@@ -5,6 +5,19 @@ import { BASE_MAINNET_CHAIN_ID, BASE_USDC_ADDRESS, CONTRACT_ADDRESS } from "../s
 dotenv.config();
 const isProduction = process.env.NODE_ENV === "production";
 
+export const INTELLIGENCE_PRICING = {
+  advancedReceipt: { usd: "0.05", atomic: "50000" },
+  basket: { usd: "0.01", atomic: "10000" },
+  receiptPrice: { usd: "0.01", atomic: "10000" },
+  productPrice: { usd: "0.01", atomic: "10000" },
+  behavior: { usd: "0.02", atomic: "20000" },
+  recommendation: { usd: "0.02", atomic: "20000" },
+  bundle: { usd: "0.03", atomic: "30000" },
+  productSignal: { usd: "0.005", atomic: "5000" },
+  categorySignal: { usd: "0.005", atomic: "5000" },
+  merchantSignal: { usd: "0.005", atomic: "5000" },
+} as const;
+
 export const runtimeConfig = {
   isProduction,
   contractAddress: CONTRACT_ADDRESS,
@@ -19,7 +32,7 @@ export const runtimeConfig = {
   cdpApiKeySecret: (process.env.CDP_API_KEY_SECRET || "").trim(),
   x402Network: `eip155:${BASE_MAINNET_CHAIN_ID}` as `eip155:${number}`,
   x402Asset: BASE_USDC_ADDRESS,
-  x402PriceAtomic: "100000",
+  x402PriceAtomic: (process.env.X402_ADVANCED_PRICE_ATOMIC || INTELLIGENCE_PRICING.advancedReceipt.atomic).trim(),
   builderCode: (process.env.BUILDER_CODE || "bc_7to91eav").trim(),
   builderCodeSuffix: (process.env.BUILDER_CODE_SUFFIX || "62635f37746f39316561760b0080218021802180218021802180218021").trim().replace(/^0x/, ""),
   validatorPrivateKey: (process.env.VALIDATOR_PRIVATE_KEY || process.env.PRIVATE_KEY || "").trim(),
@@ -45,6 +58,7 @@ export function validateRuntimeConfig(): void {
   }
   if (runtimeConfig.validatorPrivateKey && !/^0x[a-fA-F0-9]{64}$/.test(runtimeConfig.validatorPrivateKey)) errors.push("VALIDATOR_PRIVATE_KEY must be a 32-byte hex private key");
   if (runtimeConfig.x402PayTo && !ethers.isAddress(runtimeConfig.x402PayTo)) errors.push("X402_PAY_TO must be a valid EVM address");
+  if (!/^\d+$/.test(runtimeConfig.x402PriceAtomic) || BigInt(runtimeConfig.x402PriceAtomic) <= 0n) errors.push("X402_ADVANCED_PRICE_ATOMIC must be a positive integer");
   if (runtimeConfig.x402FacilitatorUrl) {
     try {
       const url = new URL(runtimeConfig.x402FacilitatorUrl);

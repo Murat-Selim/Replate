@@ -60,7 +60,7 @@ export async function runWeeklyFinalization(): Promise<void> {
   // Log summary
   console.log(`ğŸ“Š Weekly summary:
     - Users processed: ${top100.length}
-    - Top user: ${top100[0]?.address} (${top100[0]?.totalPoints} XP)
+    - Top user: ${top100[0]?.address} (${top100[0]?.totalPoints} RP)
     - Combined points in pool: ${totalPoints}
   `);
 

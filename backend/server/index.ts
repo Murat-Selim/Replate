@@ -9,6 +9,7 @@ import { isAllowedFrontendOrigin, runtimeConfig, validateRuntimeConfig } from ".
 import verifyReceiptRouter from "./routes/verify-receipt.js";
 import confirmedReceiptRouter from "./routes/confirmed-receipt.js";
 import intelligenceRouter from "./routes/intelligence.js";
+import signalsRouter from "./routes/signals.js";
 import leaderboardRouter from "./routes/leaderboard.js";
 import userRouter from "./routes/user.js";
 import checkInRouter from "./routes/check-in.js";
@@ -89,6 +90,7 @@ app.use(agentDiscoveryRouter);
 app.use("/api/verify-receipt", verifyReceiptRouter);
 app.use("/api/receipts", confirmedReceiptRouter);
 app.use("/api/intelligence", intelligenceRouter);
+app.use("/api/signals", signalsRouter);
 app.use("/api/products", productsRouter);
 app.use("/api/leaderboard", leaderboardRouter);
 app.use("/api/user", userRouter);

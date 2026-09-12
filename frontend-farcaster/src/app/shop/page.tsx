@@ -50,7 +50,7 @@ function getBasketFeedback(result: VerificationResult) {
 }
 
 function getIntelligenceTier(receiptCount: number) {
-    if (receiptCount >= 30) return { label: "Richer Replate Intelligence", detail: "Your 30-day history makes the $0.10 USDC report more personalized." };
+    if (receiptCount >= 30) return { label: "Richer Replate Intelligence", detail: "Your 30-day history makes the $0.05 USDC report more personalized." };
     if (receiptCount >= 10) return { label: "Behavior pattern + recommendation", detail: `${30 - receiptCount} more verified receipts unlock richer Replate Intelligence.` };
     if (receiptCount >= 5) return { label: "30-day pattern analysis", detail: `${10 - receiptCount} more verified receipts unlock behavior patterns and recommendations.` };
     if (receiptCount >= 3) return { label: "Richer comparison", detail: `${5 - receiptCount} more verified receipts unlock 30-day pattern analysis.` };
@@ -333,7 +333,7 @@ export default function SmartShop() {
 
 🥗 Health Score: ${result.healthScore}/100
 🌿 Nutrition Score: ${result.nutritionScore}/100
-⭐ Earned ${result.pointsEarned} XP
+⭐ Earned ${result.pointsEarned} RP
 
 Join me in reducing food waste!`,
                 embeds: ["https://replate.app"],
@@ -534,7 +534,7 @@ Join me in reducing food waste!`,
                                                 <Trophy size={16} fill="currentColor" />
                                             </div>
                                             <p className="text-2xl font-black text-white font-heading">+{result.pointsEarned}</p>
-                                            <p className="text-[9px] font-black text-[#A6B0B5] uppercase tracking-wider">XP Earned</p>
+                                            <p className="text-[9px] font-black text-[#A6B0B5] uppercase tracking-wider">RP Earned</p>
                                         </div>
                                         <div className="bg-[#131C20] border border-[#22D97A]/10 p-4 rounded-[22px] text-center">
                                             <div className="flex items-center justify-center gap-1 text-[#22D97A] mb-1">
@@ -588,7 +588,7 @@ Join me in reducing food waste!`,
                                                 className="w-full bg-[#22D97A] text-[#07100B] py-3.5 px-4 rounded-xl font-black text-xs hover:bg-[#39ed8b] disabled:opacity-60 transition-all flex items-center justify-center gap-2"
                                             >
                                                 {isUnlocking ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-                                                {isUnlocking ? "Unlocking..." : "Unlock your higher-value report · 0.10 USDC"}
+                                                {isUnlocking ? "Unlocking..." : "Unlock your higher-value report · 0.05 USDC"}
                                             </button>
                                         </div>
                                     )}
@@ -624,11 +624,16 @@ Join me in reducing food waste!`,
                                     </p>
                                     <div className="space-y-2">
                                         {[
-                                            ["Advanced Receipt Report", "POST /api/intelligence/advanced", "0.10 USDC", "Live"],
-                                            ["Basket Intelligence", "GET /api/intelligence/basket/{receiptId}", "0.01 USDC", "Planned"],
-                                            ["Price Intelligence", "GET /api/intelligence/price/{receiptId}", "0.01 USDC", "Planned"],
-                                            ["Behavior Intelligence", "GET /api/intelligence/behavior/{wallet}", "0.02 USDC", "Planned"],
-                                            ["Recommendation", "GET /api/intelligence/recommendation/{receiptId}", "0.03 USDC", "Planned"],
+                                            ["Advanced Receipt Report", "POST /api/intelligence/advanced", "0.05 USDC", "Live"],
+                                            ["Basket Intelligence", "GET /api/intelligence/basket/{receiptId}", "0.01 USDC", "Live"],
+                                            ["Receipt Price", "GET /api/intelligence/price/receipt/{receiptId}", "0.01 USDC", "Live"],
+                                            ["Product Price", "GET /api/intelligence/price/product/{canonicalProductId}", "0.01 USDC", "Live"],
+                                            ["Behavior Intelligence", "GET /api/intelligence/behavior/me", "0.02 USDC", "Live"],
+                                            ["Recommendation", "GET /api/intelligence/recommendation/{receiptId}", "0.02 USDC", "Live"],
+                                            ["Intelligence Bundle", "POST /api/intelligence/bundle", "0.03 USDC", "Live"],
+                                            ["Product Signal", "GET /api/signals/product/{canonicalProductId}", "0.005 USDC", "Soon"],
+                                            ["Category Signal", "GET /api/signals/category/{category}", "0.005 USDC", "Soon"],
+                                            ["Merchant Signal", "GET /api/signals/merchant/{merchantId}", "0.005 USDC", "Soon"],
                                         ].map(([name, endpoint, price, status]) => (
                                             <div key={endpoint} className="flex items-center justify-between gap-3 rounded-xl border border-white/5 bg-black/10 px-3 py-2.5">
                                                 <div className="min-w-0">

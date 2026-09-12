@@ -69,7 +69,7 @@ export default function Home() {
             return {
                 rank: i + 1,
                 name: formatAddress(leader.address),
-                xp: `${leader.totalPoints} XP`,
+                rp: `${leader.totalPoints} RP`,
                 avatar: leader.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${leader.address}`,
                 color: i === 0 ? "bg-[#FFB800] text-black" : i === 1 ? "bg-[#A6B0B5] text-black" : "bg-[#CD7F32] text-black"
             };
@@ -77,7 +77,7 @@ export default function Home() {
         return {
             rank: i + 1,
             name: i === 0 ? "Alex Carter" : i === 1 ? "Jamie Rivera" : "Taylor Morgan",
-            xp: i === 0 ? "40 XP" : i === 1 ? "35 XP" : "30 XP",
+            rp: i === 0 ? "40 RP" : i === 1 ? "35 RP" : "30 RP",
             avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=placeholder${i}`,
             color: i === 0 ? "bg-[#FFB800] text-black" : i === 1 ? "bg-[#A6B0B5] text-black" : "bg-[#CD7F32] text-black"
         };
@@ -166,7 +166,7 @@ export default function Home() {
                         </div>
                         <div className="text-left">
                             <p className="text-[10px] text-[#A6B0B5] font-semibold leading-none">Weekly progress</p>
-                            <p className="text-[13px] font-black text-white leading-tight uppercase font-heading">XP</p>
+                            <p className="text-[13px] font-black text-white leading-tight uppercase font-heading">RP</p>
                         </div>
                     </div>
                 </div>
@@ -176,7 +176,7 @@ export default function Home() {
                     <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#22D97A] font-heading">Agent-native service</span>
                     <h2 className="text-2xl font-black text-white font-heading">Personalized Basket Insights via x402</h2>
                     <p className="text-sm text-[#A6B0B5] leading-relaxed">
-                        Autonomous agents can request receipt-based basket insights with a programmatic payment of $0.10 USDC on Base Mainnet.
+                        Autonomous agents can request receipt-based basket insights with a programmatic payment of $0.05 USDC on Base Mainnet.
                     </p>
                     <a
                         href="https://replate-backend61.vercel.app/.well-known/agent-card.json"
@@ -257,7 +257,7 @@ export default function Home() {
                                     {/* User Details */}
                                     <div className="flex flex-col">
                                         <span className="font-extrabold text-white text-sm font-heading">{earner.name}</span>
-                                        <span className="text-[10px] text-brand-primary font-bold tracking-wider">{earner.xp}</span>
+                                        <span className="text-[10px] text-brand-primary font-bold tracking-wider">{earner.rp}</span>
                                     </div>
                                 </div>
 
@@ -266,7 +266,7 @@ export default function Home() {
                                     <div className="w-4 h-4 rounded-full bg-brand-primary/20 flex items-center justify-center text-brand-primary font-black text-[9px]">
                                         ✦
                                     </div>
-                                    <span className="text-[11px] font-black text-white uppercase tracking-wider font-heading">{earner.xp}</span>
+                                    <span className="text-[11px] font-black text-white uppercase tracking-wider font-heading">{earner.rp}</span>
                                 </div>
                             </div>
                         ))}
