@@ -72,7 +72,10 @@ function endpointDescription(capability: Capability): Record<string, unknown> {
     responses: capability.status === "soon"
       ? { "501": { description: "This capability is coming soon / Yakında." } }
       : {
-        "200": { description: "JSON intelligence response." },
+        "200": {
+          description: "JSON intelligence response.",
+          content: { "application/json": { schema: responseSchema(capability) } },
+        },
         "402": { description: "Payment required; retry with PAYMENT-SIGNATURE." },
         "400": { description: "Invalid request." },
         "404": { description: "Resource not found." },
@@ -120,6 +123,22 @@ function agentManifest(origin: string) {
     builderCode: payment.builderCode,
     openapiUrl: `${origin}/openapi.json`,
   };
+}
+
+function responseSchema(capability: Capability): Record<string, unknown> {
+  const properties: Record<string, unknown> = {};
+  const objectFields = new Set(["report", "basket", "price", "behavior", "categories", "purchaseFrequency"]);
+  const arrayFields = new Set(["items", "recommendations", "productPrices", "topCategories"]);
+  for (const field of capability.output) {
+    const root = field.split(".")[0];
+    if (properties[root]) continue;
+    properties[root] = objectFields.has(root)
+      ? { type: "object" }
+      : arrayFields.has(root)
+        ? { type: "array", items: { type: "object" } }
+        : { type: "number" };
+  }
+  return { type: "object", properties, additionalProperties: true };
 }
 
 function openApiDocument(origin: string) {
