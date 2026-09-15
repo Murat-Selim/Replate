@@ -1,3 +1,4 @@
+import { createHash } from "crypto";
 import type { PoolClient } from "pg";
 import { buildIntelligenceReport, type IntelligenceFeatureSet } from "./intelligence-rules.js";
 
@@ -25,6 +26,23 @@ export interface ReceiptItemIntelligence {
   paidPrice: number | null;
   normalizationConfidence: number;
 }
+
+const ADVANCED_SOURCE_VERSION = "receipt-source-v1";
+
+export type AdvancedReceiptReport = ReturnType<typeof buildIntelligenceReport> & {
+  receiptId: string;
+  verification: {
+    sourceVersion: string;
+    hashAlgorithm: string;
+    canonicalization: string;
+    featureVersion: string;
+    receiptHash: string;
+    lineItemDigest: string;
+    scores: { healthScore: number; nutritionScore: number };
+    lineItems: ReceiptItemIntelligence[];
+    sourceCommitment: string;
+  };
+};
 
 export interface BasketIntelligence {
   receiptId: string;
@@ -318,6 +336,67 @@ export async function buildBundle(db: Db, receiptId: string, wallet: string, inc
     );
   }
   return bundle;
+}
+
+function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  if (value && typeof value === "object") {
+    return `{${Object.keys(value as Record<string, unknown>).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson((value as Record<string, unknown>)[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(value) ?? "null";
+}
+
+function digest(value: unknown): string {
+  return `0x${createHash("sha256").update(canonicalJson(value)).digest("hex")}`;
+}
+
+export async function buildAdvancedReceiptReport(db: Db, receiptId: string, receiptHash?: string): Promise<AdvancedReceiptReport | null> {
+  const receipt = await findReceipt(db, receiptId, undefined, receiptHash);
+  if (!receipt) return null;
+  const features = await receiptFeatures(db, receipt.id);
+  if (Object.keys(features).length < 11) return null;
+  const report = buildIntelligenceReport(features);
+  const lineItems = await receiptItems(db, receipt.id);
+  const lineItemDigest = digest(lineItems);
+  const scores = { healthScore: report.healthScore, nutritionScore: report.nutritionScore };
+  const sourceCommitment = digest({
+    sourceVersion: ADVANCED_SOURCE_VERSION,
+    hashAlgorithm: "sha256",
+    canonicalization: "sorted-object-keys-v1",
+    featureVersion: "features-v1",
+    receiptId: receipt.id,
+    receiptHash: receipt.receiptHash,
+    lineItemDigest,
+    scores,
+    ruleVersion: report.ruleVersion,
+  });
+  return {
+    ...report,
+    receiptId: receipt.id,
+    verification: {
+      sourceVersion: ADVANCED_SOURCE_VERSION,
+      hashAlgorithm: "sha256",
+      canonicalization: "sorted-object-keys-v1",
+      featureVersion: "features-v1",
+      receiptHash: receipt.receiptHash,
+      lineItemDigest,
+      scores,
+      lineItems,
+      sourceCommitment,
+    },
+  };
+}
+
+export function hasAdvancedReceiptBinding(value: unknown, sourceCommitment?: string | null): value is AdvancedReceiptReport {
+  if (!value || typeof value !== "object") return false;
+  const report = value as Partial<AdvancedReceiptReport>;
+  const verification = report.verification;
+  if (!verification) return false;
+  return typeof report.receiptId === "string"
+    && typeof verification.receiptHash === "string"
+    && typeof verification.lineItemDigest === "string"
+    && typeof verification.sourceCommitment === "string"
+    && (!sourceCommitment || verification.sourceCommitment === sourceCommitment);
 }
 
 export function buildAdvancedFromFeatures(features: IntelligenceFeatureSet) {

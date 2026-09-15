@@ -4,11 +4,12 @@ import React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { LayoutGrid, ShoppingBag, BarChart3, Target, BookOpen, User, Wallet } from "lucide-react";
+import { LayoutGrid, ShoppingBag, BarChart3, Target, BookOpen, User, Wallet, Utensils } from "lucide-react";
 import { useAccount, useConnect, useDisconnect } from "wagmi";
 
 const navItems = [
     { icon: LayoutGrid, href: "/", label: "Home", desc: "Overview & start" },
+    { icon: Utensils, href: "/meal", label: "Analyze Meal", desc: "Photo insight" },
     { icon: ShoppingBag, href: "/verify-receipt", label: "Verify Receipt", desc: "Scan or upload" },
     { icon: Target, href: "/quests", label: "Quests", desc: "Challenges & progress" },
     { icon: BarChart3, href: "/leaderboard", label: "Leaderboard", desc: "Rankings & prizes" },

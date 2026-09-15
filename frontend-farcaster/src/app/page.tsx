@@ -9,28 +9,29 @@ import {
     Sparkles,
     Trophy,
     ArrowRight,
+    Utensils,
     ChevronRight
 } from "lucide-react";
 import { getApiUrl } from "@/lib/api";
 
 const steps = [
     {
-        icon: Camera,
+        icon: Utensils,
         num: "01",
-        title: "Snap Your Receipt",
-        desc: "Upload any grocery receipt after shopping.",
+        title: "Start with food",
+        desc: "Analyze a meal photo or a full grocery receipt.",
     },
     {
         icon: Sparkles,
         num: "02",
-        title: "AI Analyzes It",
-        desc: "We score your basket's health & nutrition balance.",
+        title: "Get an insight",
+        desc: "See a clear health and nutrition signal in seconds.",
     },
     {
         icon: Trophy,
         num: "03",
-        title: "Get Verifiable Insight",
-        desc: "Review your scores and keep a verifiable record of your progress.",
+        title: "Improve and track",
+        desc: "Choose a practical next step and build verifiable progress.",
     },
 ];
 
@@ -120,7 +121,7 @@ export default function Home() {
                         </h1>
                         <div className="space-y-1.5">
                             <p className="text-xl text-[#A6B0B5] font-medium tracking-wide">
-                                Turn receipts into healthier insights.
+                                Understand what you eat.
                             </p>
                             <p className="text-2xl text-white font-extrabold tracking-wide uppercase">
                                 Build <span className="text-brand-primary neon-glow-text">verifiable</span> progress.
@@ -130,14 +131,9 @@ export default function Home() {
                 </div>
 
                 {/* Main CTA Button */}
-                <div className="w-full max-w-xs pt-2">
-                    <Link
-                        href="/verify-receipt"
-                        className="w-full bg-[#22D97A] text-[#0B1114] py-5 px-8 rounded-full font-black text-lg uppercase tracking-wider flex items-center justify-center gap-3 transition-all active:scale-95 shadow-[0_0_30px_rgba(34,217,122,0.45)] hover:shadow-[0_0_40px_rgba(34,217,122,0.7)]"
-                    >
-                        Verify Receipt
-                        <ArrowRight size={20} strokeWidth={3} />
-                    </Link>
+                <div className="flex w-full max-w-md flex-col gap-3 pt-2 sm:flex-row">
+                    <Link href="/meal" className="w-full bg-[#22D97A] text-[#0B1114] py-5 px-6 rounded-full font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-95 shadow-[0_0_30px_rgba(34,217,122,0.45)] hover:shadow-[0_0_40px_rgba(34,217,122,0.7)]"><Utensils size={18} />Analyze Meal<ArrowRight size={18} strokeWidth={3} /></Link>
+                    <Link href="/verify-receipt" className="w-full border border-[#22D97A]/30 bg-[#131C20] text-[#22D97A] py-5 px-6 rounded-full font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-95"><Camera size={18} />Verify Receipt</Link>
                 </div>
 
                 {/* User Trust & Rewards Widget */}
@@ -165,8 +161,8 @@ export default function Home() {
                             <span className="font-black text-xs">$</span>
                         </div>
                         <div className="text-left">
-                            <p className="text-[10px] text-[#A6B0B5] font-semibold leading-none">Weekly progress</p>
-                            <p className="text-[13px] font-black text-white leading-tight uppercase font-heading">RP</p>
+                            <p className="text-[10px] text-[#A6B0B5] font-semibold leading-none">Weekly Replate Score</p>
+                            <p className="text-[13px] font-black text-white leading-tight uppercase font-heading">Track</p>
                         </div>
                     </div>
                 </div>

@@ -3,12 +3,12 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutGrid, ShoppingBag, BarChart3, Target, User } from "lucide-react";
+import { LayoutGrid, ShoppingBag, Target, User, Utensils } from "lucide-react";
 
 const navItems = [
     { icon: LayoutGrid, href: "/", label: "Home" },
+    { icon: Utensils, href: "/meal", label: "Analyze Meal" },
     { icon: ShoppingBag, href: "/verify-receipt", label: "Verify Receipt" },
-    { icon: BarChart3, href: "/leaderboard", label: "Leaderboard" },
     { icon: Target, href: "/quests", label: "Quests" },
     { icon: User, href: "/profile", label: "Profile" },
 ];

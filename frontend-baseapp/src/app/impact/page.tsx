@@ -7,6 +7,7 @@ import { useAccount, useReadContract } from "wagmi";
 import { CONTRACT_ADDRESS, REPLATE_QUEST_ABI } from "@/lib/contract";
 import { getApiUrl } from "@/lib/api";
 import { useCheckIn } from "@/lib/useTransaction";
+import { track } from "@vercel/analytics";
 
 interface UserSummary {
     totalPoints: number;
@@ -122,6 +123,7 @@ export default function YourImpact() {
     };
 
     const handleShare = () => {
+        track("weekly_progress_shared", { score: weeklyReplateScore });
         const shareText = `🔥 My Replate Streak: ${currentStreak} days!\n\n⭐ Total RP: ${userData.totalPoints}\n🛒 Receipts verified: ${userData.receiptCount}\n\nJoin me in reducing food waste!`;
         window.open(`https://warpcast.com/~/compose?text=${encodeURIComponent(shareText)}`, '_blank');
     };
@@ -131,6 +133,9 @@ export default function YourImpact() {
         : 0;
 
     const currentStreak = Math.max(userData.receiptStreak, userData.checkInStreak);
+    const weeklyReplateScore = weekReport.receiptCount > 0
+        ? Math.round((weekReport.avgHealthScore + weekReport.avgNutritionScore) / 2)
+        : 0;
 
     return (
         <Shell>
@@ -251,7 +256,13 @@ export default function YourImpact() {
                         {/* Weekly Report */}
                         {weekReport.receiptCount > 0 && (
                             <div className="bg-[#0c1310]/90 border border-[#00E36E]/12 backdrop-blur-2xl rounded-3xl p-6 sm:p-8 space-y-4 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
-                                <h3 className="text-lg font-black text-brand-primary">This Week</h3>
+                                <div className="flex flex-wrap items-end justify-between gap-3">
+                                    <div>
+                                        <h3 className="text-lg font-black text-brand-primary">Weekly Replate Score</h3>
+                                        <p className="mt-1 text-sm text-brand-text/50">Health progress first; gamification second.</p>
+                                    </div>
+                                    <p className="text-4xl font-black text-white">{weeklyReplateScore}<span className="text-sm text-brand-text/40">/100</span></p>
+                                </div>
                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                                     <div className="text-center sm:text-left">
                                         <p className="text-3xl font-black text-brand-primary tabular-nums">{weekReport.weekPoints}</p>

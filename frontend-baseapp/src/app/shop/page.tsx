@@ -8,6 +8,7 @@ import { appChain } from "@/lib/network";
 import { getApiUrl } from "@/lib/api";
 import { compressImage } from "@/lib/image";
 import { useSubmitReceipt } from "@/lib/useTransaction";
+import { track } from "@vercel/analytics";
 import {
     unlockAdvancedIntelligence,
     fetchBasketIntelligence,
@@ -276,6 +277,7 @@ export default function SmartShop() {
                 receiptId: String(confirmedData.data?.receiptId ?? confirmedData.receiptId),
                 txHash: txResult.txHash || "",
             });
+            track("receipt_verification_completed", { health_score: Number(data.data.healthScore) });
             setVerifiedReceiptCount((count) => count + 1);
         } catch (err) {
             setError(err instanceof Error ? err.message : "An error occurred");
@@ -298,6 +300,7 @@ export default function SmartShop() {
                 userAddress: address,
             });
             setAdvancedReport(report);
+            track("x402_advanced_insight_unlocked");
         } catch (err) {
             setError(err instanceof Error ? err.message : "Replate Intelligence could not be unlocked");
         } finally {
@@ -348,14 +351,26 @@ export default function SmartShop() {
 
     const handleShareWarpcast = () => {
         if (!result) return;
+        track("receipt_result_shared", { channel: "farcaster" });
         const shareText = `Just verified my grocery run on Replate\n\nHealth Score: ${result.healthScore}/100\nEarned: ${result.pointsEarned} RP\n\nShop smart. Nourish well. Earn onchain.`;
         window.open(`https://warpcast.com/~/compose?text=${encodeURIComponent(shareText)}`, '_blank');
     };
 
     const handleShareTwitter = () => {
         if (!result) return;
+        track("receipt_result_shared", { channel: "x" });
         const shareText = `Just verified my grocery run on @replate\n\nHealth Score: ${result.healthScore}/100\nEarned: ${result.pointsEarned} RP\n\nShop smart. Nourish well. Earn onchain.\n\nhttps://replate.app`;
         window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}`, '_blank');
+    };
+
+    const handleShareBase = async () => {
+        if (!result) return;
+        track("receipt_result_shared", { channel: "base" });
+        const share = { title: "My Replate Result", text: `My Replate Health Score is ${result.healthScore}/100. I earned ${result.pointsEarned} RP.`, url: window.location.href };
+        try {
+            if (navigator.share) await navigator.share(share);
+            else await navigator.clipboard.writeText(`${share.text} ${share.url}`);
+        } catch { /* User cancelled sharing. */ }
     };
 
     const resetForm = () => {
@@ -655,6 +670,12 @@ export default function SmartShop() {
                                             className="flex-1 bg-purple-600 text-white py-3 px-4 rounded-xl font-bold text-sm hover:bg-purple-700 transition-all flex items-center justify-center gap-2"
                                         >
                                             Warpcast
+                                        </button>
+                                        <button
+                                            onClick={handleShareBase}
+                                            className="flex-1 bg-[#00E36E]/15 text-[#00E36E] border border-[#00E36E]/25 py-3 px-4 rounded-xl font-bold text-sm hover:bg-[#00E36E]/25 transition-all flex items-center justify-center gap-2"
+                                        >
+                                            Share to Base
                                         </button>
                                         <button
                                             onClick={handleShareTwitter}

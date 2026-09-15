@@ -60,7 +60,7 @@ function loadGoogleCredentials(): object | null {
   }
 }
 
-function getVisionClient(): ImageAnnotatorClient {
+export function getVisionClient(): ImageAnnotatorClient {
   if (!visionClient) {
     const credentials = loadGoogleCredentials();
     if (credentials) {
@@ -90,7 +90,7 @@ function stripBase64Prefix(imageBase64: string): string {
 /**
  * Validates base64 image payload before calling Vision.
  */
-function validateImageBase64(imageBase64: string): string {
+export function validateImageBase64(imageBase64: string): string {
   if (!imageBase64 || typeof imageBase64 !== "string") {
     throw new OCRError("Image is required", "OCR_INVALID_INPUT");
   }

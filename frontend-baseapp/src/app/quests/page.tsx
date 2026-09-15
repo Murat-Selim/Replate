@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useAccount } from "wagmi";
-import { Gift, Loader2, Lock, Sparkles } from "lucide-react";
+import { Flame, Loader2, Star, Trophy } from "lucide-react";
 import Shell from "@/components/Shell";
 import { getApiUrl } from "@/lib/api";
 
@@ -18,13 +18,13 @@ interface Quest {
   bonusSeasonalXp: number;
   description: string;
 }
-
 interface QuestData {
   weekKey: string;
   quests: Quest[];
   mysteryBox: { eligible: boolean; preview: { type: string; amount: number } };
   note: string;
 }
+const questIcons = [Trophy, Flame, Star];
 
 export default function QuestsPage() {
   const { address } = useAccount();
@@ -97,10 +97,11 @@ export default function QuestsPage() {
             <div className="grid gap-4 lg:grid-cols-3">
               {data.quests.map((quest, index) => {
                 const percent = Math.min(100, Math.round((quest.progress / quest.target) * 100));
+                const QuestIcon = questIcons[index] || Star;
                 return (
                   <article key={quest.id} className="rounded-3xl border border-brand-primary/15 bg-[#0c1310] p-6">
                     <div className="mb-5 flex items-center justify-between">
-                      <span className="text-3xl">{["🥗", "🔥", "⭐"][index]}</span>
+                      <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-brand-primary/10 text-brand-primary"><QuestIcon size={25} /></span>
                       <span className="text-xs font-black text-yellow-400">+{quest.bonusSeasonalXp} seasonal RP</span>
                     </div>
                     <h2 className="min-h-12 text-lg font-black text-white">{quest.title}</h2>
@@ -119,30 +120,14 @@ export default function QuestsPage() {
                         onClick={() => claimQuest(quest.id)}
                         className="mt-4 rounded-xl bg-brand-primary px-4 py-2 text-sm font-black text-black disabled:opacity-50"
                       >
-                        {claimingQuest === quest.id ? "Claiming…" : `Claim +${quest.bonusSeasonalXp} RP`}
+                        {claimingQuest === quest.id ? "ClaimingÃ¢â‚¬Â¦" : `Claim +${quest.bonusSeasonalXp} RP`}
                       </button>
                     )}
-                    {quest.completed && <p className="mt-4 font-bold text-brand-primary">✅ Quest complete</p>}
+                    {quest.completed && <p className="mt-4 font-bold text-brand-primary">Ã¢Å“â€¦ Quest complete</p>}
                   </article>
                 );
               })}
             </div>
-
-            <section className="relative overflow-hidden rounded-3xl border border-purple-400/20 bg-gradient-to-br from-purple-950/70 to-[#0c1310] p-7">
-              <div className="flex items-center gap-4">
-                <div className="rounded-2xl bg-purple-400/10 p-4">
-                  {data.mysteryBox.eligible ? <Gift className="text-purple-300" /> : <Lock className="text-purple-300" />}
-                </div>
-                <div>
-                  <h2 className="text-xl font-black text-white">7-day Mystery Box</h2>
-                  <p className="text-sm text-white/55">
-                    {data.mysteryBox.eligible ? "Unlocked — your seasonal surprise is ready." : "Keep your check-in streak alive to unlock it."}
-                  </p>
-                </div>
-                <Sparkles className="ml-auto text-yellow-300" />
-              </div>
-              <p className="mt-5 text-xs leading-5 text-white/40">{data.note}</p>
-            </section>
           </>
         )}
       </div>

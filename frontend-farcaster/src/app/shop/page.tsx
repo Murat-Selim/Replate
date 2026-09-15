@@ -10,6 +10,7 @@ import { compressImage } from "@/lib/image";
 import { useAccount, useWalletClient } from "wagmi";
 import { appChain } from "@/lib/network";
 import { useSubmitReceipt } from "@/lib/useTransaction";
+import { track } from "@vercel/analytics";
 import {
     unlockAdvancedIntelligence,
     fetchBasketIntelligence,
@@ -313,6 +314,7 @@ export default function SmartShop() {
                 receiptId: String(confirmedData.data?.receiptId ?? confirmedData.receiptId),
                 txHash: txResult.txHash || "",
             });
+            track("receipt_verification_completed", { health_score: Number(data.data.healthScore) });
             setVerifiedReceiptCount((count) => count + 1);
         } catch (err) {
             setError(err instanceof Error ? err.message : "An error occurred");
@@ -336,6 +338,7 @@ export default function SmartShop() {
                 userAddress: targetAddress,
             });
             setAdvancedReport(report);
+            track("x402_advanced_insight_unlocked");
         } catch (err) {
             setError(err instanceof Error ? err.message : "Replate Intelligence could not be unlocked");
         } finally {
@@ -386,6 +389,7 @@ export default function SmartShop() {
 
     const handleShare = async () => {
         if (!result) return;
+        track("receipt_result_shared", { channel: "farcaster" });
 
         try {
             await sdk.actions.composeCast({

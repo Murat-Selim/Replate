@@ -3,10 +3,11 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { X, LayoutGrid, ShoppingBag, BarChart3, Target, ShieldCheck, BookOpen, User } from "lucide-react";
+import { X, LayoutGrid, ShoppingBag, BarChart3, Target, ShieldCheck, BookOpen, User, Utensils } from "lucide-react";
 
 const menuItems = [
     { icon: LayoutGrid, href: "/", label: "Home" },
+    { icon: Utensils, href: "/meal", label: "Analyze Meal" },
     { icon: ShoppingBag, href: "/verify-receipt", label: "Verify Receipt" },
     { icon: Target, href: "/quests", label: "Quests" },
     { icon: BarChart3, href: "/leaderboard", label: "Leaderboard" },

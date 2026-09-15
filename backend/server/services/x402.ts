@@ -9,7 +9,7 @@ import { createCdpFacilitatorClient, getCdpExtensionRegistrations } from "@coinb
 import type { SettleContext, SettleFailureContext, SettleResultContext } from "@x402/core/types";
 import { INTELLIGENCE_PRICING, runtimeConfig } from "../config.js";
 import { getDatabasePool } from "../db.js";
-import { buildAdvancedFromFeatures, buildBundle, buildRecommendations, findReceipt, receiptFeatures, type BundleIntelligence, type Recommendation } from "./intelligence-data.js";
+import { buildAdvancedReceiptReport, buildBundle, buildRecommendations, findReceipt, hasAdvancedReceiptBinding, type AdvancedReceiptReport, type BundleIntelligence, type Recommendation } from "./intelligence-data.js";
 import { buildCategorySignal, buildProductSignal, MIN_SIGNAL_SAMPLE_SIZE, saveCategorySignal, saveProductSignal } from "./signal-engine.js";
 
 export const X402_ROUTE = "POST /api/intelligence/advanced";
@@ -148,6 +148,10 @@ async function saveSubmittedPayment(context: SettleContext): Promise<void> {
   const client = await getDatabasePool().connect();
   try {
     const validated = await validateResource(client, resource, payer);
+    const sourceSnapshot = resource.resourceType === "advanced_receipt"
+      ? await buildAdvancedReceiptReport(client, validated!.receiptId!, validated!.receiptHash!)
+      : null;
+    if (resource.resourceType === "advanced_receipt" && !sourceSnapshot) throw new Error("Receipt source snapshot could not be built");
     const identifier = paymentIdentifier(context.paymentPayload);
     await client.query("BEGIN");
     const existing = await client.query("SELECT id, resource_id, payment_status FROM x402_payments WHERE payment_identifier = $1 FOR UPDATE", [identifier]);
@@ -160,11 +164,12 @@ async function saveSubmittedPayment(context: SettleContext): Promise<void> {
     await client.query(
       `INSERT INTO x402_payments
        (receipt_id, receipt_hash, user_wallet, payer_wallet, payer_address, amount, asset, network,
-        payment_status, payment_identifier, resource_type, resource_id, endpoint)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'submitted',$9,$10,$11,$12)`,
+        payment_status, payment_identifier, resource_type, resource_id, endpoint, source_commitment, source_snapshot)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'submitted',$9,$10,$11,$12,$13,$14)`,
       [validated?.receiptId || null, validated?.receiptHash || null, validated?.userWallet || payer, payer, payer,
         context.requirements.amount, context.requirements.asset, context.requirements.network, identifier,
-        resource.resourceType, resource.resourceId, resource.endpoint],
+        resource.resourceType, resource.resourceId, resource.endpoint,
+        sourceSnapshot?.verification.sourceCommitment || null, sourceSnapshot],
     );
     await client.query("COMMIT");
   } catch (error) {
@@ -181,8 +186,11 @@ async function settlementBuilderCodeAttribution(transactionHash: string): Promis
   } catch { return null; }
 }
 
-async function buildStoredReport(client: any, resourceType: PaidResourceType, receiptId: string, userWallet: string): Promise<ReturnType<typeof buildAdvancedFromFeatures> | BundleIntelligence | { receiptId: string; recommendations: Recommendation[] | null } | null> {
-  if (resourceType === "advanced_receipt") return buildAdvancedFromFeatures(await receiptFeatures(client, receiptId));
+async function buildStoredReport(client: any, resourceType: PaidResourceType, receiptId: string, userWallet: string, sourceSnapshot?: unknown, sourceCommitment?: string | null): Promise<AdvancedReceiptReport | BundleIntelligence | { receiptId: string; recommendations: Recommendation[] | null } | null> {
+  if (resourceType === "advanced_receipt") {
+    if (hasAdvancedReceiptBinding(sourceSnapshot, sourceCommitment)) return sourceSnapshot;
+    return buildAdvancedReceiptReport(client, receiptId);
+  }
   if (resourceType === "recommendation") return { receiptId, recommendations: await buildRecommendations(client, receiptId, userWallet) };
   if (resourceType === "intelligence_bundle") return buildBundle(client, receiptId, userWallet, []);
   return null;
@@ -201,14 +209,14 @@ async function settlePaymentAndBuildReport(context: SettleResultContext): Promis
       `UPDATE x402_payments
        SET payment_status = 'settled', transaction_hash = $1, settled_at = NOW(), builder_code_attributed = $2
        WHERE payment_identifier = $3
-       RETURNING id, receipt_id, resource_type, resource_id, user_wallet`,
+       RETURNING id, receipt_id, resource_type, resource_id, user_wallet, source_commitment, source_snapshot`,
       [context.result.transaction, builderCodeAttributed, identifier],
     );
     if (!payment.rows[0]) throw new Error("Submitted payment record was not found");
     const row = payment.rows[0];
 
     if (row.receipt_id && ["advanced_receipt", "recommendation", "intelligence_bundle"].includes(row.resource_type)) {
-      const report = await buildStoredReport(client, row.resource_type, String(row.receipt_id), row.user_wallet);
+      const report = await buildStoredReport(client, row.resource_type, String(row.receipt_id), row.user_wallet, row.source_snapshot, row.source_commitment);
       if (report) {
         const reportObject = report;
         const ruleVersion = "ruleVersion" in reportObject ? reportObject.ruleVersion : "intelligence-v1";

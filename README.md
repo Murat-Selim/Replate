@@ -163,9 +163,10 @@ API resolution works like this in both frontends:
 | Endpoint | Method | Description |
 | :--- | :--- | :--- |
 | `/api/verify-receipt` | `POST` | Validates and analyzes a receipt, returns the normalized `receiptHash`, and can relay on-chain. |
+| `/api/analyze-meal` | `POST` | Returns a visual meal-balance estimate and practical recommendation; no exact calorie claim. |
 | `/api/receipts/confirmed` | `POST` | Verifies and persists a successful on-chain receipt. |
 | `/api/receipts/latest?userAddress=0x...` | `GET` | Restores the latest verified receipt for a wallet. |
-| `/api/intelligence/advanced` | `POST` | Returns advanced receipt intelligence after a `$0.05 USDC` x402 payment. |
+| `/api/intelligence/advanced` | `POST` | Returns replay-verifiable receipt intelligence after a `$0.05 USDC` x402 payment; the report includes receipt hash, line items, scores, and a source commitment. |
 | `/api/intelligence/basket/{receiptId}` | `GET` | Returns structured basket metrics for the receipt owner (`$0.01 USDC`). |
 | `/api/intelligence/price/receipt/{receiptId}` | `GET` | Compares paid item prices with observed averages (`$0.01 USDC`). |
 | `/api/intelligence/price/product/{canonicalProductId}` | `GET` | Returns aggregate product price intelligence (`$0.01 USDC`). |
@@ -185,6 +186,8 @@ API resolution works like this in both frontends:
 | `/api/meta/nonce/:address` | `GET` | Returns the current EIP-712 nonce. |
 | `/api/meta/checkin-sig` | `POST` | Relays a signed check-in transaction. |
 | `/api/meta/receipt-sig` | `POST` | Relays a signed receipt transaction with `receiptHash`. |
+
+The advanced paid report exposes `report.verification`: the receipt hash, canonical line items, scores, `lineItemDigest`, and `sourceCommitment`. Hashes use SHA-256 with the `sorted-object-keys-v1` canonicalization.
 
 ---
 

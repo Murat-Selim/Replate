@@ -1,14 +1,15 @@
 import { Router, Request, Response } from "express";
 import { assertDatabaseConfigured, getDatabasePool } from "../db.js";
-import { buildIntelligenceReport, IntelligenceFeatureSet } from "../services/intelligence-rules.js";
-import { payerAddress, payerAddressFromHeader, paymentIdentifier, x402Configured } from "../services/x402.js";
+import { payerAddress, payerAddressFromHeader, parsePaymentPayloadHeader, paymentIdentifier, x402Configured } from "../services/x402.js";
 import {
+  buildAdvancedReceiptReport,
   buildBasketIntelligence,
   buildBehaviorIntelligence,
   buildBundle,
   buildProductPriceIntelligence,
   buildReceiptPriceAnalysis,
   buildRecommendations,
+  hasAdvancedReceiptBinding,
 } from "../services/intelligence-data.js";
 
 const router = Router();
@@ -42,29 +43,38 @@ router.post("/advanced", async (req: Request, res: Response) => {
       res.status(400).json({ success: false, error: "receiptId, receiptHash and userAddress are required", errorCode: "INVALID_INTELLIGENCE_REQUEST" });
       return;
     }
+    const paymentHeader = req.header("payment-signature") || req.header("x-payment") || "";
+    const paymentPayload = parsePaymentPayloadHeader(paymentHeader);
+    const payer = requestPayer(req);
+    if (!paymentPayload || !ADDRESS.test(payer) || payer.toLowerCase() !== userAddress!.toLowerCase()) {
+      res.status(401).json({ success: false, error: "Payment payer must match userAddress", errorCode: "INVALID_PAYMENT_PAYER" });
+      return;
+    }
     assertDatabaseConfigured();
     const client = await getDatabasePool().connect();
     try {
-      const receipt = await client.query(
-        `SELECT r.id, r.receipt_hash, u.wallet_address
-         FROM receipts r JOIN users u ON u.id = r.user_id
-         WHERE r.id = $1 AND r.receipt_hash = $2 AND lower(u.wallet_address) = lower($3)`,
-        [String(receiptId), receiptHash, userAddress],
+      const entitlement = await client.query(
+        `SELECT p.source_commitment, p.source_snapshot, ir.report_payload
+         FROM x402_payments p
+         LEFT JOIN intelligence_reports ir ON ir.payment_id = p.id
+         WHERE p.payment_identifier = $1 AND p.receipt_id = $2 AND p.receipt_hash = $3
+           AND lower(p.user_wallet) = lower($4) AND p.payment_status = 'settled'`,
+        [paymentIdentifier(paymentPayload), String(receiptId), receiptHash, payer],
       );
-      if (!receipt.rows[0]) {
-        res.status(404).json({ success: false, error: "Verified receipt not found", errorCode: "RECEIPT_NOT_FOUND" });
+      if (!entitlement.rows[0]) {
+        res.status(403).json({ success: false, error: "No settled intelligence entitlement found", errorCode: "ENTITLEMENT_NOT_FOUND" });
         return;
       }
-      const features = await client.query<{ feature_name: string; feature_value: string }>(
-        "SELECT feature_name, feature_value FROM derived_features WHERE receipt_id = $1 AND calculation_version = 'features-v1'",
-        [String(receiptId)],
-      );
-      const featureSet = Object.fromEntries(features.rows.map((row) => [row.feature_name, Number(row.feature_value)])) as unknown as IntelligenceFeatureSet;
-      if (features.rows.length < 11) {
+      const report = hasAdvancedReceiptBinding(entitlement.rows[0].report_payload, entitlement.rows[0].source_commitment)
+        ? entitlement.rows[0].report_payload
+        : hasAdvancedReceiptBinding(entitlement.rows[0].source_snapshot, entitlement.rows[0].source_commitment)
+          ? entitlement.rows[0].source_snapshot
+          : await buildAdvancedReceiptReport(client, String(receiptId), receiptHash);
+      if (!report) {
         res.status(409).json({ success: false, error: "Receipt intelligence features are not ready", errorCode: "FEATURES_NOT_READY" });
         return;
       }
-      res.json({ success: true, receiptId: String(receiptId), report: buildIntelligenceReport(featureSet) });
+      res.json({ success: true, receiptId: String(receiptId), report });
     } finally {
       client.release();
     }
@@ -97,7 +107,7 @@ router.post("/advanced/retry", async (req: Request, res: Response) => {
     const client = await getDatabasePool().connect();
     try {
       const entitlement = await client.query(
-        `SELECT p.id, p.receipt_id, p.user_wallet, ir.report_status, ir.report_payload
+        `SELECT p.id, p.receipt_id, p.user_wallet, p.source_commitment, p.source_snapshot, ir.report_status, ir.report_payload
          FROM x402_payments p
          LEFT JOIN intelligence_reports ir ON ir.payment_id = p.id
          WHERE p.payment_identifier = $1 AND p.receipt_id = $2 AND p.receipt_hash = $3
@@ -108,20 +118,17 @@ router.post("/advanced/retry", async (req: Request, res: Response) => {
         res.status(403).json({ success: false, error: "No settled intelligence entitlement found", errorCode: "ENTITLEMENT_NOT_FOUND" });
         return;
       }
-      if (entitlement.rows[0].report_status === "completed") {
+      if (entitlement.rows[0].report_status === "completed" && hasAdvancedReceiptBinding(entitlement.rows[0].report_payload, entitlement.rows[0].source_commitment)) {
         res.json({ success: true, receiptId: String(receiptId), report: entitlement.rows[0].report_payload, retried: false });
         return;
       }
-      const features = await client.query<{ feature_name: string; feature_value: string }>(
-        "SELECT feature_name, feature_value FROM derived_features WHERE receipt_id = $1 AND calculation_version = 'features-v1'",
-        [String(receiptId)],
-      );
-      if (features.rows.length < 11) {
+      const report = hasAdvancedReceiptBinding(entitlement.rows[0].source_snapshot, entitlement.rows[0].source_commitment)
+        ? entitlement.rows[0].source_snapshot
+        : await buildAdvancedReceiptReport(client, String(receiptId), receiptHash);
+      if (!report) {
         res.status(409).json({ success: false, error: "Receipt intelligence features are not ready", errorCode: "FEATURES_NOT_READY" });
         return;
       }
-      const featureSet = Object.fromEntries(features.rows.map((row) => [row.feature_name, Number(row.feature_value)])) as unknown as IntelligenceFeatureSet;
-      const report = buildIntelligenceReport(featureSet);
       await client.query(
         `INSERT INTO intelligence_reports
          (receipt_id, payment_id, user_wallet, report_type, report_status, report_payload, rule_version, insight_confidence, completed_at)

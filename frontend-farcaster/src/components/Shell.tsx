@@ -6,6 +6,7 @@ import Header from "./Header";
 import BottomNav from "./BottomNav";
 
 const footerLinks = [
+    ["Analyze Meal", "/meal"],
     ["Verify Receipt", "/verify-receipt"],
     ["Leaderboard", "/leaderboard"],
     ["Quests", "/quests"],
