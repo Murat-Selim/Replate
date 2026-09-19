@@ -58,11 +58,12 @@ function parseWeightGrams(text: string, lineOnly = false): number {
     }
   }
 
+  // ponytail: unlabelled decimal weights are capped at 10kg; larger values are usually prices or OCR noise.
   if (lineOnly) {
     const bareKg = normalized.match(/^(\d+)\s*[.,]\s*(\d{1,3})$/);
     if (bareKg) {
       const grams = Math.round(Number(`${bareKg[1]}.${bareKg[2]}`) * 1000);
-      return Number.isFinite(grams) && grams > 0 && grams <= 50000 ? grams : 0;
+      return Number.isFinite(grams) && grams > 0 && grams <= 10000 ? grams : 0;
     }
   }
 
@@ -285,12 +286,10 @@ function extractProductLines(lines: string[]): ExtractedProduct[] {
 
     // Standalone weight lines: 0.430 / 0,430 / 1.864 kg
     const standaloneWeightGrams = parseWeightGrams(trimmed, true);
+    const startsNextUnitPrice =
+      /^x\s*\d+[.,]\d{2}\s*TL\s*\/\s*(?:KG|AD(?:ET)?)$/i.test(lines[i + 1]?.trim() ?? "") ||
+      /^(?:\d+(?:\s*[.,]\s*\d{1,3})?\s*(?:KG|G|GR|GRAMS?)?|\d+\s*AD(?:ET)?)\s*x\s*\d+[.,]\d{2}\s*TL\s*\/\s*(?:KG|AD(?:ET)?)$/i.test(lines[i + 1]?.trim() ?? "");
     if (standaloneWeightGrams) {
-      const nextLine = lines[i + 1]?.trim() ?? "";
-      const startsNextUnitPrice =
-        /^x\s*\d+[.,]\d{2}\s*TL\s*\/\s*(?:KG|AD(?:ET)?)$/i.test(nextLine) ||
-        /^(?:\d+(?:\s*[.,]\s*\d{1,3})?\s*(?:KG|G|GR|GRAMS?)?|\d+\s*AD(?:ET)?)\s*x\s*\d+[.,]\d{2}\s*TL\s*\/\s*(?:KG|AD(?:ET)?)$/i.test(nextLine);
-
       if (startsNextUnitPrice) {
         pendingWeightGrams = correctOcrWeight(lines, i, standaloneWeightGrams);
       } else if (products.length && !products[products.length - 1].actualWeightGrams) {
