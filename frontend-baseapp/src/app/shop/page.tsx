@@ -11,16 +11,9 @@ import { useSubmitReceipt } from "@/lib/useTransaction";
 import { track } from "@vercel/analytics";
 import {
     unlockAdvancedIntelligence,
-    fetchBasketIntelligence,
-    fetchReceiptPriceIntelligence,
     fetchBehaviorIntelligence,
-    fetchRecommendationIntelligence,
-    fetchProductPriceIntelligence,
     type AdvancedReport,
-    type BasketIntelligence,
-    type ReceiptPriceAnalysis,
     type BehaviorIntelligence,
-    type ProductPriceIntelligence,
 } from "@/lib/intelligence";
 
 interface VerificationResult {
@@ -74,11 +67,7 @@ export default function SmartShop() {
     const [isCompressing, setIsCompressing] = useState(false);
     const [result, setResult] = useState<VerificationResult | null>(null);
     const [advancedReport, setAdvancedReport] = useState<AdvancedReport | null>(null);
-    const [basketIntelligence, setBasketIntelligence] = useState<BasketIntelligence | null>(null);
-    const [receiptPriceIntelligence, setReceiptPriceIntelligence] = useState<ReceiptPriceAnalysis | null>(null);
     const [behaviorIntelligence, setBehaviorIntelligence] = useState<BehaviorIntelligence | null>(null);
-    const [recommendations, setRecommendations] = useState<{ type: string; priority: string; message: string }[] | null>(null);
-    const [productPrices, setProductPrices] = useState<Record<string, ProductPriceIntelligence>>({});
     const [activeIntelligenceCall, setActiveIntelligenceCall] = useState<string | null>(null);
     const [isUnlocking, setIsUnlocking] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -324,29 +313,8 @@ export default function SmartShop() {
         }
     };
 
-    const handleCallBasket = () => runIntelligenceCall("basket", async () => {
-        if (!result) return;
-        setBasketIntelligence(await fetchBasketIntelligence(walletClient!, result.receiptId));
-    });
-
-    const handleCallReceiptPrice = () => runIntelligenceCall("receipt-price", async () => {
-        if (!result) return;
-        setReceiptPriceIntelligence(await fetchReceiptPriceIntelligence(walletClient!, result.receiptId));
-    });
-
     const handleCallBehavior = () => runIntelligenceCall("behavior", async () => {
         setBehaviorIntelligence(await fetchBehaviorIntelligence(walletClient!));
-    });
-
-    const handleCallRecommendations = () => runIntelligenceCall("recommendation", async () => {
-        if (!result) return;
-        const response = await fetchRecommendationIntelligence(walletClient!, result.receiptId);
-        setRecommendations(response.recommendations);
-    });
-
-    const handleCallProductPrice = (canonicalProductId: string) => runIntelligenceCall(`product-price-${canonicalProductId}`, async () => {
-        const price = await fetchProductPriceIntelligence(walletClient!, canonicalProductId);
-        setProductPrices((current) => ({ ...current, [canonicalProductId]: price }));
     });
 
     const handleShareWarpcast = () => {
@@ -377,20 +345,13 @@ export default function SmartShop() {
         setImagePreview(null);
         setResult(null);
         setAdvancedReport(null);
-        setBasketIntelligence(null);
-        setReceiptPriceIntelligence(null);
         setBehaviorIntelligence(null);
-        setRecommendations(null);
-        setProductPrices({});
         setActiveIntelligenceCall(null);
         setError(null);
     };
 
     const intelligenceOptions: Array<{ id: string; name: string; price: string; handler: () => Promise<void>; loaded: boolean }> = [
-        { id: "basket", name: "Basket Intelligence", price: "0.01 USDC", handler: handleCallBasket, loaded: Boolean(basketIntelligence) },
-        { id: "receipt-price", name: "Receipt Price", price: "0.01 USDC", handler: handleCallReceiptPrice, loaded: Boolean(receiptPriceIntelligence) },
         { id: "behavior", name: "Behavior Intelligence", price: "0.02 USDC", handler: handleCallBehavior, loaded: Boolean(behaviorIntelligence) },
-        { id: "recommendation", name: "Recommendation", price: "0.02 USDC", handler: handleCallRecommendations, loaded: Boolean(recommendations) },
     ];
 
     return (
@@ -649,40 +610,6 @@ export default function SmartShop() {
                                             </button>
                                         ))}
                                     </div>
-                                    {receiptPriceIntelligence && receiptPriceIntelligence.items.some((item) => item.canonicalProductId) && (
-                                        <div className="space-y-2 border-t border-[#00E36E]/10 pt-3">
-                                            <p className="text-xs font-black text-brand-primary">Product Price</p>
-                                            {receiptPriceIntelligence.items.filter((item) => item.canonicalProductId).map((item) => {
-                                                const productId = item.canonicalProductId!;
-                                                const loaded = productPrices[productId];
-                                                const callId = `product-price-${productId}`;
-                                                return <button key={productId} onClick={() => handleCallProductPrice(productId)} disabled={activeIntelligenceCall !== null} className="flex w-full items-center justify-between rounded-xl border border-[#00E36E]/15 bg-black/10 px-3 py-2 text-left text-xs disabled:opacity-50"><span className="font-bold text-white">{item.itemName}</span><span className="text-[10px] font-black text-brand-primary">{activeIntelligenceCall === callId ? "Calling..." : loaded ? "Loaded" : "0.01 USDC"}</span></button>;
-                                            })}
-                                        </div>
-                                    )}
-                                    {basketIntelligence && (
-                                        <div className="space-y-2 border-t border-[#00E36E]/10 pt-3 text-xs text-brand-text/70">
-                                            <p className="font-black text-brand-primary">Basket Intelligence</p>
-                                            <div className="grid grid-cols-2 gap-2">
-                                                <span>Basket Score: <b className="text-white">{basketIntelligence.basketScore}/100</b></span>
-                                                <span>Diversity: <b className="text-white">{Math.round(basketIntelligence.basketDiversity * 100)}%</b></span>
-                                                <span>Healthy Items: <b className="text-white">{Math.round(basketIntelligence.healthyItemRatio * 100)}%</b></span>
-                                                <span>Fruit & Veg: <b className="text-white">{Math.round(basketIntelligence.fruitVegRatio * 100)}%</b></span>
-                                            </div>
-                                            <p>Categories: {Object.entries(basketIntelligence.categories).map(([category, count]) => `${category} (${count})`).join(" · ") || "None"}</p>
-                                        </div>
-                                    )}
-                                    {receiptPriceIntelligence && (
-                                        <div className="space-y-2 border-t border-[#00E36E]/10 pt-3 text-xs text-brand-text/70">
-                                            <p className="font-black text-brand-primary">Receipt Price Intelligence</p>
-                                            {receiptPriceIntelligence.items.map((item, index) => (
-                                                <div key={`${item.itemName}-${item.canonicalProductId ?? index}`} className="rounded-lg border border-white/5 bg-black/10 px-3 py-2">
-                                                    <p className="font-bold text-white">{item.itemName}</p>
-                                                    <p>Paid: {item.paidPrice ?? "—"} · Market avg: {item.marketAverage ?? "—"} · Deal score: {item.dealScore ?? "—"}</p>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
                                     {behaviorIntelligence && (
                                         <div className="space-y-2 border-t border-[#00E36E]/10 pt-3 text-xs text-brand-text/70">
                                             <p className="font-black text-brand-primary">Behavior Intelligence</p>
@@ -691,17 +618,6 @@ export default function SmartShop() {
                                             <p>Frequent items: {Object.entries(behaviorIntelligence.purchaseFrequency).map(([item, count]) => `${item} (${count})`).join(" · ") || "None"}</p>
                                         </div>
                                     )}
-                                    {Object.keys(productPrices).length > 0 && (
-                                        <div className="space-y-2 border-t border-[#00E36E]/10 pt-3 text-xs text-brand-text/70">
-                                            <p className="font-black text-brand-primary">Product Price Intelligence</p>
-                                            {Object.values(productPrices).map((price) => (
-                                                <p key={price.canonicalProductId}>
-                                                    #{price.canonicalProductId}: avg {price.averagePrice} · range {price.minPrice}–{price.maxPrice} · 30d {price.priceMomentum30d >= 0 ? "+" : ""}{Math.round(price.priceMomentum30d * 100)}%
-                                                </p>
-                                            ))}
-                                        </div>
-                                    )}
-                                    {recommendations && <p className="text-xs text-brand-text/70">{recommendations.length ? recommendations.map((item) => item.message).join(" ") : "No additional recommendations."}</p>}
                                 </div>
 
                                 <div className="flex flex-col gap-2">
@@ -795,12 +711,8 @@ export default function SmartShop() {
                                 <div className="space-y-2">
                                     {[
                                         ["Advanced Receipt Report", "POST /api/intelligence/advanced", "0.05 USDC", "Live"],
-                                        ["Basket Intelligence", "GET /api/intelligence/basket/{receiptId}", "0.01 USDC", "Live"],
-                                        ["Receipt Price", "GET /api/intelligence/price/receipt/{receiptId}", "0.01 USDC", "Live"],
                                         ["Product Price", "GET /api/intelligence/price/product/{canonicalProductId}", "0.01 USDC", "Live"],
                                         ["Behavior Intelligence", "GET /api/intelligence/behavior/me", "0.02 USDC", "Live"],
-                                        ["Recommendation", "GET /api/intelligence/recommendation/{receiptId}", "0.02 USDC", "Live"],
-                                        ["Intelligence Bundle", "POST /api/intelligence/bundle", "0.03 USDC", "Live"],
                                         ["Product Signal", "GET /api/signals/product/{canonicalProductId}", "0.005 USDC", "Soon"],
                                         ["Category Signal", "GET /api/signals/category/{category}", "0.005 USDC", "Soon"],
                                         ["Merchant Signal", "GET /api/signals/merchant/{merchantId}", "0.005 USDC", "Soon"],
