@@ -61,7 +61,8 @@ function parseWeightGrams(text: string, lineOnly = false): number {
   if (lineOnly) {
     const bareKg = normalized.match(/^(\d+)\s*[.,]\s*(\d{1,3})$/);
     if (bareKg) {
-      return Math.round(Number(`${bareKg[1]}.${bareKg[2]}`) * 1000);
+      const grams = Math.round(Number(`${bareKg[1]}.${bareKg[2]}`) * 1000);
+      return Number.isFinite(grams) && grams > 0 && grams <= 50000 ? grams : 0;
     }
   }
 
