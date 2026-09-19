@@ -29,6 +29,32 @@ interface VerificationResult {
     daysCovered: number;
     pointsEarned: number;
     badgeMinted: boolean;
+    products?: { name: string; category: string; fruitVegGrams: number }[];
+}
+
+function getReceiptChatReply(question: string, result: VerificationResult, advancedReport: AdvancedReport | null) {
+    const q = question.toLocaleLowerCase();
+    const recommendations = advancedReport
+        ? [...advancedReport.insights, ...advancedReport.recommendations].map((item) => item.message)
+        : [];
+
+    if (/(improve|increase|better|artır|geliştir|recommend|öner)/.test(q)) {
+        return recommendations[0] || (result.healthyItems < result.totalItems
+            ? `Try replacing one of the ${result.unhealthyItems} less-balanced items with a minimally processed option.`
+            : "Add more fruit and vegetables to improve your nutrition balance.");
+    }
+    if (/(nutrition|beslen|meyve|sebze|fruit|vegetable)/.test(q)) {
+        return `Your Nutrition Score is ${result.nutritionScore}/100, with ${result.fruitVegGrams}g of fruit and vegetables detected.`;
+    }
+    if (/(health|score|skor|puan)/.test(q)) {
+        return `Your Health Score is ${result.healthScore}/100 and your Nutrition Score is ${result.nutritionScore}/100. You earned ${result.pointsEarned} RP.`;
+    }
+    if (/(product|item|ürün|basket|sepet)/.test(q)) {
+        const products = result.products?.filter((product) => product.category !== "excluded") || [];
+        const names = products.slice(0, 3).map((product) => product.name).join(", ");
+        return `${result.totalItems} items were counted: ${result.healthyItems} healthy and ${result.unhealthyItems} less-balanced. ${names ? `Examples: ${names}.` : ""}`;
+    }
+    return "Ask about your scores, nutrition balance, basket items, or how to improve your next shop.";
 }
 
 function getBasketFeedback(result: VerificationResult) {
@@ -68,6 +94,8 @@ export default function SmartShop() {
     const [result, setResult] = useState<VerificationResult | null>(null);
     const [advancedReport, setAdvancedReport] = useState<AdvancedReport | null>(null);
     const [behaviorIntelligence, setBehaviorIntelligence] = useState<BehaviorIntelligence | null>(null);
+    const [chatQuestion, setChatQuestion] = useState("");
+    const [chatAnswer, setChatAnswer] = useState<string | null>(null);
     const [activeIntelligenceCall, setActiveIntelligenceCall] = useState<string | null>(null);
     const [isUnlocking, setIsUnlocking] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -297,6 +325,12 @@ export default function SmartShop() {
         }
     };
 
+    const handleReceiptChat = (event: React.FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        if (!result || !chatQuestion.trim()) return;
+        setChatAnswer(getReceiptChatReply(chatQuestion, result, advancedReport));
+    };
+
     const runIntelligenceCall = async (callId: string, request: () => Promise<void>) => {
         if (!walletClient) {
             setError("Connect a Base wallet to call Replate Intelligence");
@@ -346,6 +380,8 @@ export default function SmartShop() {
         setResult(null);
         setAdvancedReport(null);
         setBehaviorIntelligence(null);
+        setChatQuestion("");
+        setChatAnswer(null);
         setActiveIntelligenceCall(null);
         setError(null);
     };
@@ -562,6 +598,17 @@ export default function SmartShop() {
                                         <p className="text-sm text-brand-text/70 mt-1">{getBasketFeedback(result).improvement}</p>
                                     </div>
                                     <p className="text-[10px] text-brand-text/40 border-t border-[#00E36E]/10 pt-3">General informational feedback only; this is not medical advice.</p>
+                                </div>
+                                <div className="bg-[#00E36E]/5 border border-[#00E36E]/15 rounded-2xl p-4 space-y-3">
+                                    <p className="text-sm font-black text-brand-primary">Ask about your receipt</p>
+                                    <form onSubmit={handleReceiptChat} className="flex gap-2">
+                                        <input value={chatQuestion} onChange={(event) => setChatQuestion(event.target.value)} placeholder="Ask about your scores..." aria-label="Ask about your receipt" className="min-w-0 flex-1 rounded-xl border border-[#00E36E]/15 bg-black/20 px-3 py-2 text-xs text-white outline-none placeholder:text-brand-text/40 focus:border-[#00E36E]/50" />
+                                        <button type="submit" disabled={!chatQuestion.trim()} className="rounded-xl bg-[#00E36E] px-4 py-2 text-xs font-black text-[#050806] disabled:opacity-40">Ask</button>
+                                    </form>
+                                    <div className="flex flex-wrap gap-2">
+                                        {["How can I improve my score?", "Why is my nutrition score like this?", "Which items affected my basket?"] .map((prompt) => <button key={prompt} type="button" onClick={() => setChatQuestion(prompt)} className="rounded-full border border-[#00E36E]/15 px-3 py-1.5 text-[10px] text-brand-text/70 hover:border-[#00E36E]/40">{prompt}</button>)}
+                                    </div>
+                                    {chatAnswer && <p role="status" className="border-t border-[#00E36E]/10 pt-3 text-xs leading-5 text-brand-text/75">{chatAnswer}</p>}
                                 </div>
                                 {result.badgeMinted && (
                                     <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-4 text-center">

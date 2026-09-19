@@ -31,12 +31,38 @@ interface VerificationResult {
     daysCovered: number;
     pointsEarned: number;
     badgeMinted: boolean;
+    products?: { name: string; category: string; fruitVegGrams: number }[];
 }
 
 interface UserContext {
     address?: string;
     fid?: number;
     username?: string;
+}
+
+function getReceiptChatReply(question: string, result: VerificationResult, advancedReport: AdvancedReport | null) {
+    const q = question.toLocaleLowerCase();
+    const recommendations = advancedReport
+        ? [...advancedReport.insights, ...advancedReport.recommendations].map((item) => item.message)
+        : [];
+
+    if (/(improve|increase|better|artır|geliştir|recommend|öner)/.test(q)) {
+        return recommendations[0] || (result.healthyItems < result.totalItems
+            ? `Try replacing one of the ${result.unhealthyItems} less-balanced items with a minimally processed option.`
+            : "Add more fruit and vegetables to improve your nutrition balance.");
+    }
+    if (/(nutrition|beslen|meyve|sebze|fruit|vegetable)/.test(q)) {
+        return `Your Nutrition Score is ${result.nutritionScore}/100, with ${result.fruitVegGrams}g of fruit and vegetables detected.`;
+    }
+    if (/(health|score|skor|puan)/.test(q)) {
+        return `Your Health Score is ${result.healthScore}/100 and your Nutrition Score is ${result.nutritionScore}/100. You earned ${result.pointsEarned} RP.`;
+    }
+    if (/(product|item|ürün|basket|sepet)/.test(q)) {
+        const products = result.products?.filter((product) => product.category !== "excluded") || [];
+        const names = products.slice(0, 3).map((product) => product.name).join(", ");
+        return `${result.totalItems} items were counted: ${result.healthyItems} healthy and ${result.unhealthyItems} less-balanced. ${names ? `Examples: ${names}.` : ""}`;
+    }
+    return "Ask about your scores, nutrition balance, basket items, or how to improve your next shop.";
 }
 
 function getBasketFeedback(result: VerificationResult) {
@@ -77,6 +103,8 @@ export default function SmartShop() {
     const [result, setResult] = useState<VerificationResult | null>(null);
     const [advancedReport, setAdvancedReport] = useState<AdvancedReport | null>(null);
     const [behaviorIntelligence, setBehaviorIntelligence] = useState<BehaviorIntelligence | null>(null);
+    const [chatQuestion, setChatQuestion] = useState("");
+    const [chatAnswer, setChatAnswer] = useState<string | null>(null);
     const [activeIntelligenceCall, setActiveIntelligenceCall] = useState<string | null>(null);
     const [isUnlocking, setIsUnlocking] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -355,6 +383,12 @@ export default function SmartShop() {
         setBehaviorIntelligence(await fetchBehaviorIntelligence(walletClient!));
     });
 
+    const handleReceiptChat = (event: React.FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        if (!result || !chatQuestion.trim()) return;
+        setChatAnswer(getReceiptChatReply(chatQuestion, result, advancedReport));
+    };
+
     const handleShare = async () => {
         if (!result) return;
         track("receipt_result_shared", { channel: "farcaster" });
@@ -380,6 +414,8 @@ Join me in reducing food waste!`,
         setResult(null);
         setAdvancedReport(null);
         setBehaviorIntelligence(null);
+        setChatQuestion("");
+        setChatAnswer(null);
         setActiveIntelligenceCall(null);
         setError(null);
     };
@@ -595,6 +631,17 @@ Join me in reducing food waste!`,
                                             <p className="text-xs text-[#A6B0B5] mt-1 leading-relaxed">{getBasketFeedback(result).improvement}</p>
                                         </div>
                                         <p className="text-[9px] text-[#A6B0B5]/50 border-t border-[#22D97A]/10 pt-3">General informational feedback only; this is not medical advice.</p>
+                                    </div>
+                                    <div className="bg-[#22D97A]/5 border border-[#22D97A]/15 rounded-[22px] p-4 space-y-3">
+                                        <p className="text-sm font-black text-[#22D97A] font-heading">Ask about your receipt</p>
+                                        <form onSubmit={handleReceiptChat} className="flex gap-2">
+                                            <input value={chatQuestion} onChange={(event) => setChatQuestion(event.target.value)} placeholder="Ask about your scores..." aria-label="Ask about your receipt" className="min-w-0 flex-1 rounded-xl border border-[#22D97A]/15 bg-black/20 px-3 py-2 text-xs text-white outline-none placeholder:text-[#A6B0B5]/50 focus:border-[#22D97A]/50" />
+                                            <button type="submit" disabled={!chatQuestion.trim()} className="rounded-xl bg-[#22D97A] px-4 py-2 text-xs font-black text-[#07100B] disabled:opacity-40">Ask</button>
+                                        </form>
+                                        <div className="flex flex-wrap gap-2">
+                                            {["How can I improve my score?", "Why is my nutrition score like this?", "Which items affected my basket?"].map((prompt) => <button key={prompt} type="button" onClick={() => setChatQuestion(prompt)} className="rounded-full border border-[#22D97A]/15 px-3 py-1.5 text-[10px] text-[#A6B0B5] hover:border-[#22D97A]/40">{prompt}</button>)}
+                                        </div>
+                                        {chatAnswer && <p role="status" className="border-t border-[#22D97A]/10 pt-3 text-xs leading-5 text-[#A6B0B5]">{chatAnswer}</p>}
                                     </div>
                                     {result.badgeMinted && (
                                         <div className="bg-[#22D97A]/10 border border-[#22D97A]/25 rounded-[22px] p-4 text-center">
