@@ -12,29 +12,6 @@ export interface AdvancedReport {
     recommendations: { message: string }[];
 }
 
-export interface IntelligenceBundle {
-    receiptId: string;
-    basket?: { basketScore: number; basketDiversity: number; healthyItemRatio: number; fruitVegRatio: number; categories: Record<string, number> };
-    price?: { items: { canonicalProductId: string | null; itemName: string; paidPrice: number | null; marketAverage: number | null; priceScore: number | null; dealScore: number | null; sampleSize: number; confidence: number }[] };
-    recommendations?: { type: string; priority: string; message: string }[];
-    behavior?: { purchaseFrequency: Record<string, number>; topCategories: string[]; basketTrend: string; repeatPurchaseRatio: number };
-    productPrices?: { canonicalProductId: string; averagePrice: number; minPrice: number; maxPrice: number; priceMomentum30d: number; sampleSize: number; confidence: number }[];
-}
-
-export interface BasketIntelligence {
-    receiptId: string;
-    basketScore: number;
-    basketDiversity: number;
-    healthyItemRatio: number;
-    fruitVegRatio: number;
-    categories: Record<string, number>;
-}
-
-export interface ReceiptPriceAnalysis {
-    receiptId: string;
-    items: { canonicalProductId: string | null; itemName: string; paidPrice: number | null; marketAverage: number | null; priceScore: number | null; dealScore: number | null; sampleSize: number; confidence: number }[];
-}
-
 export interface BehaviorIntelligence {
     purchaseFrequency: Record<string, number>;
     topCategories: string[];
@@ -91,31 +68,8 @@ export async function unlockAdvancedIntelligence(
     return response.report;
 }
 
-export async function unlockIntelligenceBundle(
-    walletClient: WalletClient,
-    input: { receiptId: string },
-): Promise<IntelligenceBundle> {
-    return requestPaidJson<IntelligenceBundle>(walletClient, "/api/intelligence/bundle", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...input, include: ["basket", "price", "recommendation", "behavior", "productPrice"] }),
-    });
-}
-
-export function fetchBasketIntelligence(walletClient: WalletClient, receiptId: string) {
-    return requestPaidJson<{ success: true } & BasketIntelligence>(walletClient, `/api/intelligence/basket/${receiptId}`);
-}
-
-export function fetchReceiptPriceIntelligence(walletClient: WalletClient, receiptId: string) {
-    return requestPaidJson<{ success: true } & ReceiptPriceAnalysis>(walletClient, `/api/intelligence/price/receipt/${receiptId}`);
-}
-
 export function fetchBehaviorIntelligence(walletClient: WalletClient) {
     return requestPaidJson<{ success: true } & BehaviorIntelligence>(walletClient, "/api/intelligence/behavior/me");
-}
-
-export function fetchRecommendationIntelligence(walletClient: WalletClient, receiptId: string) {
-    return requestPaidJson<{ success: true; receiptId: string; recommendations: { type: string; priority: string; message: string }[] }>(walletClient, `/api/intelligence/recommendation/${receiptId}`);
 }
 
 export function fetchProductPriceIntelligence(walletClient: WalletClient, canonicalProductId: string) {
