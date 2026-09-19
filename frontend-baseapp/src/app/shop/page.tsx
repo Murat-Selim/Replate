@@ -359,7 +359,7 @@ export default function SmartShop() {
     const handleShareTwitter = () => {
         if (!result) return;
         track("receipt_result_shared", { channel: "x" });
-        const shareText = `Just verified my grocery run on @replate\n\nHealth Score: ${result.healthScore}/100\nEarned: ${result.pointsEarned} RP\n\nShop smart. Nourish well. Earn onchain.\n\nhttps://replate.app`;
+        const shareText = `🎉 I just verified my grocery receipt on @replate!\n\n🥗 Health Score: ${result.healthScore}/100\n🌿 Nutrition Score: ${result.nutritionScore}/100\n⭐ Earned: ${result.pointsEarned} RP\n🥕 Fruits & Veg: ${result.fruitVegGrams}g\n\nTurn everyday food choices into simple, useful insights.\n\nhttps://replate-webapp.vercel.app`;
         window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}`, '_blank');
     };
 
@@ -658,6 +658,47 @@ export default function SmartShop() {
                                                 const callId = `product-price-${productId}`;
                                                 return <button key={productId} onClick={() => handleCallProductPrice(productId)} disabled={activeIntelligenceCall !== null} className="flex w-full items-center justify-between rounded-xl border border-[#00E36E]/15 bg-black/10 px-3 py-2 text-left text-xs disabled:opacity-50"><span className="font-bold text-white">{item.itemName}</span><span className="text-[10px] font-black text-brand-primary">{activeIntelligenceCall === callId ? "Calling..." : loaded ? "Loaded" : "0.01 USDC"}</span></button>;
                                             })}
+                                        </div>
+                                    )}
+                                    {basketIntelligence && (
+                                        <div className="space-y-2 border-t border-[#00E36E]/10 pt-3 text-xs text-brand-text/70">
+                                            <p className="font-black text-brand-primary">Basket Intelligence</p>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <span>Basket Score: <b className="text-white">{basketIntelligence.basketScore}/100</b></span>
+                                                <span>Diversity: <b className="text-white">{Math.round(basketIntelligence.basketDiversity * 100)}%</b></span>
+                                                <span>Healthy Items: <b className="text-white">{Math.round(basketIntelligence.healthyItemRatio * 100)}%</b></span>
+                                                <span>Fruit & Veg: <b className="text-white">{Math.round(basketIntelligence.fruitVegRatio * 100)}%</b></span>
+                                            </div>
+                                            <p>Categories: {Object.entries(basketIntelligence.categories).map(([category, count]) => `${category} (${count})`).join(" · ") || "None"}</p>
+                                        </div>
+                                    )}
+                                    {receiptPriceIntelligence && (
+                                        <div className="space-y-2 border-t border-[#00E36E]/10 pt-3 text-xs text-brand-text/70">
+                                            <p className="font-black text-brand-primary">Receipt Price Intelligence</p>
+                                            {receiptPriceIntelligence.items.map((item, index) => (
+                                                <div key={`${item.itemName}-${item.canonicalProductId ?? index}`} className="rounded-lg border border-white/5 bg-black/10 px-3 py-2">
+                                                    <p className="font-bold text-white">{item.itemName}</p>
+                                                    <p>Paid: {item.paidPrice ?? "—"} · Market avg: {item.marketAverage ?? "—"} · Deal score: {item.dealScore ?? "—"}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                    {behaviorIntelligence && (
+                                        <div className="space-y-2 border-t border-[#00E36E]/10 pt-3 text-xs text-brand-text/70">
+                                            <p className="font-black text-brand-primary">Behavior Intelligence</p>
+                                            <p>Trend: <b className="text-white">{behaviorIntelligence.basketTrend}</b> · Repeat purchases: <b className="text-white">{Math.round(behaviorIntelligence.repeatPurchaseRatio * 100)}%</b></p>
+                                            <p>Top categories: {behaviorIntelligence.topCategories.join(" · ") || "None"}</p>
+                                            <p>Frequent items: {Object.entries(behaviorIntelligence.purchaseFrequency).map(([item, count]) => `${item} (${count})`).join(" · ") || "None"}</p>
+                                        </div>
+                                    )}
+                                    {Object.keys(productPrices).length > 0 && (
+                                        <div className="space-y-2 border-t border-[#00E36E]/10 pt-3 text-xs text-brand-text/70">
+                                            <p className="font-black text-brand-primary">Product Price Intelligence</p>
+                                            {Object.values(productPrices).map((price) => (
+                                                <p key={price.canonicalProductId}>
+                                                    #{price.canonicalProductId}: avg {price.averagePrice} · range {price.minPrice}–{price.maxPrice} · 30d {price.priceMomentum30d >= 0 ? "+" : ""}{Math.round(price.priceMomentum30d * 100)}%
+                                                </p>
+                                            ))}
                                         </div>
                                     )}
                                     {recommendations && <p className="text-xs text-brand-text/70">{recommendations.length ? recommendations.map((item) => item.message).join(" ") : "No additional recommendations."}</p>}
