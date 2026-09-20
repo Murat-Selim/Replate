@@ -156,6 +156,7 @@ const SKIP_PATTERNS = [
   /\b(ANON[Iİ]M|[SŞ][Iİ]RKET[Iİ]|LTD|[SŞ]T[Iİ]|A\.?[SŞ]\.?)\b/i,
   /\b(ARA TOPLAM|ARA TOPLAN|TOPLAM|PARA USTU|PARA ÜSTÜ)\b/i,
   /\b(YAPI KRED[Iİ]|YAPI KREDL)\b/i,
+  /\b(CREDIT\s+CARD|CARD\s+(?:USD|PAYMENT)|VISA|MASTERCARD)\b/i,
 ];
 
 // ─── Non-food products found on grocery receipts ──────────────────────

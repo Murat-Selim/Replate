@@ -29,6 +29,20 @@ export interface ProductPriceIntelligence {
     confidence: number;
 }
 
+export interface ReceiptPriceIntelligence {
+    receiptId: string;
+    items: Array<{
+        canonicalProductId: string | null;
+        itemName: string;
+        paidPrice: number | null;
+        marketAverage: number | null;
+        priceScore: number | null;
+        dealScore: number | null;
+        sampleSize: number;
+        confidence: number;
+    }>;
+}
+
 async function requestPaidJson<T>(walletClient: WalletClient, path: string, init: RequestInit = {}): Promise<T> {
     if (!walletClient.account) throw new Error("Connect your wallet before unlocking Replate Intelligence");
     const signer: ClientEvmSigner = {
@@ -74,4 +88,8 @@ export function fetchBehaviorIntelligence(walletClient: WalletClient) {
 
 export function fetchProductPriceIntelligence(walletClient: WalletClient, canonicalProductId: string) {
     return requestPaidJson<{ success: true } & ProductPriceIntelligence>(walletClient, `/api/intelligence/price/product/${canonicalProductId}`);
+}
+
+export function fetchReceiptPriceIntelligence(walletClient: WalletClient, receiptId: string) {
+    return requestPaidJson<{ success: true } & ReceiptPriceIntelligence>(walletClient, `/api/intelligence/price/receipt/${receiptId}`);
 }

@@ -12,8 +12,10 @@ import { track } from "@vercel/analytics";
 import {
     unlockAdvancedIntelligence,
     fetchBehaviorIntelligence,
+    fetchReceiptPriceIntelligence,
     type AdvancedReport,
     type BehaviorIntelligence,
+    type ReceiptPriceIntelligence,
 } from "@/lib/intelligence";
 
 interface VerificationResult {
@@ -94,6 +96,7 @@ export default function SmartShop() {
     const [result, setResult] = useState<VerificationResult | null>(null);
     const [advancedReport, setAdvancedReport] = useState<AdvancedReport | null>(null);
     const [behaviorIntelligence, setBehaviorIntelligence] = useState<BehaviorIntelligence | null>(null);
+    const [receiptPriceIntelligence, setReceiptPriceIntelligence] = useState<ReceiptPriceIntelligence | null>(null);
     const [chatQuestion, setChatQuestion] = useState("");
     const [chatAnswer, setChatAnswer] = useState<string | null>(null);
     const [activeIntelligenceCall, setActiveIntelligenceCall] = useState<string | null>(null);
@@ -228,6 +231,7 @@ export default function SmartShop() {
         setIsLoading(true);
         setError(null);
         setResult(null);
+        setReceiptPriceIntelligence(null);
 
         try {
             const base64Data = imagePreview.split(",")[1] || imagePreview;
@@ -351,6 +355,13 @@ export default function SmartShop() {
         setBehaviorIntelligence(await fetchBehaviorIntelligence(walletClient!));
     });
 
+    const handleCallProductPrice = () => {
+        if (!result) return Promise.resolve();
+        return runIntelligenceCall("product-price", async () => {
+            setReceiptPriceIntelligence(await fetchReceiptPriceIntelligence(walletClient!, result.receiptId));
+        });
+    };
+
     const handleShareWarpcast = () => {
         if (!result) return;
         track("receipt_result_shared", { channel: "farcaster" });
@@ -380,6 +391,7 @@ export default function SmartShop() {
         setResult(null);
         setAdvancedReport(null);
         setBehaviorIntelligence(null);
+        setReceiptPriceIntelligence(null);
         setChatQuestion("");
         setChatAnswer(null);
         setActiveIntelligenceCall(null);
@@ -388,6 +400,7 @@ export default function SmartShop() {
 
     const intelligenceOptions: Array<{ id: string; name: string; price: string; handler: () => Promise<void>; loaded: boolean }> = [
         { id: "behavior", name: "Behavior Intelligence", price: "0.02 USDC", handler: handleCallBehavior, loaded: Boolean(behaviorIntelligence) },
+        { id: "product-price", name: "Product Price", price: "0.01 USDC", handler: handleCallProductPrice, loaded: Boolean(receiptPriceIntelligence) },
     ];
 
     return (
@@ -663,6 +676,18 @@ export default function SmartShop() {
                                             <p>Trend: <b className="text-white">{behaviorIntelligence.basketTrend}</b> · Repeat purchases: <b className="text-white">{Math.round(behaviorIntelligence.repeatPurchaseRatio * 100)}%</b></p>
                                             <p>Top categories: {behaviorIntelligence.topCategories.join(" · ") || "None"}</p>
                                             <p>Frequent items: {Object.entries(behaviorIntelligence.purchaseFrequency).map(([item, count]) => `${item} (${count})`).join(" · ") || "None"}</p>
+                                        </div>
+                                    )}
+                                    {receiptPriceIntelligence && (
+                                        <div className="space-y-2 border-t border-[#00E36E]/10 pt-3 text-xs text-brand-text/70">
+                                            <p className="font-black text-brand-primary">Product Price Intelligence</p>
+                                            {receiptPriceIntelligence.items.filter((item) => item.paidPrice !== null).map((item, index) => (
+                                                <p key={`${item.itemName}-${item.canonicalProductId || "raw"}-${index}`}>
+                                                    {item.itemName}: paid {item.paidPrice?.toFixed(2)}
+                                                    {item.marketAverage !== null ? ` · avg ${item.marketAverage.toFixed(2)} · deal ${item.dealScore ?? "-"}/100` : " · no market data"}
+                                                </p>
+                                            ))}
+                                            {receiptPriceIntelligence.items.every((item) => item.paidPrice === null) && <p>No paid product prices found on this receipt.</p>}
                                         </div>
                                     )}
                                 </div>

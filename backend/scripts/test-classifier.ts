@@ -438,6 +438,12 @@ async function testReceiptGolden() {
     `split English receipt parsing is correct (got ${splitEnglishReceipt.detectedItems}/${splitEnglishReceipt.totalItems}/${splitEnglishReceipt.healthyItems}/${splitEnglishReceipt.fruitVegGrams}g)`
   );
 
+  const paymentNoise = await classifyFoods(["Credit Card USD"]);
+  assert(
+    paymentNoise.totalItems === 0 && paymentNoise.detectedItems === 0,
+    "English card payment text is excluded from product analysis"
+  );
+
   const market2Receipt = await classifyFoods([
     "DATE 06/01/2016",
     "ZUCCHINI GREEN $4.66", "0.778kg NET @ $5.99/kg",

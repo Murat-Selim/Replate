@@ -266,20 +266,26 @@ export async function buildBehaviorIntelligence(db: Db, wallet: string): Promise
      FROM receipt_items ri
      JOIN receipts r ON r.id = ri.receipt_id
      JOIN users u ON u.id = r.user_id
+     LEFT JOIN classifications c ON c.receipt_item_id = ri.id
      LEFT JOIN canonical_products cp ON cp.id = ri.canonical_product_id
      WHERE lower(u.wallet_address) = lower($1)
+       AND COALESCE(c.category, 'unknown') <> 'excluded'
+       AND lower(ri.item_name) !~ '(credit[[:space:]]+card|card[[:space:]]+(usd|payment)|visa|mastercard|deterg)'
      GROUP BY COALESCE(cp.display_name, ri.item_name)
-     ORDER BY item_count DESC, item_name ASC LIMIT 10`,
+     ORDER BY item_count DESC, item_name ASC`,
     [wallet],
   );
   const categories = await db.query(
-    `SELECT COALESCE(cp.category, 'unknown') AS category, COUNT(*) AS item_count
+    `SELECT COALESCE(cp.category, c.category, 'unknown') AS category, COUNT(*) AS item_count
      FROM receipt_items ri
      JOIN receipts r ON r.id = ri.receipt_id
      JOIN users u ON u.id = r.user_id
+     LEFT JOIN classifications c ON c.receipt_item_id = ri.id
      LEFT JOIN canonical_products cp ON cp.id = ri.canonical_product_id
      WHERE lower(u.wallet_address) = lower($1)
-     GROUP BY COALESCE(cp.category, 'unknown')
+       AND COALESCE(c.category, 'unknown') <> 'excluded'
+       AND lower(ri.item_name) !~ '(credit[[:space:]]+card|card[[:space:]]+(usd|payment)|visa|mastercard|deterg)'
+     GROUP BY COALESCE(cp.category, c.category, 'unknown')
      ORDER BY item_count DESC, category ASC LIMIT 5`,
     [wallet],
   );
@@ -295,8 +301,9 @@ export async function buildBehaviorIntelligence(db: Db, wallet: string): Promise
   const itemCounts = frequency.rows.map((row) => Number(row.item_count));
   const total = itemCounts.reduce((sum, count) => sum + count, 0);
   const repeated = itemCounts.reduce((sum, count) => sum + Math.max(0, count - 1), 0);
+  const topFrequency = frequency.rows.slice(0, 10);
   return {
-    purchaseFrequency: Object.fromEntries(frequency.rows.map((row) => [row.item_name, Number(row.item_count)])),
+    purchaseFrequency: Object.fromEntries(topFrequency.map((row) => [row.item_name, Number(row.item_count)])),
     topCategories: categories.rows.map((row) => row.category),
     basketTrend: current > previous + 2 ? "improving" : current + 2 < previous ? "declining" : "stable",
     repeatPurchaseRatio: round(total ? repeated / total : 0, 4),
