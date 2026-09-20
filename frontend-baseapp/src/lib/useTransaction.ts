@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { useAccount, useConnection, useSignTypedData, useWalletClient, useWriteContract, useSwitchChain, usePublicClient } from 'wagmi';
-import { concat, encodeFunctionData } from 'viem';
+import { concat, encodeAbiParameters, encodeFunctionData } from 'viem';
 import {
   EIP712_DOMAIN,
   CHECK_IN_TYPES,
@@ -182,8 +182,8 @@ export function useSubmitReceipt() {
           message,
         });
 
-        // 3. Backend adds the validator attestation and relays the transaction.
-        const relayResponse = await fetch(getApiUrl('/api/meta/receipt-sig'), {
+        // 3. Backend signs the validator attestation; the user submits the transaction.
+        const attestationResponse = await fetch(getApiUrl('/api/meta/receipt-sig'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -200,12 +200,59 @@ export function useSubmitReceipt() {
             signature,
           }),
         });
-        const relayData = await relayResponse.json();
-        if (!relayResponse.ok || !relayData.success) {
-          throw new Error(relayData.error || 'Receipt relay failed');
+        const attestationData = await attestationResponse.json();
+        if (!attestationResponse.ok || !attestationData.success) {
+          throw new Error(attestationData.error || 'Receipt validator attestation failed');
         }
-        const txHash = relayData.data?.txHash;
-        if (!txHash) throw new Error('Receipt relay did not return a transaction hash');
+        const validatorSignature = attestationData.data?.validatorSignature;
+        if (!validatorSignature) throw new Error('Receipt validator signature was not returned');
+
+        const signatures = encodeAbiParameters(
+          [{ name: 'userSignature', type: 'bytes' }, { name: 'validatorSignature', type: 'bytes' }],
+          [signature, validatorSignature],
+        );
+        const callData = encodeFunctionData({
+          abi: REPLATE_QUEST_ABI,
+          functionName: 'submitReceiptWithSig',
+          args: [
+            address,
+            receiptData.receiptHash,
+            receiptData.totalItems,
+            receiptData.healthyItems,
+            receiptData.unhealthyItems,
+            receiptData.fruitVegGrams,
+            receiptData.householdSize,
+            receiptData.daysCovered,
+            deadline,
+            signatures,
+          ],
+        });
+        const txHash = connector?.id === 'baseAccount' && walletClient
+          ? (await walletClient.sendCallsSync({
+              account: address,
+              chain: appChain,
+              calls: [{ to: CONTRACT_ADDRESS, data: concat([callData, DATA_SUFFIX]) }],
+            })).receipts?.[0]?.transactionHash
+          : await writeContractAsync({
+              address: CONTRACT_ADDRESS,
+              abi: REPLATE_QUEST_ABI,
+              functionName: 'submitReceiptWithSig',
+              chainId: appChain.id,
+              args: [
+                address,
+                receiptData.receiptHash,
+                receiptData.totalItems,
+                receiptData.healthyItems,
+                receiptData.unhealthyItems,
+                receiptData.fruitVegGrams,
+                receiptData.householdSize,
+                receiptData.daysCovered,
+                deadline,
+                signatures,
+              ],
+              dataSuffix: DATA_SUFFIX,
+            });
+        if (!txHash) throw new Error('Wallet did not return a transaction hash');
 
         const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
         if (receipt.status !== 'success') {

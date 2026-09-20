@@ -1,8 +1,8 @@
 import { Router, Request, Response } from "express";
 import {
   getUserNonce,
+  getReceiptValidatorSignature,
   submitCheckInWithSig,
-  submitReceiptWithSig,
 } from "../services/contract.js";
 import { clearLeaderboardCache } from "./leaderboard.js";
 import { createPublicClient, http } from "viem";
@@ -218,7 +218,7 @@ router.post("/receipt-sig", async (req: Request, res: Response) => {
 
     console.log(`📊 Processing EIP-712 receipt for ${userAddress}...`);
 
-    const result = await submitReceiptWithSig(
+    const validatorSignature = await getReceiptValidatorSignature(
       {
         user: userAddress,
         totalItems,
@@ -234,18 +234,10 @@ router.post("/receipt-sig", async (req: Request, res: Response) => {
       String(nonce)
     );
 
-    // Refresh leaderboard
-    clearLeaderboardCache();
-
     res.json({
       success: true,
       data: {
-        txHash: result.txHash,
-        healthScore: result.healthScore,
-        nutritionScore: result.nutritionScore,
-        pointsEarned: result.pointsEarned,
-        daysCovered: result.daysCovered,
-        badgeMinted: result.badgeMinted,
+        validatorSignature,
       },
     });
   } catch (error) {

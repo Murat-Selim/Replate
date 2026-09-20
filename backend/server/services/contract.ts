@@ -846,24 +846,18 @@ export async function submitCheckInWithSig(
 }
 
 /**
- * Submit a receipt with EIP-712 signature (meta-transaction)
+ * Sign the validator attestation; the user's wallet submits the transaction.
  */
-export async function submitReceiptWithSig(
+export async function getReceiptValidatorSignature(
   data: ReceiptSubmission,
   receiptHash: string,
   deadline: number,
   signature: string,
   nonce: string
-): Promise<ContractResult> {
+): Promise<string> {
   try {
     saveUser(data.user);
     return await withRetry(async (c) => {
-      console.log("📊 SubmitReceiptWithSig:", {
-        user: data.user,
-        totalItems: data.totalItems,
-        healthyItems: data.healthyItems,
-      });
-
       if (!wallet) throw new Error("Wallet not initialized");
       const currentNonce = await c.nonces(data.user);
       if (currentNonce !== BigInt(nonce)) {
@@ -891,64 +885,12 @@ export async function submitReceiptWithSig(
           deadline: BigInt(deadline),
         }
       );
-      const signatures = ethers.AbiCoder.defaultAbiCoder().encode(
-        ["bytes", "bytes"],
-        [signature, validatorSignature]
-      );
-
-      const txRequest = await c.submitReceiptWithSig.populateTransaction(
-        data.user,
-        receiptHash,
-        data.totalItems,
-        data.healthyItems,
-        data.unhealthyItems,
-        data.fruitVegGrams,
-        data.householdSize,
-        data.daysCovered,
-        deadline,
-        signatures
-      );
-      // Append Builder Code suffix
-      txRequest.data = txRequest.data + BUILDER_CODE_SUFFIX;
-
-      const tx = await wallet.sendTransaction(txRequest);
-      console.log(`📤 ReceiptWithSig tx: ${tx.hash}`);
-
-      const receipt = await tx.wait();
-      if (!receipt) throw new Error("Transaction failed: No receipt returned");
-
-      console.log(`✅ ReceiptWithSig confirmed in block ${receipt.blockNumber}`);
-
-      const receiptEvent = receipt.logs.find((log: any) =>
-        log.topics[0] ===
-        ethers.id("ReceiptSubmitted(address,uint8,uint8,uint256,uint256,uint16)")
-      );
-
-      const badgeMinted = !!receipt.logs.find((log: any) =>
-        log.topics[0] === ethers.id("BadgeMinted(address,uint256)")
-      );
-
-      if (receiptEvent) {
-        const decoded = ethers.AbiCoder.defaultAbiCoder().decode(
-          ["uint8", "uint8", "uint256", "uint16", "uint16"],
-          receiptEvent.data
-        );
-        return {
-          healthScore: Number(decoded[0]),
-          nutritionScore: Number(decoded[1]),
-          pointsEarned: Number(decoded[2]),
-          daysCovered: data.daysCovered,
-          txHash: tx.hash,
-          badgeMinted,
-        };
-      }
-
-      return { ...calculateScores(data), txHash: tx.hash, badgeMinted };
+      return validatorSignature;
     });
   } catch (error: any) {
-    console.error("❌ ReceiptWithSig failed:", error);
+    console.error("❌ Receipt validator signature failed:", error);
 
-    let message = "Failed to submit receipt with signature";
+    let message = "Failed to sign receipt validator attestation";
     if (error?.revert?.args?.[0]) {
       message = error.revert.args[0];
     } else if (error?.reason) {
