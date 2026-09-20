@@ -361,7 +361,7 @@ export default function SmartShop() {
     const handleShareTwitter = () => {
         if (!result) return;
         track("receipt_result_shared", { channel: "x" });
-        const shareText = `🎉 I just verified my grocery receipt on @replate!\n\n🥗 Health Score: ${result.healthScore}/100\n🌿 Nutrition Score: ${result.nutritionScore}/100\n⭐ Earned: ${result.pointsEarned} RP\n🥕 Fruits & Veg: ${result.fruitVegGrams}g\n\nTurn everyday food choices into simple, useful insights.\n\nhttps://replate-webapp.vercel.app`;
+        const shareText = `🎉 I just verified my grocery receipt on @replateapp, built on @base!\n\n🥗 Health Score: ${result.healthScore}/100\n🌿 Nutrition Score: ${result.nutritionScore}/100\n⭐ Earned: ${result.pointsEarned} RP\n🥕 Fruits & Veg: ${result.fruitVegGrams}g\n\nTurn everyday food choices into simple, useful insights.\n\nhttps://replate-webapp.vercel.app`;
         window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}`, '_blank');
     };
 
