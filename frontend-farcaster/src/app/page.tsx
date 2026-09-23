@@ -132,8 +132,8 @@ export default function Home() {
 
                 {/* Main CTA Button */}
                 <div className="flex w-full max-w-md flex-col gap-3 pt-2 sm:flex-row">
-                    <Link href="/meal" className="w-full bg-[#22D97A] text-[#0B1114] py-5 px-6 rounded-full font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-95 shadow-[0_0_30px_rgba(34,217,122,0.45)] hover:shadow-[0_0_40px_rgba(34,217,122,0.7)]"><Utensils size={18} />Analyze Meal<ArrowRight size={18} strokeWidth={3} /></Link>
                     <Link href="/verify-receipt" className="w-full border border-[#22D97A]/30 bg-[#131C20] text-[#22D97A] py-5 px-6 rounded-full font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-95"><Camera size={18} />Verify Receipt</Link>
+                    <Link href="/meal" className="w-full bg-[#22D97A] text-[#0B1114] py-5 px-6 rounded-full font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-95 shadow-[0_0_30px_rgba(34,217,122,0.45)] hover:shadow-[0_0_40px_rgba(34,217,122,0.7)]"><Utensils size={18} />Analyze Meal<ArrowRight size={18} strokeWidth={3} /></Link>
                 </div>
 
                 {/* User Trust & Rewards Widget */}
