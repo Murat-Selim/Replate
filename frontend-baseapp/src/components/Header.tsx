@@ -24,8 +24,8 @@ export default function Header() {
 
     const navItems = [
         { href: "/", label: "Home", icon: Home },
-        { href: "/meal", label: "Analyze Meal", icon: Utensils },
         { href: "/verify-receipt", label: "Verify Receipt", icon: ShoppingCart },
+        { href: "/meal", label: "Analyze Meal", icon: Utensils },
         { href: "/quests", label: "Quests", icon: Target },
         { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
         { href: "/profile", label: "Profile", icon: User },
