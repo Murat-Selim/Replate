@@ -21,7 +21,7 @@ export default function Home() {
             <div className="space-y-14 pb-10">
                 <section className="grid items-center gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:gap-16 lg:py-10">
                     <div className="space-y-6 animate-fade-in-up">
-                        <p className="text-xs font-black uppercase tracking-[0.25em] text-[#00E36E]">Replate Intelligence</p>
+                        <p className="text-xs font-black uppercase tracking-[0.25em] text-[#00E36E]">Food Intelligence</p>
                         <h1 className="max-w-3xl text-5xl font-black leading-[1.03] tracking-tight text-white sm:text-6xl">Understand what you eat.</h1>
                         <p className="max-w-xl text-lg leading-8 text-[#8c9790]">Turn everyday food choices into simple, useful insights. Start with one photo and get a better next choice in under 30 seconds.</p>
                         <div className="flex flex-col gap-3 sm:flex-row">

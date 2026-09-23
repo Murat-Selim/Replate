@@ -7,8 +7,8 @@ import { Home, Circle, Target, User, Utensils } from "lucide-react";
 
 const navItems = [
     { icon: Home, href: "/", label: "Home" },
-    { icon: Utensils, href: "/meal", label: "Analyze Meal" },
     { icon: Circle, href: "/verify-receipt", label: "Verify Receipt" },
+    { icon: Utensils, href: "/meal", label: "Analyze Meal" },
     { icon: Target, href: "/quests", label: "Quests" },
     { icon: User, href: "/profile", label: "Profile" },
 ];

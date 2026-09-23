@@ -7,8 +7,8 @@ import { X, LayoutGrid, ShoppingBag, BarChart3, Target, ShieldCheck, BookOpen, U
 
 const menuItems = [
     { icon: LayoutGrid, href: "/", label: "Home" },
-    { icon: Utensils, href: "/meal", label: "Analyze Meal" },
     { icon: ShoppingBag, href: "/verify-receipt", label: "Verify Receipt" },
+    { icon: Utensils, href: "/meal", label: "Analyze Meal" },
     { icon: Target, href: "/quests", label: "Quests" },
     { icon: BarChart3, href: "/leaderboard", label: "Leaderboard" },
     { icon: User, href: "/profile", label: "Profile" },

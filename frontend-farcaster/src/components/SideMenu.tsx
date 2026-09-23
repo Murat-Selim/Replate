@@ -6,8 +6,8 @@ import { X, Home, Circle, BarChart3, User, Target, ShieldCheck, BookOpen, Utensi
 
 const menuItems = [
     { icon: Home, href: "/", label: "Home" },
-    { icon: Utensils, href: "/meal", label: "Analyze Meal" },
     { icon: Circle, href: "/verify-receipt", label: "Verify Receipt" },
+    { icon: Utensils, href: "/meal", label: "Analyze Meal" },
     { icon: BarChart3, href: "/leaderboard", label: "Leaderboard" },
     { icon: Target, href: "/quests", label: "Quests" },
     { icon: User, href: "/profile", label: "Profile" },
