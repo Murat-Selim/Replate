@@ -12,6 +12,15 @@ export interface AdvancedReport {
     recommendations: { message: string }[];
 }
 
+export interface MealAnalysis {
+    detectedLabels: { label: string; confidence: number }[];
+    components: string[];
+    balanceScore: number;
+    confidence: number;
+    insight: string;
+    recommendation: string;
+}
+
 export interface BehaviorIntelligence {
     purchaseFrequency: Record<string, number>;
     topCategories: string[];
@@ -53,7 +62,7 @@ async function requestPaidJson<T>(walletClient: WalletClient, path: string, init
         new x402Client().register("eip155:8453", new ExactEvmScheme(signer)),
     );
     const url = getApiUrl(path);
-    const unpaid = await fetch(url, init);
+    const unpaid = await fetch(url, { ...init, body: undefined });
     const unpaidBody = await unpaid.json().catch(() => ({}));
     if (unpaid.status !== 402) throw new Error(unpaidBody.error || "Replate Intelligence is unavailable");
     const paymentRequired = httpClient.getPaymentRequiredResponse(
@@ -80,6 +89,14 @@ export async function unlockAdvancedIntelligence(
         body: JSON.stringify(input),
     });
     return response.report;
+}
+
+export function requestMealAnalysis(walletClient: WalletClient, imageBase64: string) {
+    return requestPaidJson<{ success: true; data: MealAnalysis }>(walletClient, "/api/analyze-meal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageBase64 }),
+    }).then((response) => response.data);
 }
 
 export function fetchBehaviorIntelligence(walletClient: WalletClient) {

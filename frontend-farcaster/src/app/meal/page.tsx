@@ -3,24 +3,18 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useWalletClient } from "wagmi";
 import { ArrowRight, CheckCircle2, ImagePlus, Loader2, Sparkles } from "lucide-react";
 import Shell from "@/components/Shell";
-import { getApiUrl } from "@/lib/api";
+import { appChain } from "@/lib/network";
+import { requestMealAnalysis, type MealAnalysis } from "@/lib/intelligence";
 import { compressImage } from "@/lib/image";
 import { track } from "@vercel/analytics";
 
-interface MealResult {
-    detectedLabels: { label: string; confidence: number }[];
-    components: string[];
-    balanceScore: number;
-    confidence: number;
-    insight: string;
-    recommendation: string;
-}
-
 export default function MealPage() {
+    const { data: walletClient } = useWalletClient({ chainId: appChain.id });
     const [image, setImage] = useState<string | null>(null);
-    const [result, setResult] = useState<MealResult | null>(null);
+    const [result, setResult] = useState<MealAnalysis | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -40,19 +34,14 @@ export default function MealPage() {
 
     const analyze = async () => {
         if (!image) return setError("Add a meal photo first.");
+        if (!walletClient) return setError("Connect a Base wallet to pay for meal analysis.");
         track("meal_analysis_started");
         setLoading(true);
         setError(null);
         try {
-            const response = await fetch(getApiUrl("/api/analyze-meal"), {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ imageBase64: image.split(",")[1] || image }),
-            });
-            const data = await response.json();
-            if (!response.ok || !data.success) throw new Error(data.error || "Meal analysis failed.");
-            setResult(data.data);
-            track("meal_analysis_completed", { balance_score: Number(data.data.balanceScore) });
+            const data = await requestMealAnalysis(walletClient, image.split(",")[1] || image);
+            setResult(data);
+            track("meal_analysis_completed", { balance_score: Number(data.balanceScore) });
         } catch (err) {
             setError(err instanceof Error ? err.message : "Meal analysis failed.");
         } finally {
@@ -85,7 +74,8 @@ export default function MealPage() {
                             {image ? <Image src={image} alt="Meal preview" fill unoptimized className="object-cover" /> : <><ImagePlus size={42} className="text-[#22D97A]" /><span className="mt-4 font-black text-white">Take or choose a meal photo</span><span className="mt-1 text-center text-sm text-[#A6B0B5]">Your photo is used for this analysis only.</span></>}
                         </label>
                         <input id="meal-photo" type="file" accept="image/*" capture="environment" onChange={handleFile} className="sr-only" />
-                        <button onClick={analyze} disabled={!image || loading} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#22D97A] px-5 py-4 font-black uppercase tracking-wider text-[#0B1114] transition hover:shadow-[0_0_25px_rgba(34,217,122,0.35)] disabled:cursor-not-allowed disabled:opacity-40">{loading ? <Loader2 size={19} className="animate-spin" /> : <Sparkles size={19} />} Analyze Meal</button>
+                        <button onClick={analyze} disabled={!image || loading} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#22D97A] px-5 py-4 font-black uppercase tracking-wider text-[#0B1114] transition hover:shadow-[0_0_25px_rgba(34,217,122,0.35)] disabled:cursor-not-allowed disabled:opacity-40">{loading ? <Loader2 size={19} className="animate-spin" /> : <Sparkles size={19} />} {loading ? "Payment & analysis pending..." : "Pay 0.01 USDC · Analyze Meal"}</button>
+                        <p className="mt-3 text-center text-xs text-[#A6B0B5]">One-time x402 payment on Base. Connect a Base wallet to continue.</p>
                         {error && <p role="alert" className="mt-4 rounded-xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm font-bold text-red-200">{error}</p>}
                     </div>
 

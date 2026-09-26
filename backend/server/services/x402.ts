@@ -9,10 +9,12 @@ import { createCdpFacilitatorClient, getCdpExtensionRegistrations } from "@coinb
 import type { SettleContext, SettleFailureContext, SettleResultContext } from "@x402/core/types";
 import { INTELLIGENCE_PRICING, runtimeConfig } from "../config.js";
 import { getDatabasePool } from "../db.js";
+import { validateImageBase64 } from "./ocr.js";
 import { buildAdvancedReceiptReport, buildBundle, buildRecommendations, findReceipt, hasAdvancedReceiptBinding, type AdvancedReceiptReport, type BundleIntelligence, type Recommendation } from "./intelligence-data.js";
 import { buildCategorySignal, buildProductSignal, MIN_SIGNAL_SAMPLE_SIZE, saveCategorySignal, saveProductSignal } from "./signal-engine.js";
 
 export const X402_ROUTE = "POST /api/intelligence/advanced";
+export const MEAL_ANALYSIS_ROUTE = "POST /api/analyze-meal";
 export const x402Configured = Boolean(
   runtimeConfig.x402PayTo && ((runtimeConfig.cdpApiKeyId && runtimeConfig.cdpApiKeySecret) || runtimeConfig.x402FacilitatorUrl),
 );
@@ -20,13 +22,14 @@ export const x402Configured = Boolean(
 export type PaidResourceType =
   | "advanced_receipt" | "basket_intelligence" | "receipt_price" | "product_price"
   | "behavior_intelligence" | "recommendation" | "intelligence_bundle"
-  | "product_signal" | "category_signal" | "merchant_signal";
+  | "product_signal" | "category_signal" | "merchant_signal" | "meal_analysis";
 
 interface PaymentRequestBody {
   receiptId?: string | number;
   receiptHash?: string;
   userAddress?: string;
   include?: string[];
+  imageBase64?: string;
 }
 
 interface PaidResourceRequest {
@@ -79,6 +82,10 @@ function requestResource(context: SettleContext): PaidResourceRequest | null {
   if (method === "POST" && path === "/api/intelligence/bundle") {
     return { resourceType: "intelligence_bundle", resourceId: String(body.receiptId || ""), endpoint, receiptId: String(body.receiptId || ""), include: body.include };
   }
+  if (method === "POST" && path === "/api/analyze-meal") {
+    const imageBase64 = validateImageBase64(typeof body.imageBase64 === "string" ? body.imageBase64 : "");
+    return { resourceType: "meal_analysis", resourceId: createHash("sha256").update(imageBase64).digest("hex"), endpoint };
+  }
 
   const dynamicRoutes: Array<[RegExp, PaidResourceType]> = [
     [/^\/api\/intelligence\/basket\/(\d+)$/, "basket_intelligence"],
@@ -100,6 +107,7 @@ function isReceiptResource(resourceType: PaidResourceType): boolean {
 
 async function validateResource(client: any, resource: PaidResourceRequest, payer: string) {
   if (resource.resourceType === "merchant_signal") throw new Error("Merchant signals are not available until merchant normalization is populated");
+  if (resource.resourceType === "meal_analysis") return { userWallet: payer };
 
   if (isReceiptResource(resource.resourceType)) {
     if (!/^\d+$/.test(resource.receiptId || "")) throw new Error("A verified receipt ID is required");
@@ -307,6 +315,7 @@ export function createX402Middleware(): RequestHandler | null {
   };
   const routes = {
     [X402_ROUTE]: advanced,
+    [MEAL_ANALYSIS_ROUTE]: routeConfig(INTELLIGENCE_PRICING.mealAnalysis, "Meal photo analysis"),
     "POST /api/intelligence/bundle": routeConfig(INTELLIGENCE_PRICING.bundle, "Replate Intelligence bundle"),
     "GET /api/intelligence/basket/:receiptId": routeConfig(INTELLIGENCE_PRICING.basket, "Basket Intelligence"),
     "GET /api/intelligence/price/receipt/:receiptId": routeConfig(INTELLIGENCE_PRICING.receiptPrice, "Receipt Price Intelligence"),

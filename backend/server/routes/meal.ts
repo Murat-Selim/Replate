@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import { getVisionClient, validateImageBase64 } from "../services/ocr.js";
+import { x402Configured } from "../services/x402.js";
 
 const router = Router();
 
@@ -12,6 +13,7 @@ const componentRules = [
 ];
 
 router.post("/", async (req: Request, res: Response) => {
+  if (!x402Configured) return res.status(503).json({ success: false, error: "Meal analysis payments are unavailable" });
   const imageBase64 = req.body?.imageBase64;
   if (!imageBase64) return res.status(400).json({ success: false, error: "Meal image is required" });
 
