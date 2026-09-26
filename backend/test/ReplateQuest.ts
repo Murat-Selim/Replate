@@ -83,12 +83,14 @@ describe("ReplateQuest", function () {
       const weekKey = ethers.id("2026-W33");
 
       await expect(
-        (replate as any).claimQuestXp(user1.address, questId, weekKey, 80)
-      ).to.emit(replate, "QuestXpClaimed").withArgs(user1.address, questId, weekKey, 80);
+        (replate as any).claimQuestXp(user1.address, questId, weekKey, 8)
+      ).to.emit(replate, "QuestXpClaimed").withArgs(user1.address, questId, weekKey, 8);
 
-      expect(await (replate as any).totalPoints(user1.address)).to.equal(80);
+      expect(await (replate as any).totalPoints(user1.address)).to.equal(8);
+      const report = await (replate as any).getCurrentWeekReport(user1.address);
+      expect(report.weekPoints).to.equal(8);
       await expect(
-        (replate as any).claimQuestXp(user1.address, questId, weekKey, 80)
+        (replate as any).claimQuestXp(user1.address, questId, weekKey, 8)
       ).to.be.revertedWith("Quest XP already claimed");
       await expect(
         (replate.connect(user1) as any).claimQuestXp(user1.address, ethers.id("health-65"), weekKey, 100)
@@ -233,8 +235,10 @@ describe("ReplateQuest", function () {
         );
 
         const summary = await replateV2.getUserSummary(user1.address);
-        expect(summary._totalPoints).to.equal(10);
+        expect(summary._totalPoints).to.equal(1);
         expect(summary._totalCheckIns).to.equal(1);
+        const report = await (replateV2 as any).getCurrentWeekReport(user1.address);
+        expect(report.weekPoints).to.equal(1);
       });
 
       it("should reject invalid signature", async function () {
@@ -335,10 +339,17 @@ describe("ReplateQuest", function () {
         expect(await (replateV2 as any).usedReceiptHashes(TEST_RECEIPT_HASH)).to.be.true;
         const summary = await replateV2.getUserSummary(user1.address);
         expect(summary._receiptCount).to.equal(1);
-        expect(summary._totalPoints).to.be.gt(0);
+        expect(summary._totalPoints).to.equal(11);
+        const weeklyReport = await (replateV2 as any).getCurrentWeekReport(user1.address);
+        expect(weeklyReport.weekPoints).to.equal(11);
         expect(await (replateV2 as any).balanceOf(user1.address)).to.equal(1);
         expect(await (replateV2 as any).hasBadge(user1.address)).to.be.true;
         expect(await (replateV2 as any).ownerOf(1)).to.equal(user1.address);
+
+        await ethers.provider.send("evm_increaseTime", [7 * 86400]);
+        await ethers.provider.send("evm_mine", []);
+        const nextWeekReport = await (replateV2 as any).getCurrentWeekReport(user1.address);
+        expect(nextWeekReport.weekPoints).to.equal(0);
 
         await (replateV2 as any).setBadgeBaseURI("ipfs://badge-cid/");
         expect(await (replateV2 as any).tokenURI(1)).to.equal("ipfs://badge-cid/1");
@@ -375,7 +386,7 @@ describe("ReplateQuest", function () {
             packReceiptSignatures(userSignature, validatorSignature)
           );
         await expect(tx).to.emit(replateV2, "ReceiptVerified")
-          .withArgs(receiptHash, user1.address, 70, 10, 60, 10, 6, 2, 600, 90000);
+          .withArgs(receiptHash, user1.address, 70, 10, 6, 10, 6, 2, 600, 90000);
       });
 
       it("should allow multiple receipts on the same day and week", async function () {

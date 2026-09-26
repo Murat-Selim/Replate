@@ -754,7 +754,7 @@ export default function SmartShop() {
                                         <div>
                                             <p className="font-extrabold text-sm text-[#00E36E]">Replate Points (RP)</p>
                                             <p className="text-xs text-[#8c9790] leading-relaxed">
-                                                Earn up to 150 RP per receipt based on your scores, plus streak bonuses for consistent healthy shopping.
+                                                Earn up to 15 RP per receipt based on your scores, plus streak bonuses for consistent healthy shopping.
                                             </p>
                                         </div>
                                     </div>

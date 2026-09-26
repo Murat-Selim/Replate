@@ -1,4 +1,4 @@
-import { getLeaderboard, finalizeUserWeek, distributeWeeklyRewards } from "../services/contract.js";
+import { getCurrentWeekNumber, getLeaderboard, finalizeUserWeek, distributeWeeklyRewards } from "../services/contract.js";
 
 /**
  * Run weekly finalization for top users
@@ -7,22 +7,23 @@ import { getLeaderboard, finalizeUserWeek, distributeWeeklyRewards } from "../se
 export async function runWeeklyFinalization(): Promise<void> {
   console.log(`ğŸ”„ Starting weekly finalization and reward distribution...`);
 
-  // 1. Get top users from the live leaderboard (up to 100)
+  // 1. Get top users from the just-completed week (up to 100)
   // This replaces the in-memory activeUsers for stateless Vercel operation
-  const top100 = await getLeaderboard(100);
+  const previousWeek = getCurrentWeekNumber() - 1;
+  const usersToFinalize = await getLeaderboard(100, previousWeek);
 
-  if (top100.length === 0) {
+  if (usersToFinalize.length === 0) {
     console.log("âš ï¸ No users found in leaderboard to finalize or distribute rewards to");
     return;
   }
 
-  console.log(`ğŸ“ˆ Processing ${top100.length} top users...`);
+  console.log(`ğŸ“ˆ Processing ${usersToFinalize.length} top users...`);
 
   const results: { user: string; success: boolean; streak: number }[] = [];
   const failures: string[] = [];
 
   // 2. Finalize each top user's week (calculate streaks, give bonuses)
-  for (const entry of top100) {
+  for (const entry of usersToFinalize) {
     try {
       const result = await finalizeUserWeek(entry.address);
       results.push({ user: entry.address, success: result.success, streak: result.newStreak });
@@ -33,16 +34,19 @@ export async function runWeeklyFinalization(): Promise<void> {
     }
   }
 
-  // 3. Calculate shares for USDC distribution (proportional to their total points)
-  const totalPoints = top100.reduce((sum, u) => sum + u.totalPoints, 0);
+  // Finalization can add streak RP, so calculate payout shares from the final report.
+  const top100 = await getLeaderboard(100, previousWeek);
+
+  // 3. Calculate shares for USDC distribution (proportional to last week's RP)
+  const totalWeeklyPoints = top100.reduce((sum, u) => sum + u.weeklyPoints, 0);
   
-  if (totalPoints === 0) {
+  if (totalWeeklyPoints === 0) {
     console.log("âš ï¸ Total points is zero, skipping distribution");
     return;
   }
 
   // Shares are proportional to their contribution to total points
-  const shares = top100.map(u => BigInt(u.totalPoints));
+  const shares = top100.map(u => BigInt(u.weeklyPoints));
 
   // 4. Call the smart contract to distribute the USDC pool
   try {
@@ -60,8 +64,8 @@ export async function runWeeklyFinalization(): Promise<void> {
   // Log summary
   console.log(`ğŸ“Š Weekly summary:
     - Users processed: ${top100.length}
-    - Top user: ${top100[0]?.address} (${top100[0]?.totalPoints} RP)
-    - Combined points in pool: ${totalPoints}
+    - Top user: ${top100[0]?.address} (${top100[0]?.weeklyPoints} RP)
+    - Combined points in pool: ${totalWeeklyPoints}
   `);
 
   if (failures.length > 0) {

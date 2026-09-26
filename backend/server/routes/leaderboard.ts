@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import {
   getLeaderboard,
+  getCurrentWeekNumber,
   getUserRank,
   getPoolStatus,
   LeaderboardEntry,
@@ -18,6 +19,7 @@ interface LeaderboardCache {
   entries: LeaderboardEntryWithRank[];
   poolStatus: Awaited<ReturnType<typeof getPoolStatus>>;
   timestamp: number;
+  weekNumber: number;
 }
 
 let cache: LeaderboardCache | null = null;
@@ -29,14 +31,16 @@ export function clearLeaderboardCache(): void {
 }
 
 function isCacheValid(): boolean {
-  return cache !== null && Date.now() - cache.timestamp < CACHE_TTL;
+  return cache !== null &&
+    cache.weekNumber === getCurrentWeekNumber() &&
+    Date.now() - cache.timestamp < CACHE_TTL;
 }
 
 /**
  * Refresh the cache in the background. If a refresh is already in progress,
  * this is a no-op. Returns immediately without blocking.
  */
-async function refreshCacheInBackground(): Promise<void> {
+async function refreshCacheInBackground(weekNumber = getCurrentWeekNumber()): Promise<void> {
   if (isRefreshing) return;
   isRefreshing = true;
   const startTime = Date.now();
@@ -44,7 +48,7 @@ async function refreshCacheInBackground(): Promise<void> {
   try {
     console.log("🔄 Refreshing leaderboard cache in background...");
     const [entries, poolStatus] = await Promise.all([
-      getLeaderboard(1000),
+      getLeaderboard(1000, weekNumber),
       getPoolStatus(),
     ]);
 
@@ -52,6 +56,7 @@ async function refreshCacheInBackground(): Promise<void> {
       entries: entries.map((entry, i) => ({ ...entry, rank: i + 1 })),
       poolStatus,
       timestamp: Date.now(),
+      weekNumber,
     };
 
     console.log(`✅ Leaderboard cache refreshed (${entries.length} entries, ${((Date.now() - startTime) / 1000).toFixed(1)}s)`);
@@ -65,29 +70,31 @@ async function refreshCacheInBackground(): Promise<void> {
 /**
  * Get the cached data. Uses stale-while-revalidate pattern:
  * - If cache is valid → return it
- * - If cache is stale but exists → return stale data AND trigger background refresh
- * - If no cache exists → do an initial fetch (blocks)
+ * - A stale cache from this week is returned while refreshing in the background.
+ * - A week rollover never returns the previous week's entries.
  */
 async function getOrRefreshCache(): Promise<LeaderboardCache> {
+  const weekNumber = getCurrentWeekNumber();
   // Cache is still fresh
   if (isCacheValid()) return cache!;
 
-  // Cache exists but is stale — return stale data, refresh in background
-  if (cache !== null) {
-    refreshCacheInBackground(); // fire-and-forget
+  // A stale cache from this week can be returned while it refreshes.
+  if (cache?.weekNumber === weekNumber) {
+    refreshCacheInBackground(weekNumber); // fire-and-forget
     return cache;
   }
 
-  // No cache at all — must wait for the first fetch
-  await refreshCacheInBackground();
+  // No cache for this week — wait for the first fetch.
+  await refreshCacheInBackground(weekNumber);
 
-  if (cache) return cache;
+  if (cache?.weekNumber === weekNumber) return cache;
 
   // Fallback: return empty data if the refresh failed completely
   return {
     entries: [],
     poolStatus: { weeklyPool: 0, devFund: 0, currentPhase: 0 },
     timestamp: 0,
+    weekNumber,
   };
 }
 
@@ -145,6 +152,7 @@ router.get("/rank/:address", async (req: Request, res: Response) => {
           address,
           rank: null,
           totalPoints: 0,
+          weeklyPoints: 0,
           level: 0,
           streak: 0,
           hasBadge: false,
@@ -165,6 +173,7 @@ router.get("/rank/:address", async (req: Request, res: Response) => {
         address: userData.address,
         rank: index === -1 ? null : index + 1,
         totalPoints: userData.totalPoints,
+        weeklyPoints: userData.weeklyPoints,
         level: userData.level,
         streak: userData.streak,
         hasBadge: userData.hasBadge,

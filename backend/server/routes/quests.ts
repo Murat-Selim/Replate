@@ -26,11 +26,11 @@ interface QuestTemplate {
 }
 
 const QUEST_POOL: QuestTemplate[] = [
-  { id: "receipts-2", title: "Receipt Combo", metric: "receiptCount", target: 2, bonusSeasonalXp: 80, description: "Verify two grocery receipts this week." },
-  { id: "health-65", title: "Smart Swap", metric: "avgHealthScore", target: 65, bonusSeasonalXp: 100, description: "Make one healthier swap in your next basket." },
-  { id: "nutrition-70", title: "Green Basket", metric: "avgNutritionScore", target: 70, bonusSeasonalXp: 100, description: "Add fruit or leafy greens to your next basket." },
-  { id: "checkin-streak-3", title: "Streak Run", metric: "checkInStreak", target: 3, bonusSeasonalXp: 70, description: "Check in three days in a row." },
-  { id: "week-points-300", title: "RP Sprint", metric: "weekPoints", target: 300, bonusSeasonalXp: 120, description: "Stack receipt and check-in points this week." },
+  { id: "receipts-2", title: "Receipt Combo", metric: "receiptCount", target: 2, bonusSeasonalXp: 8, description: "Verify two grocery receipts this week." },
+  { id: "health-65", title: "Smart Swap", metric: "avgHealthScore", target: 65, bonusSeasonalXp: 10, description: "Make one healthier swap in your next basket." },
+  { id: "nutrition-70", title: "Green Basket", metric: "avgNutritionScore", target: 70, bonusSeasonalXp: 10, description: "Add fruit or leafy greens to your next basket." },
+  { id: "checkin-streak-3", title: "Streak Run", metric: "checkInStreak", target: 3, bonusSeasonalXp: 7, description: "Check in three days in a row." },
+  { id: "week-points-300", title: "RP Sprint", metric: "weekPoints", target: 30, bonusSeasonalXp: 12, description: "Stack receipt and check-in points this week." },
 ];
 
 function getUtcWeekKey(now = new Date()): string {
@@ -102,7 +102,7 @@ router.get("/:address", async (req: Request, res: Response) => {
         eligible: mysteryEligible,
         preview: mysteryEligible
           ? { type: "cosmetic_badge_fragment", amount: 1 }
-          : { type: "seasonal_xp", amount: 25 },
+          : { type: "seasonal_xp", amount: 2 },
       },
       note: "Completed quests can be claimed once as on-chain RP through the validator.",
     });

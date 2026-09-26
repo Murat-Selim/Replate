@@ -137,11 +137,11 @@ export default function QuestsPage() {
 
 function createOfflineQuestData(): QuestData {
   const quests = [
-    { id: "receipts-2", title: "Receipt Combo", description: "Verify two grocery receipts this week.", progress: 0, target: 2, completed: false, bonusSeasonalXp: 80 },
-    { id: "health-65", title: "Smart Swap", description: "Make one healthier swap in your next basket.", progress: 0, target: 65, completed: false, bonusSeasonalXp: 100 },
-    { id: "checkin-streak-3", title: "Streak Run", description: "Check in three days in a row.", progress: 0, target: 3, completed: false, bonusSeasonalXp: 70 },
+    { id: "receipts-2", title: "Receipt Combo", description: "Verify two grocery receipts this week.", progress: 0, target: 2, completed: false, bonusSeasonalXp: 8 },
+    { id: "health-65", title: "Smart Swap", description: "Make one healthier swap in your next basket.", progress: 0, target: 65, completed: false, bonusSeasonalXp: 10 },
+    { id: "checkin-streak-3", title: "Streak Run", description: "Check in three days in a row.", progress: 0, target: 3, completed: false, bonusSeasonalXp: 7 },
   ];
-  return { weekKey: new Date().toISOString().slice(0, 10), quests, mysteryBox: { eligible: false, preview: { type: "seasonal_xp", amount: 25 } }, note: "Offline preview: progress will sync when the quest service is available." };
+  return { weekKey: new Date().toISOString().slice(0, 10), quests, mysteryBox: { eligible: false, preview: { type: "seasonal_xp", amount: 2 } }, note: "Offline preview: progress will sync when the quest service is available." };
 }
 function Panel({ children }: { children: React.ReactNode }) {
   return <div className="rounded-3xl border border-brand-primary/15 bg-[#0c1310] p-12 text-center text-brand-text/60">{children}</div>;

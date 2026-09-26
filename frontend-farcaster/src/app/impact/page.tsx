@@ -126,7 +126,7 @@ export default function YourImpact() {
                     ...prev,
                     checkInStreak: prev.checkInStreak + 1,
                     totalCheckIns: prev.totalCheckIns + 1,
-                    totalPoints: prev.totalPoints + 10,
+                    totalPoints: prev.totalPoints + 1,
                     lastCheckInDay: Math.floor(Date.now() / 1000 / 86400),
                 }));
             } else {

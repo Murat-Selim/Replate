@@ -81,7 +81,8 @@ contract ReplateQuest is
     uint8   constant MIN_HEALTHY_SCORE          = 60;
     uint256 constant BASE_POINTS                = 50;
     uint256 constant STREAK_BONUS               = 25;
-    uint256 constant CHECKIN_POINTS             = 10;   // XP per daily check-in
+    uint256 constant POINTS_DIVISOR              = 10;
+    uint256 constant CHECKIN_POINTS             = 1;    // XP per daily check-in
 
     // ─── EIP-712 Typehashes ──────────────────────────────────────────
     bytes32 constant CHECKIN_TYPEHASH = keccak256(
@@ -296,6 +297,7 @@ contract ReplateQuest is
         lastCheckInDay[user] = today;
         totalCheckIns[user]  += 1;
         totalPoints[user]    += CHECKIN_POINTS;
+        weeklyReports[user][block.timestamp / 7 days].totalPoints += CHECKIN_POINTS;
 
         emit CheckedIn(user, today, checkInStreak[user], CHECKIN_POINTS);
     }
@@ -366,7 +368,7 @@ contract ReplateQuest is
 
         if (healthyWeek && consecutiveWeek) {
             streak[user] += 1;
-            uint256 bonus = streak[user] * STREAK_BONUS;
+            uint256 bonus = (streak[user] * STREAK_BONUS) / POINTS_DIVISOR;
             report.totalPoints += bonus;
             totalPoints[user]  += bonus;
         } else if (healthyWeek) {
@@ -596,7 +598,7 @@ contract ReplateQuest is
             points = points > 20 ? points - 20 : 10;
         }
 
-        return points;
+        return points / POINTS_DIVISOR;
     }
 
     function _updateAvg(
@@ -626,6 +628,7 @@ contract ReplateQuest is
 
         questXpClaimed[claimId] = true;
         totalPoints[user] += amount;
+        weeklyReports[user][block.timestamp / 7 days].totalPoints += amount;
 
         emit QuestXpClaimed(user, questId, weekKey, amount);
     }

@@ -20,10 +20,12 @@ interface LeaderboardEntry {
 
 // Module-level cache — persists across navigations (no spinner on revisit)
 let cachedLeaders: LeaderboardEntry[] | null = null;
+let cachedWeekNumber = Math.floor(Date.now() / 604800000);
 
 export default function Leaderboard() {
-    const [leaders, setLeaders] = useState<LeaderboardEntry[]>(cachedLeaders || []);
-    const [isLoading, setIsLoading] = useState(cachedLeaders === null);
+    const isCurrentWeekCached = cachedWeekNumber === Math.floor(Date.now() / 604800000) && cachedLeaders !== null;
+    const [leaders, setLeaders] = useState<LeaderboardEntry[]>(isCurrentWeekCached ? cachedLeaders! : []);
+    const [isLoading, setIsLoading] = useState(!isCurrentWeekCached);
 
     const { address } = useAccount();
     const userAddress = address?.toLowerCase() || null;
@@ -31,7 +33,7 @@ export default function Leaderboard() {
     const getTabLeaders = () => {
         return leaders.map((user) => ({
             ...user,
-            displayPoints: user.totalPoints,
+            displayPoints: user.weeklyPoints,
             displayStreak: user.streak,
             displayLevel: user.level,
         })).sort((a, b) => b.displayPoints - a.displayPoints)
@@ -48,6 +50,7 @@ export default function Leaderboard() {
 
                 if (data.success) {
                     cachedLeaders = data.data; // Update module-level cache
+                    cachedWeekNumber = Math.floor(Date.now() / 604800000);
                     setLeaders(data.data);
                 }
             } catch (err) {
@@ -93,8 +96,8 @@ export default function Leaderboard() {
         <Shell>
             <div className="space-y-8 animate-fade-in-up">
                 <div className="text-center lg:text-left space-y-2">
-                    <h1 className="text-3xl sm:text-4xl font-black text-[#00E36E] drop-shadow-[0_0_10px_rgba(0,227,110,0.15)]">Leaderboard</h1>
-                    <p className="text-[#8c9790]">Top Nutrition Scores on Base</p>
+                    <h1 className="text-3xl sm:text-4xl font-black text-[#00E36E] drop-shadow-[0_0_10px_rgba(0,227,110,0.15)]">Weekly Leaderboard</h1>
+                    <p className="text-[#8c9790]">RP earned by active users this week</p>
                 </div>
 
                 {/* Leaderboard Stats */}
@@ -105,7 +108,7 @@ export default function Leaderboard() {
                         </div>
                         <div>
                             <p className="text-2xl font-black text-white">{leaders.length}</p>
-                            <p className="text-xs font-bold text-[#8c9790]/70 uppercase tracking-wider">Total Players</p>
+                            <p className="text-xs font-bold text-[#8c9790]/70 uppercase tracking-wider">Players This Week</p>
                         </div>
                     </div>
                 </div>
@@ -121,7 +124,7 @@ export default function Leaderboard() {
                     <div className="bg-[#0c1310]/90 border border-[#00E36E]/12 backdrop-blur-2xl rounded-3xl flex flex-col items-center justify-center py-20 space-y-3 text-center shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
                         <Trophy size={48} className="text-brand-primary/20" />
                         <p className="text-brand-text/50 font-bold text-lg">No entries yet</p>
-                        <p className="text-brand-text/30 text-sm max-w-sm">Be the first to submit a receipt and claim the top spot!</p>
+                        <p className="text-brand-text/30 text-sm max-w-sm">Be the first to earn RP and claim this week’s top spot!</p>
                     </div>
                 ) : (
                     <div className="space-y-2">

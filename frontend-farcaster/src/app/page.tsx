@@ -70,7 +70,7 @@ export default function Home() {
             return {
                 rank: i + 1,
                 name: formatAddress(leader.address),
-                rp: `${leader.totalPoints} RP`,
+                rp: `${leader.weeklyPoints} RP`,
                 avatar: leader.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${leader.address}`,
                 color: i === 0 ? "bg-[#FFB800] text-black" : i === 1 ? "bg-[#A6B0B5] text-black" : "bg-[#CD7F32] text-black"
             };
@@ -78,7 +78,7 @@ export default function Home() {
         return {
             rank: i + 1,
             name: i === 0 ? "Alex Carter" : i === 1 ? "Jamie Rivera" : "Taylor Morgan",
-            rp: i === 0 ? "40 RP" : i === 1 ? "35 RP" : "30 RP",
+            rp: i === 0 ? "4 RP" : i === 1 ? "3 RP" : "3 RP",
             avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=placeholder${i}`,
             color: i === 0 ? "bg-[#FFB800] text-black" : i === 1 ? "bg-[#A6B0B5] text-black" : "bg-[#CD7F32] text-black"
         };

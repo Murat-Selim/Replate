@@ -92,7 +92,7 @@ export function useCheckIn() {
         console.warn('Failed to invalidate leaderboard cache:', cacheErr);
       }
 
-      return { success: true, txHash, pointsEarned: 10 };
+      return { success: true, txHash, pointsEarned: 1 };
     } catch (err: any) {
       const errorMsg = err?.message || 'Check-in failed';
       setError(errorMsg);

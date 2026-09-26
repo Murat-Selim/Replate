@@ -1,7 +1,7 @@
 import { ethers, Wallet, Contract } from "ethers";
 import fs from "fs";
 import path from "path";
-import { REPLATE_QUEST_ABI, CONTRACT_ADDRESS } from "../../src/lib/contract.js";
+import { REPLATE_QUEST_ABI, CONTRACT_ADDRESS, CONTRACT_CONSTANTS } from "../../src/lib/contract.js";
 import { BASE_MAINNET_CHAIN_ID } from "../../src/lib/network.js";
 import { runtimeConfig } from "../config.js";
 import { getDatabasePool } from "../db.js";
@@ -54,6 +54,7 @@ interface UsersCache {
 }
 let usersCache: UsersCache | null = null;
 const USERS_CACHE_TTL = 60 * 60 * 1000; // 1 saat
+const SECONDS_PER_WEEK = 7 * 24 * 60 * 60;
 
 const USERS_FILE = path.join(process.cwd(), "users.json");
 
@@ -117,6 +118,10 @@ export interface PoolStatus {
   weeklyPool: number;
   devFund: number;
   currentPhase: number;
+}
+
+export function getCurrentWeekNumber(now = Date.now()): number {
+  return Math.floor(now / 1000 / SECONDS_PER_WEEK);
 }
 
 // ─── Provider yardımcıları ────────────────────────────────────────────
@@ -328,7 +333,7 @@ export async function submitCheckIn(
       await tx.wait();
       console.log(`✅ Check-in confirmed for ${userAddress}`);
 
-      return { success: true, pointsEarned: 10 };
+      return { success: true, pointsEarned: 1 };
     });
   } catch (error: any) {
     console.error("❌ Check-in failed:", error);
@@ -547,7 +552,8 @@ async function discoverUsersFromLogs(): Promise<string[]> {
 
 // ─── Leaderboard ──────────────────────────────────────────────────────
 export async function getLeaderboard(
-  limit: number = 100
+  limit: number = 100,
+  weekNumber: number = getCurrentWeekNumber()
 ): Promise<LeaderboardEntry[]> {
   const rpcUrl = process.env.RPC_URL || process.env.BASE_RPC_URL;
 
@@ -575,13 +581,16 @@ export async function getLeaderboard(
         batch.map(async (addr) => {
           const [summary, weekReport] = await Promise.all([
             c.getUserSummary(addr),
-            c.getCurrentWeekReport(addr),
+            c.weeklyReports(addr, weekNumber),
           ]);
 
           const totalPoints = Number(
             summary?._totalPoints || summary?.[0] || 0
           );
-          if (totalPoints === 0) return null;
+          const weeklyPoints = Number(
+            weekReport?.totalPoints ?? weekReport?.weekPoints ?? weekReport?.[0] ?? 0
+          );
+          if (weeklyPoints === 0) return null;
 
           return {
             address: addr,
@@ -597,9 +606,7 @@ export async function getLeaderboard(
             hasBadge: !!(summary?._hasBadge ?? summary?.[6] ?? false),
             totalCheckIns: Number(summary?._totalCheckIns || summary?.[4] || 0),
             receiptCount: Number(summary?._receiptCount || summary?.[5] || 0),
-            weeklyPoints: Number(
-              weekReport?.weekPoints ?? weekReport?.[0] ?? 0
-            ),
+            weeklyPoints,
           } as LeaderboardEntry;
         })
       );
@@ -614,7 +621,7 @@ export async function getLeaderboard(
     console.log(`✅ Leaderboard: ${entries.length} active users`);
 
     return entries
-      .sort((a, b) => b.totalPoints - a.totalPoints)
+      .sort((a, b) => b.weeklyPoints - a.weeklyPoints)
       .slice(0, limit);
   } catch (error: any) {
     console.error("❌ Leaderboard fetch failed:", error.message || error);
@@ -628,7 +635,10 @@ export async function getUserRank(
 ): Promise<LeaderboardEntry | null> {
   try {
     const c = getContract();
-    const summary = await c.getUserSummary(userAddress);
+    const [summary, report] = await Promise.all([
+      c.getUserSummary(userAddress),
+      c.getCurrentWeekReport(userAddress),
+    ]);
 
     return {
       address: userAddress,
@@ -638,7 +648,7 @@ export async function getUserRank(
       hasBadge: !!summary?._hasBadge,
       totalCheckIns: Number(summary?._totalCheckIns || 0),
       receiptCount: Number(summary?._receiptCount || 0),
-      weeklyPoints: 0,
+      weeklyPoints: Number(report?.weekPoints ?? report?.[0] ?? 0),
     };
   } catch (error) {
     console.warn("⚠️ Failed to get user rank:", error);
@@ -759,7 +769,7 @@ export function calculateScores(data: ReceiptSubmission): ContractResult {
   return {
     healthScore,
     nutritionScore,
-    pointsEarned: points,
+    pointsEarned: Math.floor(points / CONTRACT_CONSTANTS.POINTS_DIVISOR),
     daysCovered: data.daysCovered,
     txHash: "",
     badgeMinted: false,
@@ -776,11 +786,11 @@ function mockContractResponse(data: ReceiptSubmission): ContractResult {
 
 function getMockLeaderboard(limit: number): LeaderboardEntry[] {
   return [
-    { address: "0x1234567890abcdef1234567890abcdef12345678", totalPoints: 12500, level: 25, streak: 8, hasBadge: true, totalCheckIns: 30, receiptCount: 15, weeklyPoints: 1200 },
-    { address: "0x2345678901abcdef2345678901abcdef23456789", totalPoints: 10200, level: 20, streak: 5, hasBadge: true, totalCheckIns: 20, receiptCount: 10, weeklyPoints: 950 },
-    { address: "0x3456789012abcdef3456789012abcdef34567890", totalPoints: 8500, level: 17, streak: 3, hasBadge: true, totalCheckIns: 15, receiptCount: 8, weeklyPoints: 600 },
-    { address: "0x4567890123abcdef4567890123abcdef45678901", totalPoints: 7200, level: 14, streak: 2, hasBadge: false, totalCheckIns: 10, receiptCount: 5, weeklyPoints: 400 },
-    { address: "0x5678901234abcdef5678901234abcdef56789012", totalPoints: 6500, level: 13, streak: 1, hasBadge: false, totalCheckIns: 5, receiptCount: 3, weeklyPoints: 200 },
+    { address: "0x1234567890abcdef1234567890abcdef12345678", totalPoints: 12500, level: 25, streak: 8, hasBadge: true, totalCheckIns: 30, receiptCount: 15, weeklyPoints: 120 },
+    { address: "0x2345678901abcdef2345678901abcdef23456789", totalPoints: 10200, level: 20, streak: 5, hasBadge: true, totalCheckIns: 20, receiptCount: 10, weeklyPoints: 95 },
+    { address: "0x3456789012abcdef3456789012abcdef34567890", totalPoints: 8500, level: 17, streak: 3, hasBadge: true, totalCheckIns: 15, receiptCount: 8, weeklyPoints: 60 },
+    { address: "0x4567890123abcdef4567890123abcdef45678901", totalPoints: 7200, level: 14, streak: 2, hasBadge: false, totalCheckIns: 10, receiptCount: 5, weeklyPoints: 40 },
+    { address: "0x5678901234abcdef5678901234abcdef56789012", totalPoints: 6500, level: 13, streak: 1, hasBadge: false, totalCheckIns: 5, receiptCount: 3, weeklyPoints: 20 },
   ].slice(0, limit);
 }
 
@@ -829,7 +839,7 @@ export async function submitCheckInWithSig(
       await tx.wait();
       console.log(`✅ CheckInWithSig confirmed for ${userAddress}`);
 
-      return { success: true, pointsEarned: 10, txHash: tx.hash };
+      return { success: true, pointsEarned: 1, txHash: tx.hash };
     });
   } catch (error: any) {
     console.error("❌ CheckInWithSig failed:", error);
