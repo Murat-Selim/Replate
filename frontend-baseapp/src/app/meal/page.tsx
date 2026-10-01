@@ -49,14 +49,12 @@ export default function MealPage() {
         }
     };
 
-    const shareResult = async () => {
+    const shareResult = () => {
         if (!result) return;
-        track("meal_result_shared");
-        const share = { title: "My Replate Meal Insight", text: `My Replate meal balance signal is ${result.balanceScore}/100. ${result.recommendation}`, url: window.location.href };
-        try {
-            if (navigator.share) await navigator.share(share);
-            else await navigator.clipboard.writeText(`${share.text} ${share.url}`);
-        } catch { /* User cancelled sharing. */ }
+        track("meal_result_shared", { channel: "x" });
+        const components = (result.components.length ? result.components : result.detectedLabels.slice(0, 3).map(({ label }) => label)).map((component) => component.replaceAll("_", " ")).join(", ");
+        const shareText = `🍽️ My meal balance signal is ${result.balanceScore}/100.\n\n${components ? `🥗 Detected: ${components}\n\n` : ""}💡 Next time: ${result.recommendation}\n\nA visual insight by @replateapp on @base.`;
+        window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(window.location.href)}`, "_blank", "noopener,noreferrer");
     };
 
     return (
@@ -80,7 +78,7 @@ export default function MealPage() {
                     </div>
 
                     <div className="rounded-3xl border border-[#00E36E]/15 bg-[#0c1310]/90 p-6 sm:p-8">
-                        {result ? <div className="space-y-6"><div className="flex items-end gap-3"><span className="text-7xl font-black text-[#00E36E]">{result.balanceScore}</span><span className="pb-2 text-sm font-black uppercase tracking-wider text-[#8c9790]">/ 100<br />Balance signal</span></div><div className="flex items-center gap-2 text-sm font-bold text-[#00E36E]"><CheckCircle2 size={17} />{result.insight}</div><div><p className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-[#8c9790]">Detected components</p><div className="flex flex-wrap gap-2">{(result.components.length ? result.components : result.detectedLabels.map((item) => item.label)).map((component) => <span key={component} className="rounded-full border border-[#00E36E]/20 bg-[#00E36E]/5 px-3 py-1.5 text-sm font-bold capitalize text-white/85">{component.replaceAll("_", " ")}</span>)}</div></div><div className="rounded-2xl border border-[#00E36E]/15 bg-[#00E36E]/5 p-4"><p className="text-xs font-black uppercase tracking-wider text-[#00E36E]">Next step</p><p className="mt-2 text-sm leading-6 text-white/85">{result.recommendation}</p></div><p className="text-xs text-[#8c9790]">Visual confidence: {Math.round(result.confidence * 100)}%. Replate does not claim exact calories from a photo.</p><button onClick={shareResult} className="inline-flex items-center justify-center rounded-2xl border border-[#00E36E]/25 px-4 py-3 text-sm font-black text-[#00E36E] hover:bg-[#00E36E]/10">Share Meal Result</button></div> : <div className="flex h-full min-h-72 flex-col justify-center"><Sparkles size={32} className="text-[#00E36E]" /><h2 className="mt-5 text-2xl font-black text-white">Insight in seconds</h2><p className="mt-2 leading-7 text-[#8c9790]">Replate looks for visible food groups, highlights balance and gives you a practical improvement to try next time.</p></div>}
+                        {result ? <div className="space-y-6"><div className="flex items-end gap-3"><span className="text-7xl font-black text-[#00E36E]">{result.balanceScore}</span><span className="pb-2 text-sm font-black uppercase tracking-wider text-[#8c9790]">/ 100<br />Balance signal</span></div><div className="flex items-center gap-2 text-sm font-bold text-[#00E36E]"><CheckCircle2 size={17} />{result.insight}</div><div><p className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-[#8c9790]">Detected components</p><div className="flex flex-wrap gap-2">{(result.components.length ? result.components : result.detectedLabels.map((item) => item.label)).map((component) => <span key={component} className="rounded-full border border-[#00E36E]/20 bg-[#00E36E]/5 px-3 py-1.5 text-sm font-bold capitalize text-white/85">{component.replaceAll("_", " ")}</span>)}</div></div><div className="rounded-2xl border border-[#00E36E]/15 bg-[#00E36E]/5 p-4"><p className="text-xs font-black uppercase tracking-wider text-[#00E36E]">Next step</p><p className="mt-2 text-sm leading-6 text-white/85">{result.recommendation}</p></div><p className="text-xs text-[#8c9790]">Visual confidence: {Math.round(result.confidence * 100)}%. Replate does not claim exact calories from a photo.</p><button onClick={shareResult} className="inline-flex items-center justify-center rounded-2xl border border-[#00E36E]/25 px-4 py-3 text-sm font-black text-[#00E36E] hover:bg-[#00E36E]/10">Share on X</button></div> : <div className="flex h-full min-h-72 flex-col justify-center"><Sparkles size={32} className="text-[#00E36E]" /><h2 className="mt-5 text-2xl font-black text-white">Insight in seconds</h2><p className="mt-2 leading-7 text-[#8c9790]">Replate looks for visible food groups, highlights balance and gives you a practical improvement to try next time.</p></div>}
                     </div>
                 </section>
 
