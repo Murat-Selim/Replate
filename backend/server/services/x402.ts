@@ -10,7 +10,7 @@ import type { SettleContext, SettleFailureContext, SettleResultContext } from "@
 import { INTELLIGENCE_PRICING, runtimeConfig } from "../config.js";
 import { getDatabasePool } from "../db.js";
 import { validateImageBase64 } from "./ocr.js";
-import { buildAdvancedReceiptReport, buildBundle, buildRecommendations, findReceipt, hasAdvancedReceiptBinding, type AdvancedReceiptReport, type BundleIntelligence, type Recommendation } from "./intelligence-data.js";
+import { buildAdvancedReceiptReport, buildBundle, findReceipt, hasAdvancedReceiptBinding, type AdvancedReceiptReport, type BundleIntelligence } from "./intelligence-data.js";
 import { buildCategorySignal, buildProductSignal, MIN_SIGNAL_SAMPLE_SIZE, saveCategorySignal, saveProductSignal } from "./signal-engine.js";
 
 export const X402_ROUTE = "POST /api/intelligence/advanced";
@@ -20,8 +20,8 @@ export const x402Configured = Boolean(
 );
 
 export type PaidResourceType =
-  | "advanced_receipt" | "basket_intelligence" | "receipt_price" | "product_price"
-  | "behavior_intelligence" | "recommendation" | "intelligence_bundle"
+  | "advanced_receipt" | "basket_intelligence" | "product_price"
+  | "behavior_intelligence" | "intelligence_bundle"
   | "product_signal" | "category_signal" | "merchant_signal" | "meal_analysis" | "spending_breakdown";
 
 interface PaymentRequestBody {
@@ -92,9 +92,7 @@ function requestResource(context: SettleContext): PaidResourceRequest | null {
 
   const dynamicRoutes: Array<[RegExp, PaidResourceType]> = [
     [/^\/api\/intelligence\/basket\/(\d+)$/, "basket_intelligence"],
-    [/^\/api\/intelligence\/price\/receipt\/(\d+)$/, "receipt_price"],
     [/^\/api\/intelligence\/price\/product\/(\d+)$/, "product_price"],
-    [/^\/api\/intelligence\/recommendation\/(\d+)$/, "recommendation"],
   ];
   for (const [pattern, resourceType] of dynamicRoutes) {
     const match = path.match(pattern);
@@ -117,7 +115,7 @@ function requestResource(context: SettleContext): PaidResourceRequest | null {
 }
 
 function isReceiptResource(resourceType: PaidResourceType): boolean {
-  return ["advanced_receipt", "basket_intelligence", "receipt_price", "recommendation", "intelligence_bundle"].includes(resourceType);
+  return ["advanced_receipt", "basket_intelligence", "intelligence_bundle"].includes(resourceType);
 }
 
 async function validateResource(client: any, resource: PaidResourceRequest, payer: string) {
@@ -236,12 +234,11 @@ async function settlementBuilderCodeAttribution(transactionHash: string): Promis
   } catch { return null; }
 }
 
-async function buildStoredReport(client: any, resourceType: PaidResourceType, receiptId: string, userWallet: string, sourceSnapshot?: unknown, sourceCommitment?: string | null): Promise<AdvancedReceiptReport | BundleIntelligence | { receiptId: string; recommendations: Recommendation[] | null } | null> {
+async function buildStoredReport(client: any, resourceType: PaidResourceType, receiptId: string, userWallet: string, sourceSnapshot?: unknown, sourceCommitment?: string | null): Promise<AdvancedReceiptReport | BundleIntelligence | null> {
   if (resourceType === "advanced_receipt") {
     if (hasAdvancedReceiptBinding(sourceSnapshot, sourceCommitment)) return sourceSnapshot;
     return buildAdvancedReceiptReport(client, receiptId);
   }
-  if (resourceType === "recommendation") return { receiptId, recommendations: await buildRecommendations(client, receiptId, userWallet) };
   if (resourceType === "intelligence_bundle") return buildBundle(client, receiptId, userWallet, []);
   return null;
 }
@@ -265,7 +262,7 @@ async function settlePaymentAndBuildReport(context: SettleResultContext): Promis
     if (!payment.rows[0]) throw new Error("Submitted payment record was not found");
     const row = payment.rows[0];
 
-    if (row.receipt_id && ["advanced_receipt", "recommendation", "intelligence_bundle"].includes(row.resource_type)) {
+    if (row.receipt_id && ["advanced_receipt", "intelligence_bundle"].includes(row.resource_type)) {
       const report = await buildStoredReport(client, row.resource_type, String(row.receipt_id), row.user_wallet, row.source_snapshot, row.source_commitment);
       if (report) {
         const reportObject = report;
@@ -360,12 +357,10 @@ export function createX402Middleware(): RequestHandler | null {
     [MEAL_ANALYSIS_ROUTE]: routeConfig(INTELLIGENCE_PRICING.mealAnalysis, "Meal photo analysis"),
     "POST /api/intelligence/bundle": routeConfig(INTELLIGENCE_PRICING.bundle, "Replate Intelligence bundle"),
     "GET /api/intelligence/basket/:receiptId": routeConfig(INTELLIGENCE_PRICING.basket, "Basket Intelligence"),
-    "GET /api/intelligence/price/receipt/:receiptId": routeConfig(INTELLIGENCE_PRICING.receiptPrice, "Receipt Price Intelligence"),
     "GET /api/intelligence/price/product/:canonicalProductId": routeConfig(INTELLIGENCE_PRICING.productPrice, "Product Price Intelligence"),
     "GET /api/intelligence/price/product/:canonicalProductId/:currencyCode/:priceUnit": routeConfig(INTELLIGENCE_PRICING.productPrice, "Currency and unit scoped Product Price Intelligence"),
     "GET /api/intelligence/spending/me": routeConfig(INTELLIGENCE_PRICING.spendingBreakdown, "Spending Breakdown Intelligence"),
     "GET /api/intelligence/behavior/me": routeConfig(INTELLIGENCE_PRICING.behavior, "Behavior Intelligence"),
-    "GET /api/intelligence/recommendation/:receiptId": routeConfig(INTELLIGENCE_PRICING.recommendation, "Receipt Recommendations"),
   };
   return paymentMiddleware(routes, resourceServer);
 }

@@ -47,25 +47,6 @@ export interface SpendingBreakdown {
 }
 
 export interface BasketIntelligence { basketScore: number; basketDiversity: number; healthyItemRatio: number; fruitVegRatio: number; categories: Record<string, number> }
-export interface Recommendation { type: string; priority: string; message: string }
-
-export interface ReceiptPriceIntelligence {
-    receiptId: string;
-    currencyCode: string | null;
-    storeName: string | null;
-    items: {
-        canonicalProductId: string | null;
-        itemName: string;
-        paidPrice: number | null;
-        unitPrice: number | null;
-        priceUnit: string;
-        marketAverage: number | null;
-        priceScore: number | null;
-        dealScore: number | null;
-        sampleSize: number;
-        confidence: number;
-    }[];
-}
 
 async function requestPaidJson<T>(walletClient: WalletClient, path: string, init: RequestInit = {}): Promise<T> {
     if (!walletClient.account) throw new Error("Connect your wallet before unlocking Replate Intelligence");
@@ -122,19 +103,10 @@ export function fetchProductPriceIntelligence(walletClient: WalletClient, canoni
     return requestPaidJson<{ success: true } & ProductPriceIntelligence>(walletClient, `/api/intelligence/price/product/${canonicalProductId}/${currencyCode || "XXX"}/${priceUnit}`);
 }
 
-export function fetchReceiptPriceIntelligence(walletClient: WalletClient, receiptId: string) {
-    return requestPaidJson<{ success: true } & ReceiptPriceIntelligence>(walletClient, `/api/intelligence/price/receipt/${receiptId}`);
-}
-
 export function fetchSpendingBreakdown(walletClient: WalletClient) {
     return requestPaidJson<{ success: true } & SpendingBreakdown>(walletClient, "/api/intelligence/spending/me");
 }
 
 export function fetchBasketIntelligence(walletClient: WalletClient, receiptId: string) {
     return requestPaidJson<{ success: true } & BasketIntelligence>(walletClient, `/api/intelligence/basket/${receiptId}`);
-}
-
-export function fetchRecommendations(walletClient: WalletClient, receiptId: string) {
-    return requestPaidJson<{ success: true; recommendations: Recommendation[] }>(walletClient, `/api/intelligence/recommendation/${receiptId}`)
-        .then((response) => response.recommendations);
 }

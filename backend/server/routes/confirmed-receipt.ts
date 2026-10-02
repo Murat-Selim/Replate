@@ -166,8 +166,12 @@ router.post("/confirmed", async (req: Request, res: Response) => {
         row.receipt_hash.toLowerCase() !== onchain.receiptHash.toLowerCase() || row.tx_hash.toLowerCase() !== body.txHash.toLowerCase()) {
         throw new VerifiedReceiptError("Receipt identity conflicts with an existing record", 409, "RECEIPT_IDEMPOTENCY_CONFLICT");
       }
+      const productRefs = await client.query<{ canonical_product_id: string | null; price_unit: string }>(
+        "SELECT canonical_product_id, COALESCE(price_unit, 'each') AS price_unit FROM receipt_items WHERE receipt_id = $1 ORDER BY id",
+        [row.id],
+      );
       await client.query("COMMIT");
-      res.json({ success: true, idempotent: true, receiptId: row.id, txHash: body.txHash, receiptHash: body.receiptHash, builderCodeAttributed: row.builder_code_attributed });
+      res.json({ success: true, idempotent: true, receiptId: row.id, txHash: body.txHash, receiptHash: body.receiptHash, builderCodeAttributed: row.builder_code_attributed, productRefs: productRefs.rows.map((item) => ({ canonicalProductId: item.canonical_product_id === null ? null : String(item.canonical_product_id), priceUnit: item.price_unit })) });
       return;
     }
 
@@ -251,8 +255,12 @@ router.post("/confirmed", async (req: Request, res: Response) => {
       );
     }
     await client.query("DELETE FROM receipt_analysis_staging WHERE lower(receipt_hash) = lower($1) AND lower(user_wallet) = lower($2)", [onchain.receiptHash, onchain.userAddress]);
+    const productRefs = await client.query<{ canonical_product_id: string | null; price_unit: string }>(
+      "SELECT canonical_product_id, COALESCE(price_unit, 'each') AS price_unit FROM receipt_items WHERE receipt_id = $1 ORDER BY id",
+      [receiptId],
+    );
     await client.query("COMMIT");
-    res.status(201).json({ success: true, idempotent: false, receiptId, txHash: body.txHash, receiptHash: body.receiptHash, builderCodeAttributed: onchain.builderCodeAttributed });
+    res.status(201).json({ success: true, idempotent: false, receiptId, txHash: body.txHash, receiptHash: body.receiptHash, builderCodeAttributed: onchain.builderCodeAttributed, productRefs: productRefs.rows.map((item) => ({ canonicalProductId: item.canonical_product_id === null ? null : String(item.canonical_product_id), priceUnit: item.price_unit })) });
   } catch (error) {
     if (client) await client.query("ROLLBACK").catch(() => undefined);
     const status = error instanceof VerifiedReceiptError ? error.status : 500;

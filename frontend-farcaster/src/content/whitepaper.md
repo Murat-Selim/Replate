@@ -131,9 +131,9 @@ Live paid capabilities include:
 
 - Advanced Receipt Intelligence
 - Basket Intelligence
-- Receipt and Product Price Intelligence
+- Product Price Intelligence
 - Behavior Intelligence for the paying wallet
-- Receipt Recommendations and Bundles
+- Intelligence Bundles
 - Signals API (Product, Category, Merchant): Soon / Yakında
 
 Signals remain closed while the aggregate data layer is being prepared.

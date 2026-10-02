@@ -107,7 +107,7 @@ export default function QuestsPage() {
                         {claimingQuest === quest.id ? "ClaimingÃ¢â‚¬Â¦" : `Claim +${quest.bonusSeasonalXp} RP`}
                       </button>
                     )}
-                    {quest.completed && <p className="mt-4 font-bold text-brand-primary">Ã¢Å“â€¦ Quest complete</p>}
+                    {quest.completed && <p className="mt-4 font-bold text-brand-primary">Quest complete</p>}
                   </article>
                 );
               })}

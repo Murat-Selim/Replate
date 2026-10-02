@@ -7,9 +7,7 @@ import {
   buildBehaviorIntelligence,
   buildBundle,
   buildProductPriceIntelligence,
-  buildReceiptPriceAnalysis,
   buildSpendingBreakdown,
-  buildRecommendations,
   hasAdvancedReceiptBinding,
 } from "../services/intelligence-data.js";
 
@@ -163,21 +161,6 @@ router.get("/basket/:receiptId", async (req: Request, res: Response) => {
   } catch (error) { return res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Internal server error" }); }
 });
 
-router.get("/price/receipt/:receiptId", async (req: Request, res: Response) => {
-  try {
-    const payer = assertPayer(req);
-    const receiptId = String(req.params.receiptId);
-    if (!/^\d+$/.test(receiptId)) return res.status(400).json({ success: false, error: "Invalid receipt ID" });
-    assertDatabaseConfigured();
-    const client = await getDatabasePool().connect();
-    try {
-      const price = await buildReceiptPriceAnalysis(client, receiptId, payer);
-      if (!price) return res.status(404).json({ success: false, error: "Verified receipt not found", errorCode: "RECEIPT_NOT_FOUND" });
-      return res.json({ success: true, ...price });
-    } finally { client.release(); }
-  } catch (error) { return res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Internal server error" }); }
-});
-
 router.get("/price/product/:canonicalProductId", async (req: Request, res: Response) => {
   try {
     const productId = String(req.params.canonicalProductId);
@@ -239,27 +222,12 @@ router.get("/spending/me", async (req: Request, res: Response) => {
   } catch (error) { return res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Internal server error" }); }
 });
 
-router.get("/recommendation/:receiptId", async (req: Request, res: Response) => {
-  try {
-    const payer = assertPayer(req);
-    const receiptId = String(req.params.receiptId);
-    if (!/^\d+$/.test(receiptId)) return res.status(400).json({ success: false, error: "Invalid receipt ID" });
-    assertDatabaseConfigured();
-    const client = await getDatabasePool().connect();
-    try {
-      const recommendations = await buildRecommendations(client, receiptId, payer);
-      if (!recommendations) return res.status(404).json({ success: false, error: "Verified receipt not found", errorCode: "RECEIPT_NOT_FOUND" });
-      return res.json({ success: true, receiptId, recommendations });
-    } finally { client.release(); }
-  } catch (error) { return res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Internal server error" }); }
-});
-
 router.post("/bundle", async (req: Request, res: Response) => {
   try {
     const payer = assertPayer(req);
     const receiptId = String(req.body?.receiptId || "");
     const include = Array.isArray(req.body?.include) ? req.body.include.filter((value: unknown): value is string => typeof value === "string") : [];
-    if (!/^\d+$/.test(receiptId) || include.some((value: string) => !["basket", "price", "recommendation", "behavior", "productPrice", "spending"].includes(value))) {
+    if (!/^\d+$/.test(receiptId) || include.some((value: string) => !["basket", "behavior", "productPrice", "spending"].includes(value))) {
       return res.status(400).json({ success: false, error: "receiptId and valid include values are required" });
     }
     assertDatabaseConfigured();

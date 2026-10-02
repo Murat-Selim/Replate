@@ -168,11 +168,9 @@ API resolution works like this in both frontends:
 | `/api/receipts/latest?userAddress=0x...` | `GET` | Restores the latest verified receipt for a wallet. |
 | `/api/intelligence/advanced` | `POST` | Returns replay-verifiable receipt intelligence after a `$0.05 USDC` x402 payment; the report includes receipt hash, line items, scores, and a source commitment. |
 | `/api/intelligence/basket/{receiptId}` | `GET` | Returns structured basket metrics for the receipt owner (`$0.01 USDC`). |
-| `/api/intelligence/price/receipt/{receiptId}` | `GET` | Compares line-item unit prices with same-currency observations (`$0.01 USDC`). |
 | `/api/intelligence/price/product/{canonicalProductId}/{currencyCode}/{priceUnit}` | `GET` | Returns currency- and unit-scoped price history, recent observations, and store averages (`$0.01 USDC`). |
 | `/api/intelligence/spending/me` | `GET` | Returns wallet spending totals, category shares, food/household split, and 30-day changes grouped by currency (`$0.03 USDC`). |
 | `/api/intelligence/behavior/me` | `GET` | Returns the paying wallet's behavior intelligence (`$0.02 USDC`). |
-| `/api/intelligence/recommendation/{receiptId}` | `GET` | Returns receipt recommendations (`$0.02 USDC`). |
 | `/api/intelligence/bundle` | `POST` | Returns selected receipt, spending, behavior, and product price intelligence in one request (`$0.03 USDC`). |
 | `/api/signals/product/{canonicalProductId}` | `GET` | Soon / Yakında; signal API currently closed. |
 | `/api/signals/category/{category}` | `GET` | Soon / Yakında; signal API currently closed. |

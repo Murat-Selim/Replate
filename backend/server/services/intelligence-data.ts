@@ -62,24 +62,6 @@ export interface BasketIntelligence {
   categories: Record<string, number>;
 }
 
-export interface ReceiptPriceAnalysis {
-  receiptId: string;
-  currencyCode: string | null;
-  storeName: string | null;
-  items: Array<{
-    canonicalProductId: string | null;
-    itemName: string;
-    paidPrice: number | null;
-    unitPrice: number | null;
-    priceUnit: string;
-    marketAverage: number | null;
-    priceScore: number | null;
-    dealScore: number | null;
-    sampleSize: number;
-    confidence: number;
-  }>;
-}
-
 export interface ProductPriceIntelligence {
   canonicalProductId: string;
   currencyCode: string | null;
@@ -116,17 +98,9 @@ export interface BehaviorIntelligence {
   repeatPurchaseRatio: number;
 }
 
-export interface Recommendation {
-  type: "PRICE" | "BASKET" | "NUTRITION" | "BUDGET" | "PURCHASE_TIMING" | "PRODUCT_ALTERNATIVE";
-  priority: "low" | "medium" | "high";
-  message: string;
-}
-
 export interface BundleIntelligence {
   receiptId: string;
   basket?: BasketIntelligence;
-  price?: ReceiptPriceAnalysis;
-  recommendations?: Recommendation[];
   behavior?: BehaviorIntelligence;
   productPrices?: ProductPriceIntelligence[];
   spending?: SpendingBreakdown;
@@ -230,63 +204,6 @@ export async function buildBasketIntelligence(db: Db, receiptId: string, wallet:
     healthyItemRatio: round(clamp(healthy, 0, 1)),
     fruitVegRatio: round(clamp(fruitVeg, 0, 1)),
     categories,
-  };
-}
-
-async function priceAggregates(
-  db: Db,
-  scopes: Array<{ productId: string; priceUnit: string }>,
-  currencyCode: string | null,
-): Promise<Map<string, { average: number; sampleSize: number }>> {
-  if (scopes.length === 0) return new Map();
-  const result = await db.query(
-    `SELECT ri.canonical_product_id, COALESCE(ri.price_unit, 'each') AS price_unit,
-            AVG(COALESCE(ri.unit_price, ri.paid_price)) AS average_price,
-            COUNT(*) AS sample_size
-     FROM receipt_items ri JOIN receipts r ON r.id = ri.receipt_id
-     JOIN unnest($1::BIGINT[], $2::TEXT[]) AS scope(product_id, price_unit)
-       ON scope.product_id = ri.canonical_product_id AND scope.price_unit = COALESCE(ri.price_unit, 'each')
-     WHERE ri.paid_price IS NOT NULL AND r.currency_code IS NOT DISTINCT FROM $3
-     GROUP BY ri.canonical_product_id, COALESCE(ri.price_unit, 'each')`,
-    [scopes.map((scope) => scope.productId), scopes.map((scope) => scope.priceUnit), currencyCode],
-  );
-  return new Map(result.rows.map((row) => [`${row.canonical_product_id}:${row.price_unit}`, {
-    average: Number(row.average_price),
-    sampleSize: Number(row.sample_size),
-  }]));
-}
-
-export async function buildReceiptPriceAnalysis(db: Db, receiptId: string, wallet: string): Promise<ReceiptPriceAnalysis | null> {
-  const receipt = await findReceipt(db, receiptId, wallet);
-  if (!receipt) return null;
-  const items = await receiptItems(db, receiptId);
-  const scopes = [...new Map(items.flatMap((item) => item.canonicalProductId
-    ? [[`${item.canonicalProductId}:${item.priceUnit}`, { productId: item.canonicalProductId, priceUnit: item.priceUnit }]]
-    : [])).values()];
-  const aggregates = await priceAggregates(db, scopes, receipt.currencyCode);
-  return {
-    receiptId,
-    currencyCode: receipt.currencyCode,
-    storeName: receipt.storeName,
-    items: items.map((item) => {
-      const aggregate = item.canonicalProductId ? aggregates.get(`${item.canonicalProductId}:${item.priceUnit}`) : undefined;
-      if (item.paidPrice === null || item.unitPrice === null || !aggregate || aggregate.average <= 0) {
-        return { canonicalProductId: item.canonicalProductId, itemName: item.itemName, paidPrice: item.paidPrice, unitPrice: item.unitPrice, priceUnit: item.priceUnit, marketAverage: aggregate?.average ?? null, priceScore: null, dealScore: null, sampleSize: aggregate?.sampleSize ?? 0, confidence: 0 };
-      }
-      const relativeDifference = (item.unitPrice - aggregate.average) / aggregate.average;
-      return {
-        canonicalProductId: item.canonicalProductId,
-        itemName: item.itemName,
-        paidPrice: round(item.paidPrice),
-        unitPrice: round(item.unitPrice, 4),
-        priceUnit: item.priceUnit,
-        marketAverage: round(aggregate.average),
-        priceScore: Math.round(clamp(100 - Math.abs(relativeDifference) * 100)),
-        dealScore: Math.round(clamp(100 - relativeDifference * 100)),
-        sampleSize: aggregate.sampleSize,
-        confidence: round(Math.min(1, (0.5 + aggregate.sampleSize / 500) * item.normalizationConfidence)),
-      };
-    }),
   };
 }
 
@@ -451,44 +368,20 @@ export async function buildSpendingBreakdown(db: Db, wallet: string): Promise<Sp
   };
 }
 
-export async function buildRecommendations(db: Db, receiptId: string, wallet: string): Promise<Recommendation[] | null> {
-  const basket = await buildBasketIntelligence(db, receiptId, wallet);
-  const prices = await buildReceiptPriceAnalysis(db, receiptId, wallet);
-  if (!basket || !prices) return null;
-  const recommendations: Recommendation[] = [];
-  const items = await receiptItems(db, receiptId);
-  const itemSpend = items.reduce((sum, item) => sum + (item.paidPrice || 0), 0);
-  const snackSpend = items.filter((item) => item.spendingCategory === "snacks").reduce((sum, item) => sum + (item.paidPrice || 0), 0);
-  if (itemSpend > 0 && snackSpend / itemSpend > 0.25) {
-    recommendations.push({ type: "BUDGET", priority: "low", message: `Snacks account for ${Math.round(snackSpend / itemSpend * 100)}% of recognized line-item spend in this basket.` });
-  }
-  if (prices.items.some((item) => item.priceScore !== null && item.priceScore < 50)) {
-    recommendations.push({ type: "PRICE", priority: "medium", message: "One or more items are priced well above their historical observed average." });
-  }
-  if (basket.basketDiversity < 0.5) {
-    recommendations.push({ type: "BASKET", priority: "low", message: "Basket diversity is below the recommended variety threshold." });
-  }
-  if (basket.fruitVegRatio < 0.5 || basket.healthyItemRatio < 0.5) {
-    recommendations.push({ type: "NUTRITION", priority: "medium", message: "Add more fruit, vegetables, and whole-food staples to improve basket balance." });
-  }
-  return recommendations;
-}
-
 export async function buildBundle(db: Db, receiptId: string, wallet: string, include: string[]): Promise<BundleIntelligence | null> {
-  if (!await findReceipt(db, receiptId, wallet)) return null;
-  const allowed = new Set(include.length ? include : ["basket", "price", "recommendation", "behavior", "productPrice", "spending"]);
+  const receipt = await findReceipt(db, receiptId, wallet);
+  if (!receipt) return null;
+  const allowed = new Set(include.length ? include : ["basket", "behavior", "productPrice", "spending"]);
   const bundle: BundleIntelligence = { receiptId };
   if (allowed.has("basket")) bundle.basket = (await buildBasketIntelligence(db, receiptId, wallet)) || undefined;
-  if (allowed.has("price")) bundle.price = (await buildReceiptPriceAnalysis(db, receiptId, wallet)) || undefined;
-  if (allowed.has("recommendation")) bundle.recommendations = (await buildRecommendations(db, receiptId, wallet)) || undefined;
   if (allowed.has("behavior")) bundle.behavior = await buildBehaviorIntelligence(db, wallet);
   if (allowed.has("spending")) bundle.spending = await buildSpendingBreakdown(db, wallet);
   if (allowed.has("productPrice")) {
-    const price = bundle.price || await buildReceiptPriceAnalysis(db, receiptId, wallet);
-    const products = [...new Map((price?.items || []).flatMap((item) => item.canonicalProductId
+    const items = await receiptItems(db, receiptId);
+    const products = [...new Map(items.flatMap((item) => item.canonicalProductId
       ? [[`${item.canonicalProductId}:${item.priceUnit}`, { id: item.canonicalProductId, unit: item.priceUnit }]]
       : [])).values()];
-    bundle.productPrices = (await Promise.all(products.map(({ id, unit }) => buildProductPriceIntelligence(db, id, price?.currencyCode ?? null, unit)))).filter(
+    bundle.productPrices = (await Promise.all(products.map(({ id, unit }) => buildProductPriceIntelligence(db, id, receipt.currencyCode, unit)))).filter(
       (value): value is ProductPriceIntelligence => Boolean(value),
     );
   }

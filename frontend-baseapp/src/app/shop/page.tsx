@@ -13,17 +13,13 @@ import {
     unlockAdvancedIntelligence,
     fetchBehaviorIntelligence,
     fetchBasketIntelligence,
-    fetchRecommendations,
     fetchSpendingBreakdown,
     fetchProductPriceIntelligence,
-    fetchReceiptPriceIntelligence,
     type AdvancedReport,
     type BehaviorIntelligence,
     type BasketIntelligence,
-    type Recommendation,
     type SpendingBreakdown,
     type ProductPriceIntelligence,
-    type ReceiptPriceIntelligence,
 } from "@/lib/intelligence";
 
 interface VerificationResult {
@@ -43,7 +39,7 @@ interface VerificationResult {
     currencyCode?: string | null;
     totalSpent?: number | null;
     totalSpentSource?: "receipt_total" | "line_items" | null;
-    products?: { name: string; category: string; spendingCategory?: string; fruitVegGrams: number; paidPrice?: number; quantity?: number; actualWeightGrams?: number }[];
+    products?: { name: string; category: string; spendingCategory?: string; fruitVegGrams: number; paidPrice?: number; quantity?: number; actualWeightGrams?: number; canonicalProductId?: string | null; priceUnit?: string }[];
 }
 
 function getReceiptChatReply(question: string, result: VerificationResult, advancedReport: AdvancedReport | null) {
@@ -110,8 +106,6 @@ export default function SmartShop() {
     const [behaviorIntelligence, setBehaviorIntelligence] = useState<BehaviorIntelligence | null>(null);
     const [basketIntelligence, setBasketIntelligence] = useState<BasketIntelligence | null>(null);
     const [spendingBreakdown, setSpendingBreakdown] = useState<SpendingBreakdown | null>(null);
-    const [recommendations, setRecommendations] = useState<Recommendation[] | null>(null);
-    const [receiptPriceIntelligence, setReceiptPriceIntelligence] = useState<ReceiptPriceIntelligence | null>(null);
     const [productPriceHistory, setProductPriceHistory] = useState<Record<string, ProductPriceIntelligence>>({});
     const [chatQuestion, setChatQuestion] = useState("");
     const [chatAnswer, setChatAnswer] = useState<string | null>(null);
@@ -247,12 +241,10 @@ export default function SmartShop() {
         setIsLoading(true);
         setError(null);
         setResult(null);
-        setReceiptPriceIntelligence(null);
         setAdvancedReport(null);
         setBehaviorIntelligence(null);
         setBasketIntelligence(null);
         setSpendingBreakdown(null);
-        setRecommendations(null);
         setProductPriceHistory({});
 
         try {
@@ -309,6 +301,7 @@ export default function SmartShop() {
             // 4. Show successful result with user's direct txHash
             setResult({
                 ...data.data,
+                products: data.data.products?.map((product, index) => ({ ...product, ...(confirmedData.productRefs?.[index] || {}) })),
                 receiptId: String(confirmedData.data?.receiptId ?? confirmedData.receiptId),
                 txHash: txResult.txHash || "",
             });
@@ -378,18 +371,6 @@ export default function SmartShop() {
         return runIntelligenceCall("basket", async () => setBasketIntelligence(await fetchBasketIntelligence(walletClient!, result.receiptId)));
     };
 
-    const handleCallRecommendations = () => {
-        if (!result) return Promise.resolve();
-        return runIntelligenceCall("recommendation", async () => setRecommendations(await fetchRecommendations(walletClient!, result.receiptId)));
-    };
-
-    const handleCallReceiptPrice = () => {
-        if (!result) return Promise.resolve();
-        return runIntelligenceCall("receipt-price", async () => {
-            setReceiptPriceIntelligence(await fetchReceiptPriceIntelligence(walletClient!, result.receiptId));
-        });
-    };
-
     const handleCallProductPrice = (canonicalProductId: string, currencyCode: string | null, priceUnit: string) => runIntelligenceCall(`product-price-${canonicalProductId}`, async () => {
         const history = await fetchProductPriceIntelligence(walletClient!, canonicalProductId, currencyCode, priceUnit);
         setProductPriceHistory((current) => ({ ...current, [`${canonicalProductId}:${currencyCode || "XXX"}:${priceUnit}`]: history }));
@@ -426,8 +407,6 @@ export default function SmartShop() {
         setBehaviorIntelligence(null);
         setBasketIntelligence(null);
         setSpendingBreakdown(null);
-        setRecommendations(null);
-        setReceiptPriceIntelligence(null);
         setProductPriceHistory({});
         setChatQuestion("");
         setChatAnswer(null);
@@ -439,9 +418,8 @@ export default function SmartShop() {
         { id: "behavior", name: "Behavior Intelligence", price: "0.02 USDC", handler: handleCallBehavior, loaded: Boolean(behaviorIntelligence) },
         { id: "spending", name: "Spending Breakdown", price: "0.03 USDC", handler: handleCallSpending, loaded: Boolean(spendingBreakdown) },
         { id: "basket", name: "Basket Insights", price: "0.01 USDC", handler: handleCallBasket, loaded: Boolean(basketIntelligence) },
-        { id: "recommendation", name: "Recommendations", price: "0.02 USDC", handler: handleCallRecommendations, loaded: Boolean(recommendations) },
-        { id: "receipt-price", name: "Receipt Price", price: "0.01 USDC", handler: handleCallReceiptPrice, loaded: Boolean(receiptPriceIntelligence) },
     ];
+    const resultProducts = result?.products || [];
 
     return (
         <>
@@ -725,29 +703,32 @@ export default function SmartShop() {
                                             <p>Frequent items: {Object.entries(behaviorIntelligence.purchaseFrequency).map(([item, count]) => `${item} (${count})`).join(" · ") || "None"}</p>
                                         </div>
                                     )}
-                                    {receiptPriceIntelligence && (
+                                    {resultProducts.length > 0 ? (
                                         <div className="space-y-2 border-t border-[#00E36E]/10 pt-3 text-xs text-brand-text/70">
-                                            <p className="font-black text-brand-primary">Receipt Price Comparison</p>
-                                            {receiptPriceIntelligence.items.filter((item) => item.paidPrice !== null).map((item, index) => {
+                                            <p className="font-black text-brand-primary">Product Price Intelligence</p>
+                                            {resultProducts.map((item, index) => {
                                                 const productId = item.canonicalProductId;
-                                                const historyKey = `${productId}:${receiptPriceIntelligence.currencyCode || "XXX"}:${item.priceUnit}`;
-                                                const history = productId ? productPriceHistory[historyKey] : undefined;
-                                                const callId = productId ? `product-price-${productId}` : "";
+                                                if (!productId) return null;
+                                                const priceUnit = item.priceUnit || (item.actualWeightGrams ? "kg" : "each");
+                                                const currencyCode = result.currencyCode || null;
+                                                const historyKey = `${productId}:${currencyCode || "XXX"}:${priceUnit}`;
+                                                const history = productPriceHistory[historyKey];
+                                                const callId = `product-price-${productId}`;
                                                 const observationPrices = history?.observations.map((observation) => observation.unitPrice) || [];
                                                 const observationMin = Math.min(...observationPrices);
                                                 const observationRange = Math.max(...observationPrices) - observationMin || 1;
                                                 return (
-                                                    <div key={`${item.itemName}-${productId || "raw"}-${index}`} className="space-y-1">
-                                                        <p>{item.itemName}: paid {item.paidPrice?.toFixed(2)} · {item.unitPrice?.toFixed(2)}/{item.priceUnit}{item.marketAverage !== null ? ` · observed avg ${item.marketAverage.toFixed(2)} · deal ${item.dealScore ?? "-"}/100` : " · no market data"}</p>
-                                                        {productId && <button type="button" onClick={() => handleCallProductPrice(productId, receiptPriceIntelligence.currencyCode, item.priceUnit)} disabled={activeIntelligenceCall !== null || Boolean(history)} className="text-left font-bold text-brand-primary hover:underline disabled:opacity-50">{activeIntelligenceCall === callId ? "Loading price history..." : history ? "Price history loaded" : "Load price history · 0.01 USDC"}</button>}
+                                                    <div key={`${item.name}-${productId}-${index}`} className="space-y-1">
+                                                        <p>{item.name}{item.paidPrice === undefined ? "" : ` · paid ${currencyCode || ""} ${item.paidPrice.toFixed(2)}`}</p>
+                                                        <button type="button" onClick={() => handleCallProductPrice(productId, currencyCode, priceUnit)} disabled={activeIntelligenceCall !== null || Boolean(history)} className="text-left font-bold text-brand-primary hover:underline disabled:opacity-50">{activeIntelligenceCall === callId ? "Loading product price..." : history ? "Product price loaded" : "Load product price · 0.01 USDC"}</button>
                                                         {history && <p className="text-brand-text/60">Historical avg {history.averagePrice.toFixed(2)}/{history.priceUnit} · observed range {history.minPrice.toFixed(2)}–{history.maxPrice.toFixed(2)} · {history.priceMomentum30d === null ? "30-day trend unavailable" : `30-day change ${history.priceMomentum30d > 0 ? "+" : ""}${(history.priceMomentum30d * 100).toFixed(1)}%`} · {history.sampleSize} observations{history.storePrices.length > 0 ? ` · cheapest ${history.storePrices[0].storeName} (${history.storePrices[0].averagePrice.toFixed(2)}) · highest ${history.storePrices[history.storePrices.length - 1].storeName} (${history.storePrices[history.storePrices.length - 1].averagePrice.toFixed(2)})` : ""}</p>}
-                                                        {history && history.observations.length > 0 && <div role="img" aria-label={`Recent observed prices for ${item.itemName}, oldest on the left`} className="flex h-12 items-end gap-1">{history.observations.map((observation, observationIndex) => <div key={`${observation.date}-${observationIndex}`} title={`${observation.date} · ${observation.unitPrice.toFixed(2)}/${history.priceUnit}${observation.storeName ? ` · ${observation.storeName}` : ""}`} className="min-w-1 flex-1 rounded-t bg-brand-primary/70" style={{ height: `${20 + ((observation.unitPrice - observationMin) / observationRange) * 80}%` }} />)}</div>}
+                                                        {history && history.observations.length > 0 && <div role="img" aria-label={`Recent observed prices for ${item.name}, oldest on the left`} className="flex h-12 items-end gap-1">{history.observations.map((observation, observationIndex) => <div key={`${observation.date}-${observationIndex}`} title={`${observation.date} · ${observation.unitPrice.toFixed(2)}/${history.priceUnit}${observation.storeName ? ` · ${observation.storeName}` : ""}`} className="min-w-1 flex-1 rounded-t bg-brand-primary/70" style={{ height: `${20 + ((observation.unitPrice - observationMin) / observationRange) * 80}%` }} />)}</div>}
                                                     </div>
                                                 );
                                             })}
-                                            {receiptPriceIntelligence.items.every((item) => item.paidPrice === null) && <p>No paid product prices found on this receipt.</p>}
+                                            {!resultProducts.some((item) => item.canonicalProductId) && <p>No normalized products are available for price history.</p>}
                                         </div>
-                                    )}
+                                    ) : null}
                                     {spendingBreakdown?.currencies.map((summary) => (
                                         <div key={summary.currencyCode || "unknown"} className="space-y-2 border-t border-[#00E36E]/10 pt-3 text-xs text-brand-text/70">
                                             <p className="font-black text-brand-primary">Spending Breakdown · {summary.currencyCode || "Unknown currency"}</p>
@@ -757,7 +738,6 @@ export default function SmartShop() {
                                         </div>
                                     ))}
                                     {basketIntelligence && <div className="border-t border-[#00E36E]/10 pt-3 text-xs text-brand-text/70"><p className="font-black text-brand-primary">Basket Insights · score {basketIntelligence.basketScore}</p><p>Diversity {Math.round(basketIntelligence.basketDiversity * 100)}% · fruit & veg {Math.round(basketIntelligence.fruitVegRatio * 100)}% · healthy items {Math.round(basketIntelligence.healthyItemRatio * 100)}%</p></div>}
-                                    {recommendations && <div className="border-t border-[#00E36E]/10 pt-3 text-xs text-brand-text/70"><p className="font-black text-brand-primary">Recommendations</p>{recommendations.length ? recommendations.map((item, index) => <p key={`${item.type}-${index}`}>• {item.message}</p>) : <p>No additional recommendations from this basket.</p>}</div>}
                                 </div>
 
                                 <div className="flex flex-col gap-2">
@@ -851,7 +831,9 @@ export default function SmartShop() {
                                 <div className="space-y-2">
                                     {[
                                         ["Advanced Receipt Report", "POST /api/intelligence/advanced", "0.05 USDC", "Live"],
-                                        ["Product Price", "GET /api/intelligence/price/product/{canonicalProductId}", "0.01 USDC", "Live"],
+                                        ["Basket Intelligence", "GET /api/intelligence/basket/{receiptId}", "0.01 USDC", "Live"],
+                                        ["Product Price", "GET /api/intelligence/price/product/{canonicalProductId}/{currencyCode}/{priceUnit}", "0.01 USDC", "Live"],
+                                        ["Spending Breakdown", "GET /api/intelligence/spending/me", "0.03 USDC", "Live"],
                                         ["Behavior Intelligence", "GET /api/intelligence/behavior/me", "0.02 USDC", "Live"],
                                         ["Product Signal", "GET /api/signals/product/{canonicalProductId}", "0.005 USDC", "Soon"],
                                         ["Category Signal", "GET /api/signals/category/{category}", "0.005 USDC", "Soon"],
