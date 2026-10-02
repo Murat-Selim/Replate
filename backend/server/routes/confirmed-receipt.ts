@@ -3,25 +3,32 @@ import { assertDatabaseConfigured, getDatabasePool } from "../db.js";
 import { VerifiedReceiptError, verifyReceiptTransaction } from "../services/verified-receipt.js";
 import { normalizeProduct } from "../services/product-normalization.js";
 import { buildDerivedFeatures } from "../services/derived-features.js";
+import { getSpendingCategory } from "../services/spending-categories.js";
 
 const router = Router();
 const HASH = /^0x[a-fA-F0-9]{64}$/;
 const ADDRESS = /^0x[a-fA-F0-9]{40}$/;
 const CATEGORIES = new Set(["healthy", "unhealthy", "neutral", "excluded"]);
 
-interface ProductInput {
+interface StagedProduct {
   name: string;
   category: "healthy" | "unhealthy" | "neutral" | "excluded";
   fruitVegGrams: number;
   confidence: number;
   paidPrice?: number;
   nutriscore?: string;
+  quantity: number;
+  actualWeightGrams: number;
+  spendingCategory?: string;
 }
 
 interface ConfirmedReceiptRequest {
   txHash: string;
   userAddress: string;
   receiptHash: string;
+}
+
+interface StagedReceiptAnalysis {
   receiptDate: string;
   totalItems: number;
   healthyItems: number;
@@ -29,8 +36,12 @@ interface ConfirmedReceiptRequest {
   fruitVegGrams: number;
   householdSize: number;
   daysCovered: number;
-  products: ProductInput[];
   ocrConfidence: number;
+  products: StagedProduct[];
+  storeName: string | null;
+  currencyCode: string | null;
+  totalSpent: number | null;
+  totalSpentSource: "receipt_total" | "line_items" | null;
 }
 
 router.get("/latest", async (req: Request, res: Response) => {
@@ -86,41 +97,37 @@ function validateRequest(body: ConfirmedReceiptRequest): void {
   if (!body || typeof body !== "object") fail("Request body is required", "INVALID_REQUEST");
   if (!HASH.test(body.txHash) || !HASH.test(body.receiptHash)) fail("Valid transaction and receipt hashes are required", "INVALID_HASH");
   if (!ADDRESS.test(body.userAddress)) fail("Valid user address is required", "INVALID_USER_ADDRESS");
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(body.receiptDate) || Number.isNaN(Date.parse(`${body.receiptDate}T00:00:00Z`))) {
-    fail("Receipt date must be YYYY-MM-DD", "INVALID_RECEIPT_DATE");
-  }
-  for (const [field, min, max] of [
-    ["totalItems", 1, 255], ["healthyItems", 0, 255], ["unhealthyItems", 0, 255],
-    ["fruitVegGrams", 0, 65535], ["householdSize", 1, 10], ["daysCovered", 1, 30],
-  ] as const) {
-    const value = body[field];
-    if (!Number.isInteger(value) || value < min || value > max) fail(`${field} is out of range`, "INVALID_RECEIPT_VALUE");
-  }
-  if (!Number.isFinite(body.ocrConfidence) || body.ocrConfidence < 0 || body.ocrConfidence > 1) {
-    fail("OCR confidence is out of range", "INVALID_OCR_CONFIDENCE");
-  }
-  if (!Array.isArray(body.products) || body.products.length > 200) fail("Products are invalid", "INVALID_PRODUCTS");
-  for (const product of body.products) {
-    if (!product || typeof product.name !== "string" || product.name.trim().length === 0 || product.name.length > 500) {
-      fail("Product name is invalid", "INVALID_PRODUCT");
-    }
-    if (!CATEGORIES.has(product.category) || !Number.isInteger(product.fruitVegGrams) || product.fruitVegGrams < 0 ||
-      !Number.isFinite(product.confidence) || product.confidence < 0 || product.confidence > 1) {
-      fail("Product classification is invalid", "INVALID_PRODUCT");
-    }
-    if (product.paidPrice !== undefined && (!Number.isFinite(product.paidPrice) || product.paidPrice < 0 || product.paidPrice > 100000000)) {
-      fail("Product price is invalid", "INVALID_PRODUCT_PRICE");
-    }
-  }
 }
 
-function assertPayloadMatchesChain(body: ConfirmedReceiptRequest, onchain: Awaited<ReturnType<typeof verifyReceiptTransaction>>): void {
-  const scoreable = body.products.filter((product) => product.category !== "excluded");
-  const healthy = body.products.filter((product) => product.category === "healthy").length;
-  const unhealthy = body.products.filter((product) => product.category === "unhealthy").length;
+function assertPayloadMatchesChain(body: ConfirmedReceiptRequest, staged: StagedReceiptAnalysis, onchain: Awaited<ReturnType<typeof verifyReceiptTransaction>>): void {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(staged.receiptDate) || Number.isNaN(Date.parse(`${staged.receiptDate}T00:00:00Z`)) ||
+    !Array.isArray(staged.products) || staged.products.length > 200 || !Number.isFinite(staged.ocrConfidence) || staged.ocrConfidence < 0 || staged.ocrConfidence > 1) {
+    fail("Stored receipt analysis is invalid", "INVALID_STAGED_ANALYSIS");
+  }
+  const scoreable = staged.products.filter((product) => product.category !== "excluded");
+  const healthy = staged.products.filter((product) => product.category === "healthy").length;
+  const unhealthy = staged.products.filter((product) => product.category === "unhealthy").length;
   const fruitVegGrams = scoreable.reduce((sum, product) => sum + product.fruitVegGrams, 0);
-  if (body.totalItems !== onchain.totalItems || body.healthyItems !== onchain.healthyItems || body.unhealthyItems !== onchain.unhealthyItems ||
-    body.fruitVegGrams !== onchain.fruitVegGrams || body.householdSize !== onchain.householdSize || body.daysCovered !== onchain.daysCovered ||
+  for (const product of staged.products) {
+    if (!product || typeof product.name !== "string" || product.name.trim().length === 0 || product.name.length > 500 ||
+      !CATEGORIES.has(product.category) || !Number.isInteger(product.fruitVegGrams) || product.fruitVegGrams < 0 ||
+      !Number.isFinite(product.confidence) || product.confidence < 0 || product.confidence > 1 ||
+      !Number.isInteger(product.quantity) || product.quantity < 1 || product.quantity > 100000 || !Number.isInteger(product.actualWeightGrams) || product.actualWeightGrams < 0 || product.actualWeightGrams > 2147483647 ||
+      (product.paidPrice !== undefined && (!Number.isFinite(product.paidPrice) || product.paidPrice < 0 || product.paidPrice > 100000000))) {
+      fail("Stored product analysis is invalid", "INVALID_STAGED_PRODUCT");
+    }
+    const unitPrice = product.paidPrice === undefined ? null : product.actualWeightGrams > 0
+      ? product.paidPrice * 1000 / product.actualWeightGrams
+      : product.paidPrice / product.quantity;
+    if (unitPrice !== null && unitPrice > 99999999.9999) fail("Stored unit price is out of range", "INVALID_STAGED_PRODUCT_PRICE");
+  }
+  if ((staged.currencyCode !== null && !/^[A-Z]{3}$/.test(staged.currencyCode)) ||
+    (staged.totalSpent !== null && (!Number.isFinite(staged.totalSpent) || staged.totalSpent < 0 || staged.totalSpent > 9999999999.99)) ||
+    ![null, "receipt_total", "line_items"].includes(staged.totalSpentSource)) {
+    fail("Stored receipt spending data is invalid", "INVALID_STAGED_SPENDING");
+  }
+  if (staged.totalItems !== onchain.totalItems || staged.healthyItems !== onchain.healthyItems || staged.unhealthyItems !== onchain.unhealthyItems ||
+    staged.fruitVegGrams !== onchain.fruitVegGrams || staged.householdSize !== onchain.householdSize || staged.daysCovered !== onchain.daysCovered ||
     scoreable.length !== onchain.totalItems || healthy !== onchain.healthyItems || unhealthy !== onchain.unhealthyItems || fruitVegGrams !== onchain.fruitVegGrams) {
     throw new VerifiedReceiptError("Analyzed receipt data does not match on-chain aggregates", 422, "PAYLOAD_AGGREGATE_MISMATCH");
   }
@@ -135,7 +142,9 @@ router.post("/confirmed", async (req: Request, res: Response) => {
     const body = req.body as ConfirmedReceiptRequest;
     validateRequest(body);
     const onchain = await verifyReceiptTransaction(body.txHash);
-    assertPayloadMatchesChain(body, onchain);
+    if (body.userAddress.toLowerCase() !== onchain.userAddress.toLowerCase() || body.receiptHash.toLowerCase() !== onchain.receiptHash.toLowerCase()) {
+      throw new VerifiedReceiptError("Receipt identity does not match the on-chain transaction", 422, "PAYLOAD_IDENTITY_MISMATCH");
+    }
     assertDatabaseConfigured();
     client = await getDatabasePool().connect();
     await client.query("BEGIN");
@@ -162,19 +171,31 @@ router.post("/confirmed", async (req: Request, res: Response) => {
       return;
     }
 
+    const stagedRow = await client.query<{ payload: StagedReceiptAnalysis }>(
+      `SELECT payload FROM receipt_analysis_staging
+       WHERE lower(receipt_hash) = lower($1) AND lower(user_wallet) = lower($2) AND expires_at > NOW()
+       FOR UPDATE`,
+      [onchain.receiptHash, onchain.userAddress],
+    );
+    const staged = stagedRow.rows[0]?.payload;
+    if (!staged) throw new VerifiedReceiptError("Receipt analysis expired; upload the receipt again", 409, "ANALYSIS_NOT_FOUND");
+    assertPayloadMatchesChain(body, staged, onchain);
+
     const userId = user.rows[0]?.id;
     if (!userId) throw new Error("User record could not be created");
     const receipt = await client.query<{ id: string }>(
       `INSERT INTO receipts
        (user_id, receipt_hash, tx_hash, block_number, receipt_date, health_score, nutrition_score,
         total_items, detected_items, excluded_items, healthy_items, unhealthy_items, fruit_veg_grams,
-       household_size, days_covered, points_earned, ocr_confidence, receipt_verification_confidence, builder_code_attributed)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,1,$18)
+       household_size, days_covered, points_earned, ocr_confidence, receipt_verification_confidence, builder_code_attributed,
+       store_name, currency_code, total_spent, total_spent_source)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,1,$18,$19,$20,$21,$22)
        RETURNING id`,
-      [userId, onchain.receiptHash, body.txHash, onchain.blockNumber, body.receiptDate, onchain.healthScore,
-        onchain.nutritionScore, onchain.totalItems, body.products.length, body.products.length - onchain.totalItems,
+      [userId, onchain.receiptHash, body.txHash, onchain.blockNumber, staged.receiptDate, onchain.healthScore,
+        onchain.nutritionScore, onchain.totalItems, staged.products.length, staged.products.length - onchain.totalItems,
         onchain.healthyItems, onchain.unhealthyItems, onchain.fruitVegGrams, onchain.householdSize, onchain.daysCovered,
-        onchain.pointsEarned, body.ocrConfidence, onchain.builderCodeAttributed],
+        onchain.pointsEarned, staged.ocrConfidence, onchain.builderCodeAttributed,
+        staged.storeName, staged.currencyCode, staged.totalSpent, staged.totalSpentSource],
     );
     const receiptId = receipt.rows[0].id;
     const model = await client.query<{ id: string }>(
@@ -182,26 +203,37 @@ router.post("/confirmed", async (req: Request, res: Response) => {
        ON CONFLICT (model_type, version) DO UPDATE SET metadata = EXCLUDED.metadata RETURNING id`,
     );
     const canonicalKeys: Array<string | null> = [];
-    for (const product of body.products) {
+    for (const product of staged.products) {
       const normalized = normalizeProduct(product.name, product.category);
+      const spendingCategory = getSpendingCategory(product.name, product.category === "excluded");
       canonicalKeys.push(normalized.canonicalKey);
       let canonicalProductId: string | null = null;
       if (normalized.canonicalKey) {
+        const canonicalCategory = product.category === "excluded" ? "neutral" : product.category;
         const catalog = await client.query<{ id: string }>(
-          `INSERT INTO canonical_products (canonical_key, display_name, category, default_fruit_veg_grams)
-           VALUES ($1,$1,$2,$3)
+          `INSERT INTO canonical_products (canonical_key, display_name, category, default_fruit_veg_grams, spending_category)
+           VALUES ($1,$2,$3,$4,$5)
            ON CONFLICT (canonical_key) DO UPDATE SET category = EXCLUDED.category,
-             default_fruit_veg_grams = EXCLUDED.default_fruit_veg_grams
+             default_fruit_veg_grams = EXCLUDED.default_fruit_veg_grams,
+             spending_category = EXCLUDED.spending_category
            RETURNING id`,
-          [normalized.canonicalKey, product.category, product.fruitVegGrams],
+          [normalized.canonicalKey, product.name.trim(), canonicalCategory, product.fruitVegGrams, spendingCategory],
         );
         canonicalProductId = catalog.rows[0].id;
       }
+      const quantity = Math.max(1, product.quantity);
+      const weightGrams = Math.max(0, product.actualWeightGrams);
+      const priceUnit = weightGrams > 0 ? "kg" : "each";
+      const unitPrice = product.paidPrice === undefined ? null : weightGrams > 0
+        ? product.paidPrice * 1000 / weightGrams
+        : product.paidPrice / quantity;
       const item = await client.query<{ id: string }>(
         `INSERT INTO receipt_items
-         (receipt_id, item_name, canonical_product_id, quantity, weight_grams, fruit_veg_grams, paid_price, normalization_version, normalization_confidence)
-         VALUES ($1,$2,$3,1,0,$4,$5,'catalog-v1',$6) RETURNING id`,
-        [receiptId, product.name.trim(), canonicalProductId, product.fruitVegGrams, product.paidPrice ?? null, normalized.confidence],
+         (receipt_id, item_name, canonical_product_id, quantity, weight_grams, fruit_veg_grams, paid_price,
+          unit_price, price_unit, spending_category, normalization_version, normalization_confidence)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'catalog-v1',$11) RETURNING id`,
+        [receiptId, product.name.trim(), canonicalProductId, quantity, weightGrams, product.fruitVegGrams,
+          product.paidPrice ?? null, unitPrice, priceUnit, spendingCategory, normalized.confidence],
       );
       await client.query(
         `INSERT INTO classifications (receipt_item_id, model_version_id, category, confidence, nutriscore)
@@ -209,7 +241,7 @@ router.post("/confirmed", async (req: Request, res: Response) => {
         [item.rows[0].id, model.rows[0].id, product.category, product.confidence, product.nutriscore || null],
       );
     }
-    for (const feature of buildDerivedFeatures(onchain, body.products, canonicalKeys)) {
+    for (const feature of buildDerivedFeatures(onchain, staged.products, canonicalKeys)) {
       await client.query(
         `INSERT INTO derived_features (receipt_id, feature_name, feature_value, calculation_version, confidence, metadata)
          VALUES ($1,$2,$3,'features-v1',$4,$5)
@@ -218,6 +250,7 @@ router.post("/confirmed", async (req: Request, res: Response) => {
         [receiptId, feature.name, feature.value, feature.confidence, feature.metadata],
       );
     }
+    await client.query("DELETE FROM receipt_analysis_staging WHERE lower(receipt_hash) = lower($1) AND lower(user_wallet) = lower($2)", [onchain.receiptHash, onchain.userAddress]);
     await client.query("COMMIT");
     res.status(201).json({ success: true, idempotent: false, receiptId, txHash: body.txHash, receiptHash: body.receiptHash, builderCodeAttributed: onchain.builderCodeAttributed });
   } catch (error) {

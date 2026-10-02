@@ -8,6 +8,7 @@ import {
   buildBundle,
   buildProductPriceIntelligence,
   buildReceiptPriceAnalysis,
+  buildSpendingBreakdown,
   buildRecommendations,
   hasAdvancedReceiptBinding,
 } from "../services/intelligence-data.js";
@@ -184,7 +185,34 @@ router.get("/price/product/:canonicalProductId", async (req: Request, res: Respo
     assertDatabaseConfigured();
     const client = await getDatabasePool().connect();
     try {
-      const price = await buildProductPriceIntelligence(client, productId);
+      const scopes = await client.query(
+        `SELECT DISTINCT r.currency_code, COALESCE(ri.price_unit, 'each') AS price_unit
+         FROM receipt_items ri JOIN receipts r ON r.id = ri.receipt_id
+         WHERE ri.canonical_product_id = $1 AND ri.paid_price IS NOT NULL`,
+        [productId],
+      );
+      if (scopes.rows.length > 1) return res.status(409).json({ success: false, error: "Use the currency and unit scoped product price endpoint", errorCode: "PRICE_SCOPE_REQUIRED" });
+      const currencyCode = scopes.rows[0]?.currency_code ?? null;
+      const priceUnit = scopes.rows[0]?.price_unit || "each";
+      const price = await buildProductPriceIntelligence(client, productId, currencyCode, priceUnit);
+      if (!price) return res.status(404).json({ success: false, error: "Product price observations are not ready", errorCode: "PRICE_NOT_READY" });
+      return res.json({ success: true, ...price });
+    } finally { client.release(); }
+  } catch (error) { return res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Internal server error" }); }
+});
+
+router.get("/price/product/:canonicalProductId/:currencyCode/:priceUnit", async (req: Request, res: Response) => {
+  try {
+    const productId = String(req.params.canonicalProductId);
+    const currencyParam = String(req.params.currencyCode);
+    const priceUnit = String(req.params.priceUnit);
+    if (!/^\d+$/.test(productId) || !/^(?:[A-Z]{3}|XXX)$/.test(currencyParam) || !["each", "kg", "liter"].includes(priceUnit)) {
+      return res.status(400).json({ success: false, error: "Invalid product price scope", errorCode: "INVALID_PRICE_SCOPE" });
+    }
+    assertDatabaseConfigured();
+    const client = await getDatabasePool().connect();
+    try {
+      const price = await buildProductPriceIntelligence(client, productId, currencyParam === "XXX" ? null : currencyParam, priceUnit);
       if (!price) return res.status(404).json({ success: false, error: "Product price observations are not ready", errorCode: "PRICE_NOT_READY" });
       return res.json({ success: true, ...price });
     } finally { client.release(); }
@@ -197,6 +225,16 @@ router.get("/behavior/me", async (req: Request, res: Response) => {
     assertDatabaseConfigured();
     const client = await getDatabasePool().connect();
     try { return res.json({ success: true, ...(await buildBehaviorIntelligence(client, payer)) }); }
+    finally { client.release(); }
+  } catch (error) { return res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Internal server error" }); }
+});
+
+router.get("/spending/me", async (req: Request, res: Response) => {
+  try {
+    const payer = assertPayer(req);
+    assertDatabaseConfigured();
+    const client = await getDatabasePool().connect();
+    try { return res.json({ success: true, ...(await buildSpendingBreakdown(client, payer)) }); }
     finally { client.release(); }
   } catch (error) { return res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Internal server error" }); }
 });
@@ -221,7 +259,7 @@ router.post("/bundle", async (req: Request, res: Response) => {
     const payer = assertPayer(req);
     const receiptId = String(req.body?.receiptId || "");
     const include = Array.isArray(req.body?.include) ? req.body.include.filter((value: unknown): value is string => typeof value === "string") : [];
-    if (!/^\d+$/.test(receiptId) || include.some((value: string) => !["basket", "price", "recommendation", "behavior", "productPrice"].includes(value))) {
+    if (!/^\d+$/.test(receiptId) || include.some((value: string) => !["basket", "price", "recommendation", "behavior", "productPrice", "spending"].includes(value))) {
       return res.status(400).json({ success: false, error: "receiptId and valid include values are required" });
     }
     assertDatabaseConfigured();

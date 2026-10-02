@@ -87,6 +87,8 @@ export interface ClassificationResult {
   category: "healthy" | "unhealthy" | "neutral" | "excluded";
   nutriscore?: string;
   paidPrice?: number;
+  quantity: number;
+  actualWeightGrams: number;
   fruitVegGrams: number;
   confidence: number;
 }
@@ -193,6 +195,8 @@ export async function classifyFoods(
       classifyProduct(item.name, item.actualWeightGrams, item.quantity, item.excluded).then((result) => ({
         ...result,
         paidPrice: item.paidPrice,
+        quantity: item.quantity,
+        actualWeightGrams: item.actualWeightGrams,
       }))
     )
   );
@@ -395,14 +399,18 @@ function extractProductLines(lines: string[]): ExtractedProduct[] {
   return products;
 }
 
-function parsePaidPrice(text: string): number | undefined {
-  const matches = [...text.matchAll(/(?:\*\s*)?(\d{1,3}(?:[.\s]\d{3})*,\d{2}|\d+[.,]\d{2})(?!\d)/g)];
+export function parseReceiptAmount(text: string): number | undefined {
+  const matches = [...text.matchAll(/(?:\*\s*)?(\d{1,3}(?:[.,\s]\d{3})*[.,]\d{2}|\d+[.,]\d{2})(?!\d)/g)];
   const raw = matches.at(-1)?.[1];
   if (!raw) return undefined;
-  const normalized = raw.includes(",") ? raw.replace(/[.\s]/g, "").replace(",", ".") : raw;
+  const decimalSeparator = raw.at(-3);
+  const normalized = `${raw.slice(0, -3).replace(/[.,\s]/g, "")}.${raw.slice(-2)}`;
+  if (decimalSeparator !== "." && decimalSeparator !== ",") return undefined;
   const price = Number(normalized);
   return Number.isFinite(price) && price >= 0 ? Number(price.toFixed(2)) : undefined;
 }
+
+const parsePaidPrice = parseReceiptAmount;
 
 /**
  * Strip prices, KDV, brands, egg grades, volumes → clean product name.
@@ -486,6 +494,8 @@ async function classifyProduct(
     return {
       name: productName,
       category: "excluded",
+      quantity,
+      actualWeightGrams,
       fruitVegGrams: 0,
       confidence: 0.95,
     };
@@ -554,6 +564,8 @@ async function classifyProduct(
     return {
       name: productName,
       category: "unhealthy",
+      quantity: qty,
+      actualWeightGrams,
       fruitVegGrams: 0,
       confidence: 0.72,
     };
@@ -563,6 +575,8 @@ async function classifyProduct(
     return {
       name: productName,
       category: "unhealthy",
+      quantity: qty,
+      actualWeightGrams,
       fruitVegGrams: 0,
       confidence: 0.7,
     };
@@ -572,6 +586,8 @@ async function classifyProduct(
     return {
       name: productName,
       category: "healthy",
+      quantity: qty,
+      actualWeightGrams,
       fruitVegGrams,
       confidence: 0.85,
     };
@@ -581,6 +597,8 @@ async function classifyProduct(
     return {
       name: productName,
       category: "unhealthy",
+      quantity: qty,
+      actualWeightGrams,
       fruitVegGrams: 0,
       confidence: 0.85,
     };
@@ -593,6 +611,8 @@ async function classifyProduct(
     return {
       name: productName,
       category: "neutral",
+      quantity: qty,
+      actualWeightGrams,
       fruitVegGrams: 0,
       confidence: 0.75,
     };
@@ -604,7 +624,7 @@ async function classifyProduct(
         productName,
         actualWeightGrams > 0 ? actualWeightGrams : 0
       );
-      if (offResult) return offResult;
+      if (offResult) return { ...offResult, quantity: qty, actualWeightGrams };
     } catch (error) {
       console.warn("OFF API failed, using fallback:", error);
     }
@@ -614,6 +634,8 @@ async function classifyProduct(
     name: productName,
     // Unknown food stays in the receipt; neutral is the safe category when no reliable evidence exists.
     category: "neutral",
+    quantity: qty,
+    actualWeightGrams,
     fruitVegGrams,
     confidence: 0.35,
   };
@@ -667,6 +689,8 @@ async function queryOpenFoodFacts(
     const result: ClassificationResult = {
       name: productName,
       category,
+      quantity: 1,
+      actualWeightGrams: productWeightGrams,
       nutriscore,
       fruitVegGrams,
       confidence: 0.9,

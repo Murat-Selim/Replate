@@ -13,6 +13,7 @@ export const INTELLIGENCE_PRICING = {
   productPrice: { usd: "0.01", atomic: "10000" },
   behavior: { usd: "0.02", atomic: "20000" },
   recommendation: { usd: "0.02", atomic: "20000" },
+  spendingBreakdown: { usd: "0.03", atomic: "30000" },
   bundle: { usd: "0.03", atomic: "30000" },
   productSignal: { usd: "0.005", atomic: "5000" },
   categorySignal: { usd: "0.005", atomic: "5000" },

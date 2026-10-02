@@ -30,20 +30,35 @@ export interface BehaviorIntelligence {
 
 export interface ProductPriceIntelligence {
     canonicalProductId: string;
+  currencyCode: string | null;
+  priceUnit: string;
     averagePrice: number;
     minPrice: number;
     maxPrice: number;
-    priceMomentum30d: number;
+    priceMomentum30d: number | null;
     sampleSize: number;
     confidence: number;
+  storePrices: { storeName: string; averagePrice: number; sampleSize: number }[];
+    observations: { date: string; unitPrice: number; storeName: string | null }[];
 }
+
+export interface SpendingBreakdown {
+    currencies: { currencyCode: string | null; totalSpent: number; averageReceiptSpend: number; receiptCount: number; exactReceiptCount: number; lineItemEstimateCount: number; foodSpend: number; householdSpend: number; categories: { category: string; amount: number; share: number; recentAmount: number; previousAmount: number; shareChange: number | null }[]; last30Days: { spent: number; previous30Days: number; change: number | null } }[];
+}
+
+export interface BasketIntelligence { basketScore: number; basketDiversity: number; healthyItemRatio: number; fruitVegRatio: number; categories: Record<string, number> }
+export interface Recommendation { type: string; priority: string; message: string }
 
 export interface ReceiptPriceIntelligence {
     receiptId: string;
+  currencyCode: string | null;
+  storeName: string | null;
     items: Array<{
         canonicalProductId: string | null;
         itemName: string;
         paidPrice: number | null;
+      unitPrice: number | null;
+      priceUnit: string;
         marketAverage: number | null;
         priceScore: number | null;
         dealScore: number | null;
@@ -103,10 +118,23 @@ export function fetchBehaviorIntelligence(walletClient: WalletClient) {
     return requestPaidJson<{ success: true } & BehaviorIntelligence>(walletClient, "/api/intelligence/behavior/me");
 }
 
-export function fetchProductPriceIntelligence(walletClient: WalletClient, canonicalProductId: string) {
-    return requestPaidJson<{ success: true } & ProductPriceIntelligence>(walletClient, `/api/intelligence/price/product/${canonicalProductId}`);
+export function fetchProductPriceIntelligence(walletClient: WalletClient, canonicalProductId: string, currencyCode: string | null, priceUnit: string) {
+    return requestPaidJson<{ success: true } & ProductPriceIntelligence>(walletClient, `/api/intelligence/price/product/${canonicalProductId}/${currencyCode || "XXX"}/${priceUnit}`);
 }
 
 export function fetchReceiptPriceIntelligence(walletClient: WalletClient, receiptId: string) {
     return requestPaidJson<{ success: true } & ReceiptPriceIntelligence>(walletClient, `/api/intelligence/price/receipt/${receiptId}`);
+}
+
+export function fetchSpendingBreakdown(walletClient: WalletClient) {
+    return requestPaidJson<{ success: true } & SpendingBreakdown>(walletClient, "/api/intelligence/spending/me");
+}
+
+export function fetchBasketIntelligence(walletClient: WalletClient, receiptId: string) {
+    return requestPaidJson<{ success: true } & BasketIntelligence>(walletClient, `/api/intelligence/basket/${receiptId}`);
+}
+
+export function fetchRecommendations(walletClient: WalletClient, receiptId: string) {
+    return requestPaidJson<{ success: true; recommendations: Recommendation[] }>(walletClient, `/api/intelligence/recommendation/${receiptId}`)
+        .then((response) => response.recommendations);
 }

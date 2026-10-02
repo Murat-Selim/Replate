@@ -5,6 +5,9 @@ import { submitReceiptToContract, calculateScores } from "../services/contract.j
 import { createLegacyReceiptHash, createReceiptHash, isReceiptHashUsed } from "../services/receipt-hash.js";
 import { clearLeaderboardCache } from "./leaderboard.js";
 import { assertCompleteReceipt, ReceiptDateError, ReceiptQualityError, assertRecentReceiptDate } from "../services/receipt-date.js";
+import { assertDatabaseConfigured, getDatabasePool } from "../db.js";
+import { extractReceiptMetadata } from "../services/receipt-metadata.js";
+import { getSpendingCategory } from "../services/spending-categories.js";
 
 const router = Router();
 // Temporarily disabled; set true when the receipt date window should be enforced again.
@@ -37,6 +40,10 @@ interface VerifyReceiptResponse {
     pointsEarned: number;
     badgeMinted: boolean;
     products: ClassificationResult[];
+    storeName?: string | null;
+    currencyCode?: string | null;
+    totalSpent?: number | null;
+    totalSpentSource?: "receipt_total" | "line_items" | null;
     /** Vision OCR page confidence (0â€“1); useful for client UX */
     ocrConfidence: number;
   };
@@ -113,6 +120,43 @@ router.post("/", async (req: Request, res: Response) => {
         daysCovered: targetDaysCovered,
       });
 
+      const products = classification.products.map((product) => ({
+        ...product,
+        spendingCategory: getSpendingCategory(product.name, product.category === "excluded"),
+      }));
+      const receiptMetadata = extractReceiptMetadata(ocrResult.lines, classification.products);
+      const invalidProduct = products.length > 200 || products.some((product) => {
+        const unitPrice = product.paidPrice === undefined ? null : product.actualWeightGrams > 0
+          ? product.paidPrice * 1000 / product.actualWeightGrams
+          : product.paidPrice / product.quantity;
+        return product.name.length > 500 || product.quantity > 100000 || product.actualWeightGrams > 2147483647 ||
+          (unitPrice !== null && unitPrice > 99999999.9999) || (product.paidPrice ?? 0) > 100000000;
+      });
+      if (invalidProduct || (receiptMetadata.totalSpent ?? 0) > 9999999999.99) {
+        res.status(400).json({ success: false, error: "Receipt items or prices exceed supported limits", errorCode: "RECEIPT_DATA_OUT_OF_RANGE" });
+        return;
+      }
+      assertDatabaseConfigured();
+      await getDatabasePool().query("DELETE FROM receipt_analysis_staging WHERE expires_at < NOW()");
+      await getDatabasePool().query(
+        `INSERT INTO receipt_analysis_staging (receipt_hash, user_wallet, payload)
+         VALUES ($1,$2,$3)
+         ON CONFLICT (receipt_hash, user_wallet) DO UPDATE SET payload = EXCLUDED.payload,
+           created_at = NOW(), expires_at = NOW() + INTERVAL '24 hours'`,
+        [receiptHash, userAddress.toLowerCase(), {
+          receiptDate,
+          ocrConfidence: ocrResult.confidence,
+          products,
+          ...receiptMetadata,
+          totalItems: classification.totalItems,
+          healthyItems: classification.healthyItems,
+          unhealthyItems: classification.unhealthyItems,
+          fruitVegGrams: classification.fruitVegGrams,
+          householdSize,
+          daysCovered: targetDaysCovered,
+        }],
+      );
+
       res.json({
         success: true,
         data: {
@@ -130,7 +174,8 @@ router.post("/", async (req: Request, res: Response) => {
           daysCovered: targetDaysCovered,
           pointsEarned: scores.pointsEarned,
           badgeMinted: false,
-          products: classification.products,
+          products,
+          ...receiptMetadata,
           ocrConfidence: ocrResult.confidence,
         },
       } as VerifyReceiptResponse);
