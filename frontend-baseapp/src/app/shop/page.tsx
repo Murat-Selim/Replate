@@ -301,7 +301,7 @@ export default function SmartShop() {
             // 4. Show successful result with user's direct txHash
             setResult({
                 ...data.data,
-                products: data.data.products?.map((product, index) => ({ ...product, ...(confirmedData.productRefs?.[index] || {}) })),
+                products: (data.data.products as VerificationResult["products"])?.map((product, index) => ({ ...product, ...(confirmedData.productRefs?.[index] || {}) })),
                 receiptId: String(confirmedData.data?.receiptId ?? confirmedData.receiptId),
                 txHash: txResult.txHash || "",
             });
