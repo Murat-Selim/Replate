@@ -51,7 +51,7 @@ const capabilities: Capability[] = [
   ], output: ["report.receiptId", "report.healthScore", "report.nutritionScore", "report.verification.receiptHash", "report.verification.lineItems", "report.verification.lineItemDigest", "report.verification.sourceCommitment", "report.verification.hashAlgorithm", "report.verification.canonicalization"], authorization: "receipt owner and x402 payer must match" },
   { id: "spendingBreakdown", name: "Spending Breakdown", method: "GET", path: "/api/intelligence/spending/me", description: "Return receipt totals, category amounts and 30-day category-share changes grouped by currency, including food and household totals, for the paying wallet.", price: INTELLIGENCE_PRICING.spendingBreakdown, status: "live", input: [], output: ["currencies"] },
   { id: "basket", name: "Basket Intelligence", method: "GET", path: "/api/intelligence/basket/{receiptId}", description: "Summarize the verified basket composition and balance.", price: INTELLIGENCE_PRICING.basket, status: "live", input: receiptPathInput("receiptId"), output: ["basketScore", "basketDiversity", "healthyItemRatio", "fruitVegRatio", "categories"] },
-  { id: "productPrice", name: "Product Price Intelligence", method: "GET", path: "/api/intelligence/price/product/{canonicalProductId}/{currencyCode}/{priceUnit}", description: "Return same-currency, same-unit price history, recent observations, and observed store averages.", price: INTELLIGENCE_PRICING.productPrice, status: "live", input: ["canonicalProductId", "currencyCode", "priceUnit"].map((name) => ({ name, in: "path" as const, required: true, description: `Verified ${name}.` })), output: ["currencyCode", "priceUnit", "averagePrice", "minPrice", "maxPrice", "priceMomentum30d", "storePrices", "observations", "sampleSize", "confidence"] },
+  { id: "productPrice", name: "Receipt Product Prices", method: "GET", path: "/api/intelligence/price/receipt/{receiptId}", description: "Return priced line items from this verified receipt only, in one paid request; no cross-receipt or market aggregates.", price: INTELLIGENCE_PRICING.productPrice, status: "live", input: receiptPathInput("receiptId"), output: ["receiptId", "currencyCode", "products"] },
   { id: "behavior", name: "Behavior Intelligence", method: "GET", path: "/api/intelligence/behavior/me", description: "Return privacy-preserving purchase behavior for the paying wallet.", price: INTELLIGENCE_PRICING.behavior, status: "live", input: [{ name: "PAYMENT-SIGNATURE", in: "header", required: false, description: "Optional x402 payment signature; omit it first to receive the 402 payment challenge." }], output: ["purchaseFrequency", "topCategories", "basketTrend", "repeatPurchaseRatio"], authorization: "x402 payer must be a registered wallet" },
   { id: "productSignal", name: "Product Signal", method: "GET", path: "/api/signals/product/{canonicalProductId}", description: "Product signals are coming soon / Yakında.", price: INTELLIGENCE_PRICING.productSignal, status: "soon", input: receiptPathInput("canonicalProductId"), output: ["priceScore", "dealScore", "demandScore", "priceMomentum", "sampleSize", "confidence", "signalVersion", "calculationVersion"] },
   { id: "categorySignal", name: "Category Signal", method: "GET", path: "/api/signals/category/{category}", description: "Category signals are coming soon / Yakında.", price: INTELLIGENCE_PRICING.categorySignal, status: "soon", input: receiptPathInput("category"), output: ["priceMomentum30d", "demandMomentum30d", "observationCount", "confidence", "signalVersion", "calculationVersion"] },
@@ -123,7 +123,8 @@ function agentManifest(origin: string) {
 function responseSchema(capability: Capability): Record<string, unknown> {
   const properties: Record<string, unknown> = {};
   const objectFields = new Set(["report", "basket", "price", "behavior", "categories", "purchaseFrequency"]);
-  const arrayFields = new Set(["items", "recommendations", "productPrices", "topCategories", "currencies", "storePrices"]);
+  const arrayFields = new Set(["items", "products", "recommendations", "productPrices", "topCategories", "currencies", "storePrices"]);
+  const stringFields = new Set(["currencyCode"]);
   for (const field of capability.output) {
     const root = field.split(".")[0];
     if (properties[root]) continue;
@@ -131,6 +132,8 @@ function responseSchema(capability: Capability): Record<string, unknown> {
       ? { type: "object" }
       : arrayFields.has(root)
         ? { type: "array", items: { type: "object" } }
+        : stringFields.has(root)
+          ? { type: "string" }
         : { type: "number" };
   }
   return { type: "object", properties, additionalProperties: true };

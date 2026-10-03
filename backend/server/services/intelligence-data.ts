@@ -62,18 +62,16 @@ export interface BasketIntelligence {
   categories: Record<string, number>;
 }
 
-export interface ProductPriceIntelligence {
-  canonicalProductId: string;
+export interface ReceiptProductPrice {
+  id: string;
+  name: string;
+  canonicalProductId: string | null;
+  category: string;
+  quantity: number;
   currencyCode: string | null;
+  paidPrice: number | null;
+  unitPrice: number | null;
   priceUnit: string;
-  averagePrice: number;
-  minPrice: number;
-  maxPrice: number;
-  priceMomentum30d: number | null;
-  sampleSize: number;
-  confidence: number;
-  storePrices: Array<{ storeName: string; averagePrice: number; sampleSize: number }>;
-  observations: Array<{ date: string; unitPrice: number; storeName: string | null }>;
 }
 
 export interface SpendingBreakdown {
@@ -102,7 +100,7 @@ export interface BundleIntelligence {
   receiptId: string;
   basket?: BasketIntelligence;
   behavior?: BehaviorIntelligence;
-  productPrices?: ProductPriceIntelligence[];
+  productPrices?: ReceiptProductPrice[];
   spending?: SpendingBreakdown;
 }
 
@@ -207,57 +205,24 @@ export async function buildBasketIntelligence(db: Db, receiptId: string, wallet:
   };
 }
 
-export async function buildProductPriceIntelligence(db: Db, productId: string, currencyCode: string | null, priceUnit: string): Promise<ProductPriceIntelligence | null> {
-  const result = await db.query(
-    `SELECT AVG(COALESCE(ri.unit_price, ri.paid_price)) AS average_price,
-            MIN(COALESCE(ri.unit_price, ri.paid_price)) AS min_price,
-            MAX(COALESCE(ri.unit_price, ri.paid_price)) AS max_price,
-            COUNT(*) AS sample_size,
-            AVG(COALESCE(ri.unit_price, ri.paid_price)) FILTER (WHERE r.verified_at >= NOW() - INTERVAL '30 days') AS current_average,
-            AVG(COALESCE(ri.unit_price, ri.paid_price)) FILTER (WHERE r.verified_at >= NOW() - INTERVAL '60 days' AND r.verified_at < NOW() - INTERVAL '30 days') AS previous_average
-     FROM receipt_items ri JOIN receipts r ON r.id = ri.receipt_id
-     WHERE ri.canonical_product_id = $1 AND ri.paid_price IS NOT NULL
-       AND r.currency_code IS NOT DISTINCT FROM $2 AND COALESCE(ri.price_unit, 'each') = $3`,
-    [productId, currencyCode, priceUnit],
-  );
-  const row = result.rows[0];
-  const sampleSize = Number(row?.sample_size || 0);
-  if (!sampleSize) return null;
-  const stores = await db.query(
-    `SELECT r.store_name, AVG(COALESCE(ri.unit_price, ri.paid_price)) AS average_price, COUNT(*) AS sample_size
-     FROM receipt_items ri JOIN receipts r ON r.id = ri.receipt_id
-     WHERE ri.canonical_product_id = $1 AND ri.paid_price IS NOT NULL
-       AND r.currency_code IS NOT DISTINCT FROM $2 AND COALESCE(ri.price_unit, 'each') = $3
-       AND r.store_name IS NOT NULL
-     GROUP BY r.store_name ORDER BY average_price, r.store_name`,
-    [productId, currencyCode, priceUnit],
-  );
-  const observations = await db.query(
-    `SELECT TO_CHAR(r.receipt_date, 'YYYY-MM-DD') AS date,
-            COALESCE(ri.unit_price, ri.paid_price) AS unit_price, r.store_name
-     FROM receipt_items ri JOIN receipts r ON r.id = ri.receipt_id
-     WHERE ri.canonical_product_id = $1 AND ri.paid_price IS NOT NULL
-       AND r.currency_code IS NOT DISTINCT FROM $2 AND COALESCE(ri.price_unit, 'each') = $3
-     ORDER BY r.receipt_date DESC, ri.id DESC LIMIT 20`,
-    [productId, currencyCode, priceUnit],
-  );
-  const averagePrice = Number(row.average_price);
-  const currentAverage = row.current_average === null ? null : Number(row.current_average);
-  const previousAverage = row.previous_average === null ? null : Number(row.previous_average);
+export async function buildReceiptProductPrices(db: Db, receiptId: string, wallet: string): Promise<{ receiptId: string; currencyCode: string | null; products: ReceiptProductPrice[] } | null> {
+  const receipt = await findReceipt(db, receiptId, wallet);
+  if (!receipt) return null;
+  const items = await receiptItems(db, receipt.id);
   return {
-    canonicalProductId: productId,
-    currencyCode,
-    priceUnit,
-    averagePrice: round(averagePrice),
-    minPrice: round(Number(row.min_price)),
-    maxPrice: round(Number(row.max_price)),
-    priceMomentum30d: currentAverage !== null && previousAverage !== null && previousAverage > 0
-      ? round(currentAverage / previousAverage - 1, 4)
-      : null,
-    sampleSize,
-    confidence: round(Math.min(1, 0.5 + sampleSize / 500)),
-    storePrices: stores.rows.map((store) => ({ storeName: store.store_name, averagePrice: round(Number(store.average_price), 4), sampleSize: Number(store.sample_size) })),
-    observations: observations.rows.reverse().map((item) => ({ date: item.date, unitPrice: round(Number(item.unit_price), 4), storeName: item.store_name })),
+    receiptId: receipt.id,
+    currencyCode: receipt.currencyCode,
+    products: items.filter((item) => item.paidPrice !== null).map((item) => ({
+      id: item.id,
+      name: item.displayName || item.itemName,
+      canonicalProductId: item.canonicalProductId,
+      category: item.category,
+      quantity: item.quantity,
+      currencyCode: receipt.currencyCode,
+      paidPrice: item.paidPrice,
+      unitPrice: item.unitPrice,
+      priceUnit: item.priceUnit,
+    })),
   };
 }
 
@@ -377,13 +342,8 @@ export async function buildBundle(db: Db, receiptId: string, wallet: string, inc
   if (allowed.has("behavior")) bundle.behavior = await buildBehaviorIntelligence(db, wallet);
   if (allowed.has("spending")) bundle.spending = await buildSpendingBreakdown(db, wallet);
   if (allowed.has("productPrice")) {
-    const items = await receiptItems(db, receiptId);
-    const products = [...new Map(items.flatMap((item) => item.canonicalProductId
-      ? [[`${item.canonicalProductId}:${item.priceUnit}`, { id: item.canonicalProductId, unit: item.priceUnit }]]
-      : [])).values()];
-    bundle.productPrices = (await Promise.all(products.map(({ id, unit }) => buildProductPriceIntelligence(db, id, receipt.currencyCode, unit)))).filter(
-      (value): value is ProductPriceIntelligence => Boolean(value),
-    );
+    const prices = await buildReceiptProductPrices(db, receiptId, wallet);
+    bundle.productPrices = prices?.products || [];
   }
   return bundle;
 }

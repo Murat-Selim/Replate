@@ -28,18 +28,22 @@ export interface BehaviorIntelligence {
     repeatPurchaseRatio: number;
 }
 
-export interface ProductPriceIntelligence {
-    canonicalProductId: string;
+export interface ReceiptProductPrice {
+    id: string;
+    name: string;
+    canonicalProductId: string | null;
+    category: string;
+    quantity: number;
     currencyCode: string | null;
+    paidPrice: number | null;
+    unitPrice: number | null;
     priceUnit: string;
-    averagePrice: number;
-    minPrice: number;
-    maxPrice: number;
-    priceMomentum30d: number | null;
-    sampleSize: number;
-    confidence: number;
-    storePrices: { storeName: string; averagePrice: number; sampleSize: number }[];
-    observations: { date: string; unitPrice: number; storeName: string | null }[];
+}
+
+export interface ReceiptProductPrices {
+    receiptId: string;
+    currencyCode: string | null;
+    products: ReceiptProductPrice[];
 }
 
 export interface SpendingBreakdown {
@@ -99,8 +103,8 @@ export function fetchBehaviorIntelligence(walletClient: WalletClient) {
     return requestPaidJson<{ success: true } & BehaviorIntelligence>(walletClient, "/api/intelligence/behavior/me");
 }
 
-export function fetchProductPriceIntelligence(walletClient: WalletClient, canonicalProductId: string, currencyCode: string | null, priceUnit: string) {
-    return requestPaidJson<{ success: true } & ProductPriceIntelligence>(walletClient, `/api/intelligence/price/product/${canonicalProductId}/${currencyCode || "XXX"}/${priceUnit}`);
+export function fetchReceiptProductPrices(walletClient: WalletClient, receiptId: string) {
+    return requestPaidJson<{ success: true } & ReceiptProductPrices>(walletClient, `/api/intelligence/price/receipt/${receiptId}`);
 }
 
 export function fetchSpendingBreakdown(walletClient: WalletClient) {

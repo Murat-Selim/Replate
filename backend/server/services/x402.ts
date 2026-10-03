@@ -20,7 +20,7 @@ export const x402Configured = Boolean(
 );
 
 export type PaidResourceType =
-  | "advanced_receipt" | "basket_intelligence" | "product_price"
+  | "advanced_receipt" | "basket_intelligence" | "receipt_product_prices"
   | "behavior_intelligence" | "intelligence_bundle"
   | "product_signal" | "category_signal" | "merchant_signal" | "meal_analysis" | "spending_breakdown";
 
@@ -90,24 +90,17 @@ function requestResource(context: SettleContext): PaidResourceRequest | null {
     return { resourceType: "meal_analysis", resourceId: createHash("sha256").update(imageBase64).digest("hex"), endpoint };
   }
 
+  const receiptPricesMatch = path.match(/^\/api\/intelligence\/price\/receipt\/(\d+)$/);
+  if (method === "GET" && receiptPricesMatch) {
+    return { resourceType: "receipt_product_prices", resourceId: receiptPricesMatch[1], receiptId: receiptPricesMatch[1], endpoint };
+  }
+
   const dynamicRoutes: Array<[RegExp, PaidResourceType]> = [
     [/^\/api\/intelligence\/basket\/(\d+)$/, "basket_intelligence"],
-    [/^\/api\/intelligence\/price\/product\/(\d+)$/, "product_price"],
   ];
   for (const [pattern, resourceType] of dynamicRoutes) {
     const match = path.match(pattern);
-    if (method === "GET" && match) return { resourceType, resourceId: decodeURIComponent(match[1]), canonicalProductId: resourceType === "product_price" ? decodeURIComponent(match[1]) : undefined, endpoint };
-  }
-  const productPriceMatch = path.match(/^\/api\/intelligence\/price\/product\/(\d+)\/([A-Z]{3}|XXX)\/(each|kg|liter)$/);
-  if (method === "GET" && productPriceMatch) {
-    return {
-      resourceType: "product_price",
-      resourceId: `${productPriceMatch[1]}:${productPriceMatch[2]}:${productPriceMatch[3]}`,
-      canonicalProductId: productPriceMatch[1],
-      currencyCode: productPriceMatch[2],
-      priceUnit: productPriceMatch[3],
-      endpoint,
-    };
+    if (method === "GET" && match) return { resourceType, resourceId: decodeURIComponent(match[1]), endpoint };
   }
   if (method === "GET" && path === "/api/intelligence/behavior/me") return { resourceType: "behavior_intelligence", resourceId: "me", endpoint };
   if (method === "GET" && path === "/api/intelligence/spending/me") return { resourceType: "spending_breakdown", resourceId: "me", endpoint };
@@ -115,7 +108,7 @@ function requestResource(context: SettleContext): PaidResourceRequest | null {
 }
 
 function isReceiptResource(resourceType: PaidResourceType): boolean {
-  return ["advanced_receipt", "basket_intelligence", "intelligence_bundle"].includes(resourceType);
+  return ["advanced_receipt", "basket_intelligence", "receipt_product_prices", "intelligence_bundle"].includes(resourceType);
 }
 
 async function validateResource(client: any, resource: PaidResourceRequest, payer: string) {
@@ -127,6 +120,10 @@ async function validateResource(client: any, resource: PaidResourceRequest, paye
     if (resource.resourceType === "advanced_receipt" && resource.userAddress?.toLowerCase() !== payer.toLowerCase()) throw new Error("Payment payer must match userAddress");
     const receipt = await findReceipt(client, resource.receiptId!, payer, resource.receiptHash);
     if (!receipt) throw new Error("Receipt ownership or identity check failed");
+    if (resource.resourceType === "receipt_product_prices") {
+      const pricedItems = await client.query("SELECT COUNT(*) AS count FROM receipt_items WHERE receipt_id = $1 AND paid_price IS NOT NULL", [receipt.id]);
+      if (!Number(pricedItems.rows[0]?.count || 0)) throw new Error("This receipt has no priced line items");
+    }
     if (resource.resourceType === "advanced_receipt") {
       const features = await client.query("SELECT COUNT(*) AS count FROM derived_features WHERE receipt_id = $1 AND calculation_version = 'features-v1'", [receipt.id]);
       if (Number(features.rows[0]?.count || 0) < 11) throw new Error("Receipt intelligence features are not ready");
@@ -146,31 +143,11 @@ async function validateResource(client: any, resource: PaidResourceRequest, paye
     return { userWallet: user.rows[0].wallet_address };
   }
 
-  if (resource.resourceType === "product_price" || resource.resourceType === "product_signal") {
+  if (resource.resourceType === "product_signal") {
     const productId = resource.canonicalProductId || resource.resourceId;
     const product = await client.query("SELECT id FROM canonical_products WHERE id = $1", [productId]);
     if (!product.rows[0]) throw new Error("Canonical product not found");
-    let currencyCode = resource.currencyCode;
-    let priceUnit = resource.priceUnit;
-    if (resource.resourceType === "product_price" && (!currencyCode || !priceUnit)) {
-      const scopes = await client.query(
-        `SELECT DISTINCT r.currency_code, COALESCE(ri.price_unit, 'each') AS price_unit
-         FROM receipt_items ri JOIN receipts r ON r.id = ri.receipt_id
-         WHERE ri.canonical_product_id = $1 AND ri.paid_price IS NOT NULL`,
-        [productId],
-      );
-      if (scopes.rows.length !== 1) throw new Error("Use the currency and unit scoped product price endpoint");
-      currencyCode = scopes.rows[0].currency_code || "XXX";
-      priceUnit = scopes.rows[0].price_unit;
-    }
-    const observations = resource.resourceType === "product_price"
-      ? await client.query(
-        `SELECT COUNT(*) AS count FROM receipt_items ri JOIN receipts r ON r.id = ri.receipt_id
-         WHERE ri.canonical_product_id = $1 AND ri.paid_price IS NOT NULL
-           AND r.currency_code IS NOT DISTINCT FROM $2 AND COALESCE(ri.price_unit, 'each') = $3`,
-        [productId, currencyCode === "XXX" ? null : currencyCode, priceUnit],
-      )
-      : await client.query("SELECT COUNT(*) AS count FROM receipt_items WHERE canonical_product_id = $1 AND paid_price IS NOT NULL", [productId]);
+    const observations = await client.query("SELECT COUNT(*) AS count FROM receipt_items WHERE canonical_product_id = $1 AND paid_price IS NOT NULL", [productId]);
     const count = Number(observations.rows[0].count);
     if (!count) throw new Error("Product price observations are not ready");
     if (resource.resourceType === "product_signal" && count < MIN_SIGNAL_SAMPLE_SIZE) throw new Error(`Signal requires at least ${MIN_SIGNAL_SAMPLE_SIZE} observations`);
@@ -357,8 +334,7 @@ export function createX402Middleware(): RequestHandler | null {
     [MEAL_ANALYSIS_ROUTE]: routeConfig(INTELLIGENCE_PRICING.mealAnalysis, "Meal photo analysis"),
     "POST /api/intelligence/bundle": routeConfig(INTELLIGENCE_PRICING.bundle, "Replate Intelligence bundle"),
     "GET /api/intelligence/basket/:receiptId": routeConfig(INTELLIGENCE_PRICING.basket, "Basket Intelligence"),
-    "GET /api/intelligence/price/product/:canonicalProductId": routeConfig(INTELLIGENCE_PRICING.productPrice, "Product Price Intelligence"),
-    "GET /api/intelligence/price/product/:canonicalProductId/:currencyCode/:priceUnit": routeConfig(INTELLIGENCE_PRICING.productPrice, "Currency and unit scoped Product Price Intelligence"),
+    "GET /api/intelligence/price/receipt/:receiptId": routeConfig(INTELLIGENCE_PRICING.productPrice, "Product prices from one verified receipt"),
     "GET /api/intelligence/spending/me": routeConfig(INTELLIGENCE_PRICING.spendingBreakdown, "Spending Breakdown Intelligence"),
     "GET /api/intelligence/behavior/me": routeConfig(INTELLIGENCE_PRICING.behavior, "Behavior Intelligence"),
   };
