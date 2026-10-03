@@ -435,12 +435,14 @@ export default function SmartShop() {
         setError(null);
     };
 
+    const resultProducts = result?.products || [];
+    const receiptCurrencySpending = spendingBreakdown?.currencies.find((summary) => summary.currencyCode === (result?.currencyCode ?? null));
     const intelligenceOptions: Array<{ id: string; name: string; price: string; handler: () => Promise<void>; loaded: boolean }> = [
         { id: "behavior", name: "Behavior Intelligence", price: "0.02 USDC", handler: handleCallBehavior, loaded: Boolean(behaviorIntelligence) },
         { id: "spending", name: "Spending Breakdown", price: "0.03 USDC", handler: handleCallSpending, loaded: Boolean(spendingBreakdown) },
         { id: "basket", name: "Basket Insights", price: "0.01 USDC", handler: handleCallBasket, loaded: Boolean(basketIntelligence) },
+        ...(resultProducts.some((item) => typeof item.paidPrice === "number") ? [{ id: "product-price", name: "Product Prices · This Receipt", price: "0.01 USDC", handler: handleCallProductPrice, loaded: Boolean(receiptProductPrices) }] : []),
     ];
-    const resultProducts = result?.products || [];
 
     return (
         <>
@@ -704,7 +706,7 @@ export default function SmartShop() {
                                         {intelligenceOptions.map(({ id, name, price, handler, loaded }) => (
                                             <button key={id as string} onClick={handler as () => void} disabled={activeIntelligenceCall !== null} className="rounded-xl border border-[#00E36E]/15 bg-black/10 px-3 py-3 text-left hover:border-[#00E36E]/40 disabled:opacity-50">
                                                 <span className="block text-xs font-black text-white">{activeIntelligenceCall === id ? "Calling..." : loaded ? `${name} · Loaded` : name}</span>
-                                                <span className="block mt-1 text-[10px] text-brand-text/50">{price} · separate x402 call</span>
+                                                <span className="block mt-1 text-[10px] text-brand-text/50">{price} · {id === "product-price" ? "one call per receipt" : "separate x402 call"}</span>
                                             </button>
                                         ))}
                                     </div>
@@ -716,48 +718,44 @@ export default function SmartShop() {
                                             <p>Frequent items: {Object.entries(behaviorIntelligence.purchaseFrequency).map(([item, count]) => `${item} (${count})`).join(" · ") || "None"}</p>
                                         </div>
                                     )}
-                                    {resultProducts.some((item) => item.paidPrice !== undefined) ? (
-                                        <div className="space-y-3 border-t border-[#00E36E]/10 pt-3 text-xs text-brand-text/70">
-                                            <div>
-                                                <p className="font-black text-brand-primary">Product Prices · This Receipt</p>
-                                                <p className="mt-1">{resultProducts.filter((item) => item.paidPrice !== undefined).length} priced line items · one call for this receipt</p>
-                                            </div>
-                                            <button type="button" onClick={handleCallProductPrice} disabled={activeIntelligenceCall !== null || Boolean(receiptProductPrices)} className="rounded-xl border border-[#00E36E]/20 px-3 py-2 text-left font-bold text-brand-primary hover:bg-[#00E36E]/5 disabled:opacity-50">{activeIntelligenceCall === "product-price" ? "Loading receipt prices..." : receiptProductPrices ? "Receipt prices loaded" : "Load receipt prices · 0.01 USDC"}</button>
-                                            {receiptProductPrices && (receiptProductPrices.products.length ? (
+                                    {receiptProductPrices && (
+                                        <div className="space-y-2 border-t border-[#00E36E]/10 pt-3 text-xs text-brand-text/70">
+                                            <p className="font-black text-brand-primary">Prices from this receipt · {receiptProductPrices.currencyCode || "Unknown currency"}</p>
+                                            {receiptProductPrices.products.length ? (
                                                 <div className="divide-y divide-[#00E36E]/10 rounded-xl border border-[#00E36E]/10 px-3">
                                                     {receiptProductPrices.products.map((item) => <div key={item.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2.5">
                                                         <span className="font-semibold text-white">{item.name}{item.quantity > 1 ? ` × ${item.quantity}` : ""}</span>
                                                         <span className="tabular-nums">{item.paidPrice === null ? "Line total unavailable" : `Line total ${formatSpendingAmount(item.paidPrice, receiptProductPrices.currencyCode)}`}{item.unitPrice === null ? "" : ` · ${formatSpendingAmount(item.unitPrice, receiptProductPrices.currencyCode)}/${item.priceUnit}`}</span>
                                                     </div>)}
                                                 </div>
-                                            ) : <p className="text-brand-text/60">No priced line items were found on this receipt.</p>)}
+                                            ) : <p className="text-brand-text/60">No priced line items were found on this receipt.</p>}
                                         </div>
-                                    ) : null}
-                                    {spendingBreakdown?.currencies.map((summary) => (
-                                        <div key={summary.currencyCode || "unknown"} className="space-y-3 border-t border-[#00E36E]/10 pt-4 text-xs text-brand-text/75">
+                                    )}
+                                    {receiptCurrencySpending ? (
+                                        <div key={receiptCurrencySpending.currencyCode || "unknown"} className="space-y-3 border-t border-[#00E36E]/10 pt-4 text-xs text-brand-text/75">
                                             <div>
-                                                <p className="font-black text-brand-primary">Spending Breakdown · {summary.currencyCode || "Unknown currency"}</p>
-                                                <p className="mt-1 text-sm font-semibold text-white">Total {formatSpendingAmount(summary.totalSpent, summary.currencyCode)} <span className="font-normal text-brand-text/65">across {summary.receiptCount} receipts · average {formatSpendingAmount(summary.averageReceiptSpend, summary.currencyCode)} per receipt</span></p>
-                                                {summary.lineItemEstimateCount > 0 && <p className="mt-1 text-[10px] text-brand-text/55">{summary.lineItemEstimateCount} of {summary.receiptCount} receipt totals estimated from recognized line items.</p>}
+                                                <p className="font-black text-brand-primary">Spending Breakdown · {receiptCurrencySpending.currencyCode || "Unknown currency"}</p>
+                                                <p className="mt-1 text-sm font-semibold text-white">Total {formatSpendingAmount(receiptCurrencySpending.totalSpent, receiptCurrencySpending.currencyCode)} <span className="font-normal text-brand-text/65">across {receiptCurrencySpending.receiptCount} receipts · average {formatSpendingAmount(receiptCurrencySpending.averageReceiptSpend, receiptCurrencySpending.currencyCode)} per receipt</span></p>
+                                                {receiptCurrencySpending.lineItemEstimateCount > 0 && <p className="mt-1 text-[10px] text-brand-text/55">{receiptCurrencySpending.lineItemEstimateCount} of {receiptCurrencySpending.receiptCount} receipt totals estimated from recognized line items.</p>}
                                             </div>
-                                            <p className="rounded-xl bg-white/[0.03] px-3 py-2">Food categories {formatSpendingAmount(summary.foodSpend, summary.currencyCode)} · Household {formatSpendingAmount(summary.householdSpend, summary.currencyCode)} · Last 30 days {formatSpendingAmount(summary.last30Days.spent, summary.currencyCode)}{summary.last30Days.change === null ? "" : ` (${summary.last30Days.change > 0 ? "+" : ""}${(summary.last30Days.change * 100).toFixed(1)}%)`}</p>
+                                            <p className="rounded-xl bg-white/[0.03] px-3 py-2">Food categories {formatSpendingAmount(receiptCurrencySpending.foodSpend, receiptCurrencySpending.currencyCode)} · Household {formatSpendingAmount(receiptCurrencySpending.householdSpend, receiptCurrencySpending.currencyCode)} · Last 30 days {formatSpendingAmount(receiptCurrencySpending.last30Days.spent, receiptCurrencySpending.currencyCode)}{receiptCurrencySpending.last30Days.change === null ? "" : ` (${receiptCurrencySpending.last30Days.change > 0 ? "+" : ""}${(receiptCurrencySpending.last30Days.change * 100).toFixed(1)}%)`}</p>
                                             <div className="space-y-3">
                                                 <p className="font-bold text-white">Category spend <span className="font-normal text-brand-text/55">· share of recognized priced items</span></p>
-                                                {summary.categories.length === 0 ? <p className="text-brand-text/60">No priced items available for category breakdown.</p> : summary.categories.map((category) => {
+                                                {receiptCurrencySpending.categories.length === 0 ? <p className="text-brand-text/60">No priced items available for category breakdown.</p> : receiptCurrencySpending.categories.map((category) => {
                                                     const share = Number.isFinite(category.share) ? Math.min(1, Math.max(0, category.share)) : 0;
                                                     const percent = share * 100;
                                                     const color = spendingCategoryColors[category.category] || "#94A3B8";
                                                     return <div key={category.category} className="space-y-1.5">
                                                         <div className="flex items-center justify-between gap-3">
                                                             <span className="flex items-center gap-2 font-semibold capitalize text-white/90"><span className="size-2.5 rounded-full" style={{ backgroundColor: color }} />{category.category}</span>
-                                                            <span className="shrink-0 font-semibold tabular-nums text-white">{formatSpendingAmount(category.amount, summary.currencyCode)} <span className="text-brand-text/65">· {percent.toFixed(1)}%</span></span>
+                                                            <span className="shrink-0 font-semibold tabular-nums text-white">{formatSpendingAmount(category.amount, receiptCurrencySpending.currencyCode)} <span className="text-brand-text/65">· {percent.toFixed(1)}%</span></span>
                                                         </div>
                                                         <div role="progressbar" aria-label={`${category.category}: ${percent.toFixed(1)}% of recognized priced items`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Number(percent.toFixed(1))} className="h-2 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full" style={{ width: `${percent}%`, backgroundColor: color }} /></div>
                                                     </div>;
                                                 })}
                                             </div>
                                         </div>
-                                    ))}
+                                    ) : spendingBreakdown && <p className="border-t border-[#00E36E]/10 pt-3 text-xs text-brand-text/60">No spending data is available in this receipt&apos;s currency ({result?.currencyCode || "Unknown"}).</p>}
                                     {basketIntelligence && <div className="border-t border-[#00E36E]/10 pt-3 text-xs text-brand-text/70"><p className="font-black text-brand-primary">Basket Insights · score {basketIntelligence.basketScore}</p><p>Diversity {Math.round(basketIntelligence.basketDiversity * 100)}% · fruit & veg {Math.round(basketIntelligence.fruitVegRatio * 100)}% · healthy items {Math.round(basketIntelligence.healthyItemRatio * 100)}%</p></div>}
                                 </div>
 
