@@ -5,8 +5,8 @@ import {
   buildAdvancedReceiptReport,
   buildBasketIntelligence,
   buildBehaviorIntelligence,
-  buildBundle,
   buildReceiptProductPrices,
+  buildReceiptSpendingBreakdown,
   buildSpendingBreakdown,
   hasAdvancedReceiptBinding,
 } from "../services/intelligence-data.js";
@@ -176,6 +176,22 @@ router.get("/price/receipt/:receiptId", async (req: Request, res: Response) => {
   } catch (error) { return res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Internal server error" }); }
 });
 
+router.get("/spending/receipt/:receiptId", async (req: Request, res: Response) => {
+  try {
+    const payer = assertPayer(req);
+    const receiptId = String(req.params.receiptId);
+    if (!/^\d+$/.test(receiptId)) return res.status(400).json({ success: false, error: "Invalid receipt ID" });
+    assertDatabaseConfigured();
+    const client = await getDatabasePool().connect();
+    try {
+      const spending = await buildReceiptSpendingBreakdown(client, receiptId, payer);
+      if (!spending) return res.status(404).json({ success: false, error: "Verified receipt not found", errorCode: "RECEIPT_NOT_FOUND" });
+      if (!spending.pricedItemCount) return res.status(422).json({ success: false, error: "This receipt has no priced line items", errorCode: "NO_PRICED_ITEMS" });
+      return res.json({ success: true, ...spending });
+    } finally { client.release(); }
+  } catch (error) { return res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Internal server error" }); }
+});
+
 router.get("/behavior/me", async (req: Request, res: Response) => {
   try {
     const payer = assertPayer(req);
@@ -193,24 +209,6 @@ router.get("/spending/me", async (req: Request, res: Response) => {
     const client = await getDatabasePool().connect();
     try { return res.json({ success: true, ...(await buildSpendingBreakdown(client, payer)) }); }
     finally { client.release(); }
-  } catch (error) { return res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Internal server error" }); }
-});
-
-router.post("/bundle", async (req: Request, res: Response) => {
-  try {
-    const payer = assertPayer(req);
-    const receiptId = String(req.body?.receiptId || "");
-    const include = Array.isArray(req.body?.include) ? req.body.include.filter((value: unknown): value is string => typeof value === "string") : [];
-    if (!/^\d+$/.test(receiptId) || include.some((value: string) => !["basket", "behavior", "productPrice", "spending"].includes(value))) {
-      return res.status(400).json({ success: false, error: "receiptId and valid include values are required" });
-    }
-    assertDatabaseConfigured();
-    const client = await getDatabasePool().connect();
-    try {
-      const bundle = await buildBundle(client, receiptId, payer, include);
-      if (!bundle) return res.status(404).json({ success: false, error: "Verified receipt not found", errorCode: "RECEIPT_NOT_FOUND" });
-      return res.json({ success: true, ...bundle });
-    } finally { client.release(); }
   } catch (error) { return res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Internal server error" }); }
 });
 

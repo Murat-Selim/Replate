@@ -50,6 +50,16 @@ export interface SpendingBreakdown {
     currencies: { currencyCode: string | null; totalSpent: number; averageReceiptSpend: number; receiptCount: number; exactReceiptCount: number; lineItemEstimateCount: number; foodSpend: number; householdSpend: number; categories: { category: string; amount: number; share: number; recentAmount: number; previousAmount: number; shareChange: number | null }[]; last30Days: { spent: number; previous30Days: number; change: number | null } }[];
 }
 
+export interface ReceiptSpendingBreakdown {
+    receiptId: string;
+    currencyCode: string | null;
+    receiptTotal: number | null;
+    pricedItemsTotal: number;
+    pricedItemCount: number;
+    totalLineItemCount: number;
+    categories: { category: string; amount: number; share: number; itemCount: number }[];
+}
+
 export interface BasketIntelligence { basketScore: number; basketDiversity: number; healthyItemRatio: number; fruitVegRatio: number; categories: Record<string, number> }
 
 async function requestPaidJson<T>(walletClient: WalletClient, path: string, init: RequestInit = {}): Promise<T> {
@@ -109,6 +119,10 @@ export function fetchReceiptProductPrices(walletClient: WalletClient, receiptId:
 
 export function fetchSpendingBreakdown(walletClient: WalletClient) {
     return requestPaidJson<{ success: true } & SpendingBreakdown>(walletClient, "/api/intelligence/spending/me");
+}
+
+export function fetchReceiptSpendingBreakdown(walletClient: WalletClient, receiptId: string) {
+    return requestPaidJson<{ success: true } & ReceiptSpendingBreakdown>(walletClient, `/api/intelligence/spending/receipt/${receiptId}`);
 }
 
 export function fetchBasketIntelligence(walletClient: WalletClient, receiptId: string) {

@@ -95,7 +95,7 @@ Blockchain remains the verification and reward layer, while PostgreSQL provides 
 ## 6. x402 Detailed Basket Analysis and agent access
 **Live**
 
-After a receipt is verified, a user can unlock **Detailed Basket Analysis** for **$0.05 USDC** on Base Mainnet through the x402 payment flow.
+After a receipt is verified, a user can unlock **Detailed Basket Analysis** for **$0.10 USDC** on Base Mainnet through the x402 payment flow.
 
 The paid endpoint is `POST /api/intelligence/advanced`. It returns a report based on the already verified receipt and the derived intelligence features. Coinbase CDP acts as the facilitator and ERC-8021 Builder Code attribution is supported.
 
@@ -133,7 +133,6 @@ Live paid capabilities include:
 - Basket Intelligence
 - Product Price Intelligence
 - Behavior Intelligence for the paying wallet
-- Intelligence Bundles
 - Signals API (Product, Category, Merchant): Soon / Yakında
 
 Signals remain closed while the aggregate data layer is being prepared.

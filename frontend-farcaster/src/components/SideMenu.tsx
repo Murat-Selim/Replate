@@ -2,12 +2,13 @@
 
 import React from "react";
 import Link from "next/link";
-import { X, Home, Circle, BarChart3, User, Target, ShieldCheck, BookOpen, Utensils } from "lucide-react";
+import { X, Home, Circle, BarChart3, User, Target, ShieldCheck, BookOpen, Utensils, Sparkles } from "lucide-react";
 
 const menuItems = [
     { icon: Home, href: "/", label: "Home" },
     { icon: Circle, href: "/verify-receipt", label: "Verify Receipt" },
     { icon: Utensils, href: "/meal", label: "Analyze Meal" },
+    { icon: Sparkles, href: "/receipt-hunt", label: "Receipt Hunt" },
     { icon: BarChart3, href: "/leaderboard", label: "Leaderboard" },
     { icon: Target, href: "/quests", label: "Quests" },
     { icon: User, href: "/profile", label: "Profile" },

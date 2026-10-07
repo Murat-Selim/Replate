@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, ShoppingCart, Trophy, Target, User, Wallet, Menu, Utensils } from "lucide-react";
+import { Home, ShoppingCart, Trophy, Target, User, Wallet, Menu, Utensils, Sparkles } from "lucide-react";
 import { useAccount, useConnect, useDisconnect } from "wagmi";
 import SideMenu from "@/components/SideMenu";
 
@@ -26,6 +26,7 @@ export default function Header() {
         { href: "/", label: "Home", icon: Home },
         { href: "/verify-receipt", label: "Verify Receipt", icon: ShoppingCart },
         { href: "/meal", label: "Analyze Meal", icon: Utensils },
+        { href: "/receipt-hunt", label: "Receipt Hunt", icon: Sparkles },
         { href: "/quests", label: "Quests", icon: Target },
         { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
         { href: "/profile", label: "Profile", icon: User },
@@ -50,7 +51,7 @@ export default function Header() {
                     </Link>
 
                     {/* Center: Navigation Links (Desktop) */}
-                    <nav className="hidden md:flex items-center gap-8">
+                    <nav className="hidden xl:flex items-center gap-5">
                         {navItems.map((item) => {
                             const isActive = pathname === item.href;
                             const Icon = item.icon;
@@ -110,7 +111,7 @@ export default function Header() {
                         {/* Hamburger menu for mobile drawer */}
                         <button
                             onClick={() => setIsMenuOpen(true)}
-                            className="md:hidden w-10 h-10 flex items-center justify-center text-[#8c9790] hover:text-white bg-brand-accent/10 hover:bg-brand-accent/20 rounded-xl transition-colors active:scale-90"
+                            className="xl:hidden w-10 h-10 flex items-center justify-center text-[#8c9790] hover:text-white bg-brand-accent/10 hover:bg-brand-accent/20 rounded-xl transition-colors active:scale-90"
                         >
                             <Menu size={20} />
                         </button>

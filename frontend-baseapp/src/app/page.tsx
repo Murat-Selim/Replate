@@ -39,6 +39,11 @@ export default function Home() {
 
                 <section className="rounded-3xl border border-[#00E36E]/15 bg-[#0c1310]/70 p-6 sm:p-8"><div className="mb-7 flex flex-col justify-between gap-3 sm:flex-row sm:items-end"><div><p className="text-xs font-black uppercase tracking-[0.2em] text-[#00E36E]">Consumer loop</p><h2 className="mt-2 text-2xl font-black text-white">Small choices, visible progress.</h2></div><Link href="/profile" className="inline-flex items-center gap-2 text-sm font-bold text-[#8c9790] hover:text-white">View Weekly Replate Score <ArrowRight size={15} /></Link></div><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{steps.map(([number, title, text]) => <div key={number} className="rounded-2xl border border-white/5 bg-white/[0.02] p-4"><span className="text-xs font-black text-[#00E36E]">{number}</span><h3 className="mt-3 font-black text-white">{title}</h3><p className="mt-1 text-sm leading-6 text-[#8c9790]">{text}</p></div>)}</div></section>
 
+                <Link href="/receipt-hunt" className="group flex flex-col justify-between gap-5 rounded-3xl border border-[#00E36E]/20 bg-[#00E36E]/5 p-6 transition hover:border-[#00E36E]/45 sm:flex-row sm:items-center sm:p-8">
+                    <div><p className="text-xs font-black uppercase tracking-[0.2em] text-[#00E36E]">Weekly community challenge · #01</p><h2 className="mt-2 text-2xl font-black text-white">Receipt Hunt</h2><p className="mt-2 text-sm leading-6 text-[#8c9790]">Don’t share your receipt. Share what it revealed.</p></div>
+                    <span className="inline-flex shrink-0 items-center gap-2 text-sm font-black text-[#00E36E]">Join the Hunt <ArrowRight size={17} className="transition group-hover:translate-x-1" /></span>
+                </Link>
+
                 <section className="grid gap-4 md:grid-cols-3">{features.map(({ icon: Icon, title, text }) => <div key={title} className="rounded-2xl border border-white/5 bg-[#0c1310]/70 p-5"><Icon className="text-[#00E36E]" size={20} /><h3 className="mt-4 font-black text-white">{title}</h3><p className="mt-1 text-sm leading-6 text-[#8c9790]">{text}</p></div>)}</section>
             </div>
         </Shell>

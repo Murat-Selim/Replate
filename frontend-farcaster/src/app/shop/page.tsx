@@ -5,7 +5,7 @@ import Shell from "@/components/Shell";
 import { Minus, Plus, Sparkles, Camera, Check, Loader2, X, Leaf, Star, Trophy, Image, ChevronDown } from "lucide-react";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { useFarcasterAccount } from "@/hooks/useFarcasterAccount";
-import { getApiUrl } from "@/lib/api";
+import { getApiUrl, getConfiguredApiUrl } from "@/lib/api";
 import { compressImage } from "@/lib/image";
 import { useAccount, useWalletClient } from "wagmi";
 import { appChain } from "@/lib/network";
@@ -17,11 +17,13 @@ import {
     fetchBasketIntelligence,
     fetchSpendingBreakdown,
     fetchReceiptProductPrices,
+    fetchReceiptSpendingBreakdown,
     type AdvancedReport,
     type BehaviorIntelligence,
     type BasketIntelligence,
     type SpendingBreakdown,
     type ReceiptProductPrices,
+    type ReceiptSpendingBreakdown,
 } from "@/lib/intelligence";
 
 interface VerificationResult {
@@ -42,6 +44,98 @@ interface VerificationResult {
     totalSpent?: number | null;
     totalSpentSource?: "receipt_total" | "line_items" | null;
     products?: { name: string; category: string; spendingCategory?: string; fruitVegGrams: number; paidPrice?: number; quantity?: number; actualWeightGrams?: number; canonicalProductId?: string | null; priceUnit?: string }[];
+}
+
+function drawReceiptHuntText(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number, lineHeight: number, maxLines: number) {
+    const lines: string[] = [];
+    let line = "";
+    for (const word of text.trim().split(/\s+/)) {
+        const candidate = line ? line + " " + word : word;
+        if (line && ctx.measureText(candidate).width > maxWidth) {
+            lines.push(line);
+            line = word;
+            if (lines.length === maxLines) break;
+        } else {
+            line = candidate;
+        }
+    }
+    if (line && lines.length < maxLines) lines.push(line);
+    lines.forEach((item, index) => ctx.fillText(item, x, y + index * lineHeight, maxWidth));
+}
+
+function drawReceiptHuntCard(canvas: HTMLCanvasElement, result: VerificationResult, insight: string, spending: ReceiptSpendingBreakdown) {
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    canvas.width = 1080;
+    canvas.height = 1350;
+    const background = ctx.createLinearGradient(0, 0, 1080, 1350);
+    background.addColorStop(0, "#10251A");
+    background.addColorStop(1, "#0B1114");
+    ctx.fillStyle = background;
+    ctx.fillRect(0, 0, 1080, 1350);
+    ctx.strokeStyle = "rgba(34,217,122,0.38)";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.roundRect(32, 32, 1016, 1286, 40);
+    ctx.stroke();
+
+    ctx.fillStyle = "#22D97A";
+    ctx.font = "900 34px Arial";
+    ctx.fillText("REPLATE", 76, 106);
+    ctx.font = "700 25px Arial";
+    ctx.fillText("RECEIPT HUNT #01", 76, 166);
+    ctx.fillStyle = "#FFFFFF";
+    ctx.font = "900 56px Arial";
+    drawReceiptHuntText(ctx, "Which category did you spend more on than you expected?", 76, 252, 900, 68, 2);
+
+    const topCategory = spending.categories[0];
+    ctx.fillStyle = "#22D97A";
+    ctx.font = "900 22px Arial";
+    ctx.fillText("TOP SPENDING CATEGORY", 76, 390);
+    ctx.fillStyle = "#FFFFFF";
+    ctx.font = "700 30px Arial";
+    drawReceiptHuntText(ctx, topCategory ? `${topCategory.category} · ${formatSpendingAmount(topCategory.amount, spending.currencyCode)} · ${(topCategory.share * 100).toFixed(1)}%` : "No priced categories found", 76, 434, 900, 40, 1);
+
+    const stats = [
+        ["HEALTH SCORE", String(result.healthScore)],
+        ["NUTRITION", String(result.nutritionScore)],
+        ["FRUITS & VEG", String(result.fruitVegGrams) + "g"],
+        ["RP EARNED", "+" + String(result.pointsEarned)],
+    ];
+    stats.forEach(([label, value], index) => {
+        const x = 76 + index * 237;
+        ctx.fillStyle = "rgba(255,255,255,0.06)";
+        ctx.beginPath();
+        ctx.roundRect(x, 470, 218, 220, 24);
+        ctx.fill();
+        ctx.fillStyle = "#22D97A";
+        ctx.font = "900 20px Arial";
+        ctx.fillText(label, x + 18, 514, 182);
+        ctx.fillStyle = "#FFFFFF";
+        ctx.font = "900 58px Arial";
+        ctx.fillText(value, x + 18, 604, 182);
+        ctx.fillStyle = "rgba(255,255,255,0.55)";
+        ctx.font = "600 20px Arial";
+        if (index < 2) ctx.fillText("/ 100", x + 18, 650);
+    });
+
+    ctx.fillStyle = "#22D97A";
+    ctx.font = "900 24px Arial";
+    ctx.fillText("MY SURPRISING FIND", 76, 800);
+    ctx.fillStyle = "#FFFFFF";
+    ctx.font = "700 42px Arial";
+    drawReceiptHuntText(ctx, insight.trim() || "Add your observation to complete this card.", 76, 872, 900, 58, 4);
+    ctx.strokeStyle = "rgba(255,255,255,0.12)";
+    ctx.beginPath();
+    ctx.moveTo(76, 1160);
+    ctx.lineTo(1004, 1160);
+    ctx.stroke();
+    ctx.fillStyle = "rgba(255,255,255,0.65)";
+    ctx.font = "700 22px Arial";
+    ctx.fillText("MY RECEIPT STAYS PRIVATE", 76, 1214);
+    ctx.fillStyle = "rgba(255,255,255,0.42)";
+    ctx.font = "500 20px Arial";
+    ctx.fillText("Share what it revealed · #ReceiptHunt", 76, 1260);
 }
 
 interface UserContext {
@@ -113,7 +207,7 @@ function getBasketFeedback(result: VerificationResult) {
 }
 
 function getIntelligenceTier(receiptCount: number) {
-    if (receiptCount >= 30) return { label: "Richer Replate Intelligence", detail: "Your 30-day history makes the $0.05 USDC report more personalized." };
+    if (receiptCount >= 30) return { label: "Richer Replate Intelligence", detail: "Your 30-day history makes the $0.10 USDC report more personalized." };
     if (receiptCount >= 10) return { label: "Behavior pattern + recommendation", detail: `${30 - receiptCount} more verified receipts unlock richer Replate Intelligence.` };
     if (receiptCount >= 5) return { label: "30-day pattern analysis", detail: `${10 - receiptCount} more verified receipts unlock behavior patterns and recommendations.` };
     if (receiptCount >= 3) return { label: "Richer comparison", detail: `${5 - receiptCount} more verified receipts unlock 30-day pattern analysis.` };
@@ -132,6 +226,10 @@ export default function SmartShop() {
     const [isLoading, setIsLoading] = useState(false);
     const [isCompressing, setIsCompressing] = useState(false);
     const [result, setResult] = useState<VerificationResult | null>(null);
+    const [receiptHuntEntry, setReceiptHuntEntry] = useState(false);
+    const [huntInsight, setHuntInsight] = useState("");
+    const [huntNotice, setHuntNotice] = useState("");
+    const [receiptHuntSpending, setReceiptHuntSpending] = useState<ReceiptSpendingBreakdown | null>(null);
     const [advancedReport, setAdvancedReport] = useState<AdvancedReport | null>(null);
     const [behaviorIntelligence, setBehaviorIntelligence] = useState<BehaviorIntelligence | null>(null);
     const [basketIntelligence, setBasketIntelligence] = useState<BasketIntelligence | null>(null);
@@ -148,6 +246,17 @@ export default function SmartShop() {
     const [verifiedReceiptCount, setVerifiedReceiptCount] = useState(0);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
+    const receiptHuntCanvasRef = useRef<HTMLCanvasElement>(null);
+
+    useEffect(() => {
+        setReceiptHuntEntry(new URLSearchParams(window.location.search).get("challenge") === "receipt-hunt-01");
+    }, []);
+
+    useEffect(() => {
+        if (receiptHuntEntry && result && receiptHuntSpending && receiptHuntCanvasRef.current) {
+            drawReceiptHuntCard(receiptHuntCanvasRef.current, result, huntInsight, receiptHuntSpending);
+        }
+    }, [receiptHuntEntry, result, huntInsight, receiptHuntSpending]);
 
     useEffect(() => {
         const fetchContext = async () => {
@@ -302,6 +411,7 @@ export default function SmartShop() {
         setBasketIntelligence(null);
         setSpendingBreakdown(null);
         setReceiptProductPrices(null);
+        setReceiptHuntSpending(null);
 
         try {
             const base64Data = imagePreview.split(",")[1] || imagePreview;
@@ -428,10 +538,41 @@ export default function SmartShop() {
         return runIntelligenceCall("product-price", async () => setReceiptProductPrices(await fetchReceiptProductPrices(walletClient!, result.receiptId)));
     };
 
+    const handleReceiptHuntAnalysis = () => {
+        if (!result) return Promise.resolve();
+        return runIntelligenceCall("receipt-hunt-spending", async () => setReceiptHuntSpending(await fetchReceiptSpendingBreakdown(walletClient!, result.receiptId)));
+    };
+
     const handleReceiptChat = (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         if (!result || !chatQuestion.trim()) return;
         setChatAnswer(getReceiptChatReply(chatQuestion, result, advancedReport));
+    };
+
+    const handleDownloadReceiptHuntCard = () => {
+        if (!result || !receiptHuntSpending || !huntInsight.trim() || !receiptHuntCanvasRef.current) return;
+        const link = document.createElement("a");
+        link.download = "replate-receipt-hunt-01.png";
+        link.href = receiptHuntCanvasRef.current.toDataURL("image/png");
+        link.click();
+        track("receipt_hunt_card_downloaded", { challenge: "receipt-hunt-01" });
+        setHuntNotice("Attach the downloaded card to your post. Publish it with #ReceiptHunt and tag @replateapp to enter.");
+    };
+
+    const handleShareReceiptHunt = async () => {
+        if (!result || !receiptHuntSpending || !huntInsight.trim()) return;
+        handleDownloadReceiptHuntCard();
+        const insight = huntInsight.trim().replace(/\s+/g, " ");
+        const topCategory = receiptHuntSpending.categories[0];
+        const pageUrl = window.location.origin + "/receipt-hunt";
+        const text = "Receipt Hunt #01\n\nTop spending category: " + (topCategory ? `${topCategory.category} (${formatSpendingAmount(topCategory.amount, receiptHuntSpending.currencyCode)}, ${(topCategory.share * 100).toFixed(1)}%)` : "not available") + "\nMy surprise: “" + insight + "”\n\nHealth: " + result.healthScore + "/100 · Nutrition: " + result.nutritionScore + "/100\n\nJoin the Hunt: " + pageUrl + "\n\n@replateapp #ReceiptHunt";
+        track("receipt_hunt_share_clicked", { channel: "farcaster", challenge: "receipt-hunt-01" });
+        try {
+            await sdk.actions.composeCast({ text, embeds: [pageUrl] });
+            setHuntNotice("Your post is the entry. Add the downloaded card to your post if the composer offers media upload.");
+        } catch {
+            setHuntNotice("Your card is downloaded. Share it with #ReceiptHunt and tag @replateapp to enter.");
+        }
     };
 
     const handleShare = async () => {
@@ -457,6 +598,9 @@ Join me in reducing food waste!`,
     const resetForm = () => {
         setImagePreview(null);
         setResult(null);
+        setHuntInsight("");
+        setHuntNotice("");
+        setReceiptHuntSpending(null);
         setAdvancedReport(null);
         setBehaviorIntelligence(null);
         setBasketIntelligence(null);
@@ -471,10 +615,10 @@ Join me in reducing food waste!`,
     const resultProducts = result?.products || [];
     const receiptCurrencySpending = spendingBreakdown?.currencies.find((summary) => summary.currencyCode === (result?.currencyCode ?? null));
     const intelligenceOptions: Array<{ id: string; name: string; price: string; handler: () => Promise<void>; loaded: boolean }> = [
-        { id: "behavior", name: "Behavior Intelligence", price: "0.02 USDC", handler: handleCallBehavior, loaded: Boolean(behaviorIntelligence) },
-        { id: "spending", name: "Spending Breakdown", price: "0.03 USDC", handler: handleCallSpending, loaded: Boolean(spendingBreakdown) },
-        { id: "basket", name: "Basket Insights", price: "0.01 USDC", handler: handleCallBasket, loaded: Boolean(basketIntelligence) },
-        ...(resultProducts.some((item) => typeof item.paidPrice === "number") ? [{ id: "product-price", name: "Product Prices · This Receipt", price: "0.01 USDC", handler: handleCallProductPrice, loaded: Boolean(receiptProductPrices) }] : []),
+        { id: "behavior", name: "Behavior Intelligence", price: "0.05 USDC", handler: handleCallBehavior, loaded: Boolean(behaviorIntelligence) },
+        { id: "spending", name: "Spending Breakdown", price: "0.05 USDC", handler: handleCallSpending, loaded: Boolean(spendingBreakdown) },
+        { id: "basket", name: "Basket Insights", price: "0.04 USDC", handler: handleCallBasket, loaded: Boolean(basketIntelligence) },
+        ...(resultProducts.some((item) => typeof item.paidPrice === "number") ? [{ id: "product-price", name: "Product Prices · This Receipt", price: "0.03 USDC", handler: handleCallProductPrice, loaded: Boolean(receiptProductPrices) }] : []),
     ];
 
     return (
@@ -671,6 +815,44 @@ Join me in reducing food waste!`,
                                             <p className="text-[9px] font-black text-[#A6B0B5] uppercase tracking-wider">Fruits & Veg</p>
                                         </div>
                                     </div>
+                                    {receiptHuntEntry && (
+                                        <section className="space-y-4 rounded-[22px] border border-[#22D97A]/20 bg-[#22D97A]/5 p-4" aria-labelledby="receipt-hunt-entry-title">
+                                            <div>
+                                                <p className="text-[10px] font-black uppercase tracking-wider text-[#22D97A]">Receipt Hunt #01</p>
+                                                <h4 id="receipt-hunt-entry-title" className="mt-1 text-base font-black text-white font-heading">Which category did you spend more on than you expected?</h4>
+                                                <p className="mt-1 text-[10px] leading-5 text-[#A6B0B5]">Name the category and share what surprised you. The card only shows these analysis results and your text.</p>
+                                                <p className="mt-2 text-[9px] leading-5 text-[#A6B0B5]/70">Receipt Spending Breakdown API · one x402 call · 0.05 USDC per receipt.</p>
+                                            </div>
+                                            {!receiptHuntSpending ? (
+                                                <button type="button" onClick={handleReceiptHuntAnalysis} disabled={activeIntelligenceCall !== null} className="rounded-full bg-[#22D97A] px-4 py-3 text-xs font-black uppercase tracking-wider text-[#0B1114] disabled:opacity-50">
+                                                    {activeIntelligenceCall === "receipt-hunt-spending" ? "Analyzing receipt..." : "Run Receipt Spending Breakdown · 0.05 USDC"}
+                                                </button>
+                                            ) : (
+                                                <>
+                                                    {receiptHuntSpending.categories.length === 0 ? <p className="text-xs text-[#A6B0B5]">No priced items were available for this receipt.</p> : (
+                                                        <div className="space-y-3 rounded-xl border border-white/10 bg-black/10 p-3">
+                                                            <p className="text-xs text-[#A6B0B5]">Top category on this receipt: <strong className="capitalize text-white">{receiptHuntSpending.categories[0].category}</strong> · {formatSpendingAmount(receiptHuntSpending.categories[0].amount, receiptHuntSpending.currencyCode)} · {(receiptHuntSpending.categories[0].share * 100).toFixed(1)}%</p>
+                                                            {receiptHuntSpending.categories.map((category) => <div key={category.category} className="space-y-1">
+                                                                <div className="flex justify-between gap-3 text-xs"><span className="capitalize text-white">{category.category}</span><span className="text-[#A6B0B5]">{formatSpendingAmount(category.amount, receiptHuntSpending.currencyCode)} · {(category.share * 100).toFixed(1)}%</span></div>
+                                                                <div className="h-2 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full" style={{ width: `${Math.min(100, category.share * 100)}%`, backgroundColor: spendingCategoryColors[category.category] || spendingCategoryColors.other }} /></div>
+                                                            </div>)}
+                                                            <p className="text-[10px] text-[#A6B0B5]/70">Based on {receiptHuntSpending.pricedItemCount} priced line items from this receipt, in {receiptHuntSpending.currencyCode || "its currency"}.</p>
+                                                        </div>
+                                                    )}
+                                                    <label htmlFor="receipt-hunt-insight" className="block text-[10px] font-bold text-white">What surprised you?</label>
+                                                    <textarea id="receipt-hunt-insight" value={huntInsight} onChange={(event) => setHuntInsight(event.target.value.slice(0, 140))} maxLength={140} rows={3} placeholder={receiptHuntSpending.categories[0] ? `I didn't expect ${receiptHuntSpending.categories[0].category} to be my top category...` : "I was surprised by..."} className="w-full resize-y rounded-xl border border-[#22D97A]/20 bg-black/20 px-3 py-2 text-xs text-white outline-none placeholder:text-[#A6B0B5]/50 focus:border-[#22D97A]/60" />
+                                                    <p className="text-right text-[9px] text-[#A6B0B5]/60">{huntInsight.length}/140</p>
+                                                    <canvas ref={receiptHuntCanvasRef} width={1080} height={1350} role="img" aria-label="Preview of your privacy-safe Receipt Hunt share card" className="mx-auto h-auto w-full max-w-[320px] rounded-2xl border border-white/10" />
+                                                    <div className="grid gap-2">
+                                                        <button type="button" onClick={handleDownloadReceiptHuntCard} disabled={!huntInsight.trim() || !receiptHuntSpending.categories.length} className="rounded-full bg-[#22D97A] px-3 py-3 text-[10px] font-black uppercase tracking-wider text-[#0B1114] disabled:opacity-40">Download Card</button>
+                                                        <button type="button" onClick={handleShareReceiptHunt} disabled={!huntInsight.trim() || !receiptHuntSpending.categories.length} className="rounded-full border border-white/15 px-3 py-3 text-[10px] font-bold text-white disabled:opacity-40">Share to Farcaster</button>
+                                                    </div>
+                                                    {huntNotice && <p role="status" className="text-[10px] leading-5 text-[#22D97A]">{huntNotice}</p>}
+                                                    <p className="text-[9px] leading-5 text-[#A6B0B5]/70">Attach the downloaded card to your public post with #ReceiptHunt and tag @replateapp. That post is your entry; the Replate team reviews entries manually each week. The receipt image is never shared.</p>
+                                                </>
+                                            )}
+                                        </section>
+                                    )}
                                     <p className="text-[10px] text-[#A6B0B5] leading-relaxed">Based on an average target of around 300g of fruit and vegetables per person per day. We check if your basket provides enough for your household.</p>
 
                                     <div className="bg-[#22D97A]/5 border border-[#22D97A]/15 rounded-[22px] p-4 space-y-3">
@@ -727,7 +909,7 @@ Join me in reducing food waste!`,
                                                 className="w-full bg-[#22D97A] text-[#07100B] py-3.5 px-4 rounded-xl font-black text-xs hover:bg-[#39ed8b] disabled:opacity-60 transition-all flex items-center justify-center gap-2"
                                             >
                                                 {isUnlocking ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-                                                {isUnlocking ? "Unlocking..." : "Unlock Advanced Report · 0.05 USDC"}
+                                                {isUnlocking ? "Unlocking..." : "Unlock Advanced Report · 0.10 USDC"}
                                             </button>
                                         </div>
                                     )}
@@ -814,14 +996,16 @@ Join me in reducing food waste!`,
                                     </p>
                                     <div className="space-y-2">
                                         {[
-                                            ["Advanced Receipt Report", "POST /api/intelligence/advanced", "0.05 USDC", "Live"],
-                                            ["Basket Intelligence", "GET /api/intelligence/basket/{receiptId}", "0.01 USDC", "Live"],
-                                            ["Receipt Product Prices", "GET /api/intelligence/price/receipt/{receiptId}", "0.01 USDC / receipt", "Live"],
-                                            ["Spending Breakdown", "GET /api/intelligence/spending/me", "0.03 USDC", "Live"],
-                                            ["Behavior Intelligence", "GET /api/intelligence/behavior/me", "0.02 USDC", "Live"],
-                                            ["Product Signal", "GET /api/signals/product/{canonicalProductId}", "0.005 USDC", "Soon"],
-                                            ["Category Signal", "GET /api/signals/category/{category}", "0.005 USDC", "Soon"],
-                                            ["Merchant Signal", "GET /api/signals/merchant/{merchantId}", "0.005 USDC", "Soon"],
+                                            ["Advanced Receipt Report", "POST /api/intelligence/advanced", "0.10 USDC", "Live"],
+                                            ["Meal Photo Analysis", "POST /api/analyze-meal", "0.05 USDC", "Live"],
+                                            ["Basket Intelligence", "GET /api/intelligence/basket/{receiptId}", "0.04 USDC", "Live"],
+                                            ["Receipt Product Prices", "GET /api/intelligence/price/receipt/{receiptId}", "0.03 USDC / receipt", "Live"],
+                                            ["Receipt Spending Breakdown", "GET /api/intelligence/spending/receipt/{receiptId}", "0.05 USDC / receipt", "Live"],
+                                            ["Spending Breakdown", "GET /api/intelligence/spending/me", "0.05 USDC", "Live"],
+                                            ["Behavior Intelligence", "GET /api/intelligence/behavior/me", "0.05 USDC", "Live"],
+                                            ["Product Signal", "GET /api/signals/product/{canonicalProductId}", "0.01 USDC", "Soon"],
+                                            ["Category Signal", "GET /api/signals/category/{category}", "0.01 USDC", "Soon"],
+                                            ["Merchant Signal", "GET /api/signals/merchant/{merchantId}", "0.01 USDC", "Soon"],
                                         ].map(([name, endpoint, price, status]) => (
                                             <div key={endpoint} className="flex items-center justify-between gap-3 rounded-xl border border-white/5 bg-black/10 px-3 py-2.5">
                                                 <div className="min-w-0">
@@ -836,8 +1020,8 @@ Join me in reducing food waste!`,
                                         ))}
                                     </div>
                                     <div className="flex flex-wrap gap-3 text-xs font-bold">
-                                        <a href={getApiUrl("/openapi.json")} target="_blank" rel="noreferrer" className="text-[#22D97A] hover:underline">OpenAPI spec →</a>
-                                        <a href={getApiUrl("/.well-known/agent-card.json")} target="_blank" rel="noreferrer" className="text-[#22D97A] hover:underline">Agent card →</a>
+                                        <a href={getConfiguredApiUrl("/openapi.json")} target="_blank" rel="noreferrer" className="text-[#22D97A] hover:underline">OpenAPI spec →</a>
+                                        <a href={getConfiguredApiUrl("/.well-known/agent-card.json")} target="_blank" rel="noreferrer" className="text-[#22D97A] hover:underline">Agent card →</a>
                                     </div>
                                 </div>
                             </details>

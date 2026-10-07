@@ -2,6 +2,16 @@ import type { NextConfig } from "next";
 import deployment from "../deployment.json";
 
 const nextConfig: NextConfig = {
+  turbopack: {
+    root: process.cwd(),
+  },
+  webpack(config) {
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      accounts: false,
+    };
+    return config;
+  },
   env: {
     NEXT_PUBLIC_DEPLOYMENT_CHAIN: deployment.chain,
     NEXT_PUBLIC_DEPLOYMENT_CHAIN_ID: String(deployment.chainId),

@@ -23,3 +23,10 @@ export function getApiUrl(path: string) {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   return `${getApiBaseUrl()}${normalizedPath}`;
 }
+
+export function getConfiguredApiUrl(path: string) {
+  const configuredUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
+  const baseUrl = configuredUrl ? normalizeBaseUrl(configuredUrl) : PRODUCTION_API_URL;
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  return `${baseUrl}${normalizedPath}`;
+}

@@ -89,19 +89,21 @@ export interface SpendingBreakdown {
   }>;
 }
 
+export interface ReceiptSpendingBreakdown {
+  receiptId: string;
+  currencyCode: string | null;
+  receiptTotal: number | null;
+  pricedItemsTotal: number;
+  pricedItemCount: number;
+  totalLineItemCount: number;
+  categories: Array<{ category: string; amount: number; share: number; itemCount: number }>;
+}
+
 export interface BehaviorIntelligence {
   purchaseFrequency: Record<string, number>;
   topCategories: string[];
   basketTrend: "improving" | "declining" | "stable";
   repeatPurchaseRatio: number;
-}
-
-export interface BundleIntelligence {
-  receiptId: string;
-  basket?: BasketIntelligence;
-  behavior?: BehaviorIntelligence;
-  productPrices?: ReceiptProductPrice[];
-  spending?: SpendingBreakdown;
 }
 
 function clamp(value: number, min = 0, max = 100): number {
@@ -333,19 +335,36 @@ export async function buildSpendingBreakdown(db: Db, wallet: string): Promise<Sp
   };
 }
 
-export async function buildBundle(db: Db, receiptId: string, wallet: string, include: string[]): Promise<BundleIntelligence | null> {
+export async function buildReceiptSpendingBreakdown(db: Db, receiptId: string, wallet: string): Promise<ReceiptSpendingBreakdown | null> {
   const receipt = await findReceipt(db, receiptId, wallet);
   if (!receipt) return null;
-  const allowed = new Set(include.length ? include : ["basket", "behavior", "productPrice", "spending"]);
-  const bundle: BundleIntelligence = { receiptId };
-  if (allowed.has("basket")) bundle.basket = (await buildBasketIntelligence(db, receiptId, wallet)) || undefined;
-  if (allowed.has("behavior")) bundle.behavior = await buildBehaviorIntelligence(db, wallet);
-  if (allowed.has("spending")) bundle.spending = await buildSpendingBreakdown(db, wallet);
-  if (allowed.has("productPrice")) {
-    const prices = await buildReceiptProductPrices(db, receiptId, wallet);
-    bundle.productPrices = prices?.products || [];
+  const items = await receiptItems(db, receipt.id);
+  const pricedItems = items.filter((item) => item.paidPrice !== null);
+  const categoryTotals = new Map<string, { amount: number; itemCount: number }>();
+  for (const item of pricedItems) {
+    const category = (item.spendingCategory || "").trim() || "other";
+    const total = categoryTotals.get(category) || { amount: 0, itemCount: 0 };
+    total.amount += item.paidPrice!;
+    total.itemCount++;
+    categoryTotals.set(category, total);
   }
-  return bundle;
+  const pricedItemsTotal = [...categoryTotals.values()].reduce((sum, category) => sum + category.amount, 0);
+  return {
+    receiptId: receipt.id,
+    currencyCode: receipt.currencyCode,
+    receiptTotal: receipt.totalSpent,
+    pricedItemsTotal: round(pricedItemsTotal),
+    pricedItemCount: pricedItems.length,
+    totalLineItemCount: items.length,
+    categories: [...categoryTotals.entries()]
+      .map(([category, total]) => ({
+        category,
+        amount: round(total.amount),
+        share: round(pricedItemsTotal ? total.amount / pricedItemsTotal : 0),
+        itemCount: total.itemCount,
+      }))
+      .sort((a, b) => b.amount - a.amount),
+  };
 }
 
 function canonicalJson(value: unknown): string {
