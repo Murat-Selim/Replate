@@ -7,7 +7,7 @@ const isProduction = process.env.NODE_ENV === "production";
 
 export const INTELLIGENCE_PRICING = {
   advancedReceipt: { usd: "0.10", atomic: "100000" },
-  mealAnalysis: { usd: "0.05", atomic: "50000" },
+  mealAnalysis: { usd: "0.01", atomic: "10000" },
   basket: { usd: "0.04", atomic: "40000" },
   productPrice: { usd: "0.03", atomic: "30000" },
   receiptSpendingBreakdown: { usd: "0.05", atomic: "50000" },

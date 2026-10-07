@@ -1031,7 +1031,7 @@ export default function SmartShop() {
                                 <div className="space-y-2">
                                     {[
                                         ["Advanced Receipt Report", "POST /api/intelligence/advanced", "0.10 USDC", "Live"],
-                                        ["Meal Photo Analysis", "POST /api/analyze-meal", "0.05 USDC", "Live"],
+                                        ["Meal Photo Analysis", "POST /api/analyze-meal", "0.01 USDC", "Live"],
                                         ["Basket Intelligence", "GET /api/intelligence/basket/{receiptId}", "0.04 USDC", "Live"],
                                         ["Receipt Product Prices", "GET /api/intelligence/price/receipt/{receiptId}", "0.03 USDC / receipt", "Live"],
                                         ["Receipt Spending Breakdown", "GET /api/intelligence/spending/receipt/{receiptId}", "0.05 USDC / receipt", "Live"],
