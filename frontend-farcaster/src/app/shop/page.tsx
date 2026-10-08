@@ -7,7 +7,7 @@ import { sdk } from "@farcaster/miniapp-sdk";
 import { useFarcasterAccount } from "@/hooks/useFarcasterAccount";
 import { getApiUrl, getConfiguredApiUrl } from "@/lib/api";
 import { compressImage } from "@/lib/image";
-import { useAccount, useWalletClient } from "wagmi";
+import { useAccount, useConnect, useWalletClient } from "wagmi";
 import { appChain } from "@/lib/network";
 import { useSubmitReceipt } from "@/lib/useTransaction";
 import { track } from "@vercel/analytics";
@@ -217,6 +217,7 @@ function getIntelligenceTier(receiptCount: number) {
 
 export default function SmartShop() {
     const { address } = useFarcasterAccount();
+    const { connectAsync, connectors } = useConnect();
     const { data: walletClient } = useWalletClient({ chainId: appChain.id });
     const { submitReceipt } = useSubmitReceipt();
     const [userContext, setUserContext] = useState<UserContext>({});
@@ -396,12 +397,28 @@ export default function SmartShop() {
 
 
     const handleVerify = async () => {
-        const targetAddress = address || userContext.address;
-
-        if (!imagePreview || !targetAddress) {
-            setError("Please upload a receipt and ensure you're connected");
+        if (!imagePreview) {
+            setError("Please upload a receipt first.");
             return;
         }
+
+        if (!address) {
+            const connector = connectors.find((item) => item.id === "farcasterMiniApp") || connectors[0];
+            if (!connector) {
+                setError("No compatible wallet was found.");
+                return;
+            }
+            try {
+                setError(null);
+                await connectAsync({ connector });
+                setError("Wallet connected. Click Analyze & Verify again to continue.");
+            } catch (connectError) {
+                setError(connectError instanceof Error ? connectError.message : "Wallet connection failed.");
+            }
+            return;
+        }
+
+        const targetAddress = address;
 
         setIsLoading(true);
         setError(null);
@@ -765,7 +782,7 @@ Join me in reducing food waste!`,
                                 ) : (
                                     <>
                                         <Sparkles size={22} />
-                                        Analyze & Verify
+                                    {address ? "Analyze & Verify" : "Connect Wallet to Continue"}
                                     </>
                                 )}
                             </button>
@@ -821,7 +838,7 @@ Join me in reducing food waste!`,
                                                 <p className="text-[10px] font-black uppercase tracking-wider text-[#22D97A]">Receipt Hunt #01</p>
                                                 <h4 id="receipt-hunt-entry-title" className="mt-1 text-base font-black text-white font-heading">Which category did you spend more on than you expected?</h4>
                                                 <p className="mt-1 text-[10px] leading-5 text-[#A6B0B5]">Name the category and share what surprised you. The card only shows these analysis results and your text.</p>
-                                                <p className="mt-2 text-[9px] leading-5 text-[#A6B0B5]/70">Run the Receipt Spending Breakdown analysis to reveal your top category. One x402 call costs 0.05 USDC.</p>
+                                                <p className="mt-2 text-[9px] leading-5 text-[#A6B0B5]/70">Your receipt is ready. Run the Receipt Spending Breakdown analysis to reveal your top category. One x402 call costs 0.05 USDC.</p>
                                             </div>
                                             {!receiptHuntSpending ? (
                                                 <button type="button" onClick={handleReceiptHuntAnalysis} disabled={activeIntelligenceCall !== null} className="rounded-full bg-[#22D97A] px-4 py-3 text-xs font-black uppercase tracking-wider text-[#0B1114] disabled:opacity-50">

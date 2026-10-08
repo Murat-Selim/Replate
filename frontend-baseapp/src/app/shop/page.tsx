@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import Shell from "@/components/Shell";
 import { Minus, Plus, Sparkles, Camera, Check, Loader2, X, Leaf, Star, Trophy, Image, ChevronDown } from "lucide-react";
-import { useAccount, useWalletClient } from "wagmi";
+import { useAccount, useConnect, useWalletClient } from "wagmi";
 import { appChain } from "@/lib/network";
 import { getApiUrl, getConfiguredApiUrl } from "@/lib/api";
 import { compressImage } from "@/lib/image";
@@ -209,6 +209,7 @@ function getIntelligenceTier(receiptCount: number) {
 
 export default function SmartShop() {
     const { address } = useAccount();
+    const { connectAsync, connectors } = useConnect();
     const { data: walletClient } = useWalletClient({ chainId: appChain.id });
     const { submitReceipt } = useSubmitReceipt();
     const [householdSize, setHouseholdSize] = useState(2);
@@ -363,8 +364,24 @@ export default function SmartShop() {
     };
 
     const handleVerify = async () => {
-        if (!imagePreview || !address) {
-            setError("Please upload a receipt and ensure your wallet is connected");
+        if (!imagePreview) {
+            setError("Please upload a receipt first.");
+            return;
+        }
+
+        if (!address) {
+            const connector = connectors.find((item) => item.id === "baseAccount") || connectors[0];
+            if (!connector) {
+                setError("No compatible wallet was found.");
+                return;
+            }
+            try {
+                setError(null);
+                await connectAsync({ connector });
+                setError("Wallet connected. Click Analyze & Verify again to continue.");
+            } catch (connectError) {
+                setError(connectError instanceof Error ? connectError.message : "Wallet connection failed.");
+            }
             return;
         }
 
@@ -729,7 +746,7 @@ export default function SmartShop() {
                             ) : (
                                 <>
                                     <Sparkles size={22} />
-                                    Analyze & Verify
+                                    {address ? "Analyze & Verify" : "Connect Wallet to Continue"}
                                 </>
                             )}
                         </button>
@@ -789,7 +806,7 @@ export default function SmartShop() {
                                             <p className="text-xs font-black uppercase tracking-wider text-[#00E36E]">Receipt Hunt #01</p>
                                             <h4 id="receipt-hunt-entry-title" className="mt-1 text-lg font-black text-white">Which category did you spend more on than you expected?</h4>
                                             <p className="mt-1 text-xs leading-5 text-brand-text/60">Name the category and share what surprised you. The card only shows these analysis results and your text.</p>
-                                            <p className="mt-2 text-[10px] leading-5 text-brand-text/50">Run the Receipt Spending Breakdown analysis to reveal your top category. One x402 call costs 0.05 USDC.</p>
+                                            <p className="mt-2 text-[10px] leading-5 text-brand-text/50">Your receipt is ready. Run the Receipt Spending Breakdown analysis to reveal your top category. One x402 call costs 0.05 USDC.</p>
                                         </div>
                                             {!receiptHuntSpending ? (
                                                 <button type="button" onClick={handleReceiptHuntAnalysis} disabled={activeIntelligenceCall !== null} className="rounded-xl bg-[#00E36E] px-4 py-3 text-sm font-black text-[#050806] disabled:opacity-50">

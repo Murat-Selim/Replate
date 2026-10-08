@@ -26,7 +26,7 @@ export default function ReceiptHuntPage() {
                             <span className="rounded-full border border-white/10 px-3 py-1 text-[10px] font-bold text-white/70">Open challenge</span>
                         </div>
                         <h2 className="mt-4 text-2xl font-black leading-tight text-white font-heading">Which category did you spend more on than you expected?</h2>
-                        <p className="mt-3 text-xs leading-6 text-[#A6B0B5]">Upload and verify your receipt on Replate, then run the Receipt Spending Breakdown analysis (0.05 USDC) to find your top category. Add one surprising observation and share your privacy-safe card.</p>
+                        <p className="mt-3 text-xs leading-6 text-[#A6B0B5]">Submit your receipt on Replate, then run the Receipt Spending Breakdown analysis (0.05 USDC) to find your top category. Add one surprising observation and share your privacy-safe card.</p>
                         <Link href="/verify-receipt?challenge=receipt-hunt-01" className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#22D97A] px-5 py-4 text-xs font-black uppercase tracking-wider text-[#0B1114] transition hover:brightness-110">
                             <Camera size={17} />
                             Join this week’s Hunt
