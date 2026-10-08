@@ -789,11 +789,11 @@ export default function SmartShop() {
                                             <p className="text-xs font-black uppercase tracking-wider text-[#00E36E]">Receipt Hunt #01</p>
                                             <h4 id="receipt-hunt-entry-title" className="mt-1 text-lg font-black text-white">Which category did you spend more on than you expected?</h4>
                                             <p className="mt-1 text-xs leading-5 text-brand-text/60">Name the category and share what surprised you. The card only shows these analysis results and your text.</p>
-                                            <p className="mt-2 text-[10px] leading-5 text-brand-text/50">Receipt Spending Breakdown API · one x402 call · 0.05 USDC per receipt.</p>
+                                            <p className="mt-2 text-[10px] leading-5 text-brand-text/50">Run the Receipt Spending Breakdown analysis to reveal your top category. One x402 call costs 0.05 USDC.</p>
                                         </div>
                                             {!receiptHuntSpending ? (
                                                 <button type="button" onClick={handleReceiptHuntAnalysis} disabled={activeIntelligenceCall !== null} className="rounded-xl bg-[#00E36E] px-4 py-3 text-sm font-black text-[#050806] disabled:opacity-50">
-                                                    {activeIntelligenceCall === "receipt-hunt-spending" ? "Analyzing receipt..." : "Run Receipt Spending Breakdown · 0.05 USDC"}
+                                                    {activeIntelligenceCall === "receipt-hunt-spending" ? "Analyzing receipt..." : "Run analysis · 0.05 USDC"}
                                                 </button>
                                             ) : (
                                                 <>
