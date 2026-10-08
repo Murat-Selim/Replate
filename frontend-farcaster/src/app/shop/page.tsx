@@ -558,9 +558,19 @@ export default function SmartShop() {
     const handleReceiptHuntAnalysis = () => {
         if (!result) return Promise.resolve();
         const itemizedTotal = result.products?.reduce((sum, product) => sum + (product.paidPrice ?? 0), 0) ?? 0;
-        if (result.totalSpentSource === "receipt_total" && result.totalSpent && result.totalSpent > 0 && Math.abs(itemizedTotal / result.totalSpent - 1) > 0.1) {
+        const pricedCount = result.products?.filter((product) => typeof product.paidPrice === "number").length ?? 0;
+        const totalCount = result.products?.length || result.totalItems;
+        if (result.totalSpentSource !== "receipt_total" || !result.totalSpent || result.totalSpent <= 0) {
+            setHuntNotice("The printed receipt total could not be read. This receipt must be reprocessed before the paid analysis. No payment was made.");
+            return Promise.resolve();
+        }
+        const totalMismatch = Math.abs(itemizedTotal / result.totalSpent - 1) > 0.1;
+        const missingPrices = pricedCount < Math.ceil(totalCount * 0.8);
+        if (totalMismatch || missingPrices) {
             const mismatch = Math.round(Math.abs(itemizedTotal / result.totalSpent - 1) * 100);
-            setHuntNotice(`Recognized item prices differ from the printed total by ${mismatch}%. This receipt must be reprocessed before the paid analysis. No payment was made.`);
+            setHuntNotice(missingPrices
+                ? `Prices were recognized for only ${pricedCount} of ${totalCount} detected line items. This receipt must be reprocessed before the paid analysis. No payment was made.`
+                : `Recognized item prices differ from the printed total by ${mismatch}%. This receipt must be reprocessed before the paid analysis. No payment was made.`);
             return Promise.resolve();
         }
         setHuntNotice("");
@@ -871,10 +881,10 @@ Join me in reducing food waste!`,
                                                         <button type="button" onClick={handleDownloadReceiptHuntCard} disabled={!huntInsight.trim() || !receiptHuntSpending.categories.length} className="rounded-full bg-[#22D97A] px-3 py-3 text-[10px] font-black uppercase tracking-wider text-[#0B1114] disabled:opacity-40">Download Card</button>
                                                         <button type="button" onClick={handleShareReceiptHunt} disabled={!huntInsight.trim() || !receiptHuntSpending.categories.length} className="rounded-full border border-white/15 px-3 py-3 text-[10px] font-bold text-white disabled:opacity-40">Share to Farcaster</button>
                                                     </div>
-                                                    {huntNotice && <p role="status" className="text-[10px] leading-5 text-[#22D97A]">{huntNotice}</p>}
                                                     <p className="text-[9px] leading-5 text-[#A6B0B5]/70">Attach the downloaded card to your public post with #ReceiptHunt and tag @replateapp. That post is your entry; the Replate team reviews entries manually each week. The receipt image is never shared.</p>
                                                 </>
                                             )}
+                                            {huntNotice && <p role="status" className="text-[10px] leading-5 text-[#22D97A]">{huntNotice}</p>}
                                         </section>
                                     )}
                                     <p className="text-[10px] text-[#A6B0B5] leading-relaxed">Based on an average target of around 300g of fruit and vegetables per person per day. We check if your basket provides enough for your household.</p>

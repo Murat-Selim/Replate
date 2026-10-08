@@ -136,14 +136,12 @@ const SKIP_PATTERNS = [
   /\b(ORTAK\s+POS|POS|ONAY\s+KODU|REF\s+NO|TERMINAL\s+ID|BATCH\s+NO)\b/i,
   /^(TOTAL|SUBTOTAL|TAX|DATE|STORE|CASHIER|CHANGE|RECEIPT)/i,
   /^SPECIAL(?:\s|$)/i,
-  /^(TOPLAM|KDV|FIS|FİŞ|SAAT|TARIH|ARA TOPLAM|ALISVERIS|ALIŞVERİŞ|NAKIT|BANKA)/i,
+  /^(TOPLAM|KDV|FIS|FİŞ|SAAT|TARIH|ARA TOPLAM|NAKIT|BANKA)/i,
   /^(BELGE|ETTN|FISC|KASA|DARA|ADET|ISKONTO|İSKONTO|INDIRIM|İNDİRİM)/i,
   /^\d{2}[./-]\d{2}[./-]\d{2,4}/, // dates
   /^[\d\/\-:,x\s]+$/, // pure numbers / weight lines
   /^\s*(?:S\$|[$€£¥])\s*\d+[.,]\d{2}\s*$/i, // OCR may put currency-only prices on their own line
   /^[*\-=]+$/, // separator lines
-  /^ALI[SŞ]VERI[SŞ]\s*PO[SŞ]ET/i, // bags
-  /\bPO[SŞ]ET\b$/i,
   /^TEL:|^FAX:/i,
   /THANK|TE[SŞ]EKK[UÜ]R/i,
   /\b(MERSIS|VKN|VERG[İI]|DAIRE|DAİRE|SICIL|SİCİL|ADRES|FATURA)\b/i,
@@ -163,6 +161,8 @@ const SKIP_PATTERNS = [
 
 // ─── Non-food products found on grocery receipts ──────────────────────
 const NON_FOOD_PATTERNS = [
+  /\b(ALI[SŞ]VER[Iİ][SŞ]\s*PO[SŞ]ET[Iİ]?|TEM[Iİ]ZL[Iİ]K|S[UÜ]NGER|OVMA\s+TEL[Iİ])\b/i,
+  /\bBUL\.\s*SUN\.?/i,
   /\b(MARLBORO|SIGARA|CIGARET)\b/i,
   /\b(TOILET\s+PAPER|PAPER\s+TOWEL|SHOPPING\s+BAG|PLASTIC\s+BAG|CARRY\s+BAG)\b/i,
   /\b(PED|H[Iİ]JYEN|PE[CÇ]ETE|HAVLU|KA[GĞ]IT|MEND[Iİ]L|DETERJAN|SABUN|[SŞ]AMPUAN|DURULAY|YUMU[SŞ]ATICI|[CÇ]AMA[SŞ]IR|BULA[SŞ]IK)\b/i,
@@ -262,11 +262,20 @@ function correctOcrWeight(lines: string[], index: number, grams: number): number
 
 function extractProductLines(lines: string[]): ExtractedProduct[] {
   const products: ExtractedProduct[] = [];
+  const standaloneReceiptPrice = /^(?:S\$|[$€£¥])?\s*\*?\s*\d+[.,]\d{2}$/;
+  const taxMarker = /^(?:%|X|\*)\d{1,2}$/i;
+  const claimedPriceLines = new Set<number>();
   let pendingWeightGrams = 0;
+  let pendingQuantity = 1;
 
   for (let i = 0; i < lines.length; i++) {
     const trimmed = lines[i].trim();
 
+    if (claimedPriceLines.has(i) || taxMarker.test(trimmed)) continue;
+    if (/^\d+$/.test(trimmed) && /^x\s*\d+[.,]\d{2}\s*TL\s*\/\s*AD(?:ET)?$/i.test(lines[i + 1]?.trim() ?? "")) {
+      pendingQuantity = Math.max(1, Number(trimmed));
+    }
+    if (standaloneReceiptPrice.test(trimmed) && taxMarker.test(lines[i - 1]?.trim() ?? "")) continue;
     if (SKIP_PATTERNS.some((p) => p.test(trimmed))) continue;
     if (trimmed.length < 4) continue;
 
@@ -286,6 +295,8 @@ function extractProductLines(lines: string[]): ExtractedProduct[] {
         ? parseWeightGrams(weightedUnitLine[1] + " KG")
         : parseWeightGrams(trimmed);
       if (unitPriceWeight) pendingWeightGrams = unitPriceWeight;
+      const unitQuantity = trimmed.match(/^(\d+)\s*(?:AD(?:ET)?)?\s*x\s*\d+[.,]\d{2}\s*TL\s*\/\s*AD(?:ET)?$/i);
+      if (unitQuantity) pendingQuantity = Math.max(1, Number(unitQuantity[1]));
       continue;
     }
 
@@ -314,17 +325,21 @@ function extractProductLines(lines: string[]): ExtractedProduct[] {
     // separate lines: "KAŞAR 1 KG TARABYA" / "%08" / "*34,95".
     const nextLine = lines[i + 1]?.trim() ?? "";
     const lineAfterNext = lines[i + 2]?.trim() ?? "";
-    const standaloneReceiptPrice = /^(?:S\$|[$€£¥])?\s*\*?\d+[.,]\d{2}$/;
     const hasSplitReceiptPrice =
       standaloneReceiptPrice.test(nextLine) ||
-      (/^%\d{1,2}$/.test(nextLine) && standaloneReceiptPrice.test(lineAfterNext));
-    const splitPriceLine = standaloneReceiptPrice.test(nextLine) ? nextLine : lineAfterNext;
-    const paidPrice = parsePaidPrice(trimmed) ?? (hasSplitReceiptPrice ? parsePaidPrice(splitPriceLine) : undefined);
+      (taxMarker.test(nextLine) && standaloneReceiptPrice.test(lineAfterNext));
+    const previousLine = lines[i - 1]?.trim() ?? "";
+    const hasPriceBeforeProduct = standaloneReceiptPrice.test(previousLine) && !claimedPriceLines.has(i - 1)
+      && (taxMarker.test(lines[i - 2]?.trim() ?? "") || /^(?:\*|S\$|[$€£¥])/.test(previousLine));
+    const inlinePaidPrice = hasPrice ? parsePaidPrice(trimmed) : undefined;
+    const priceLineIndex = inlinePaidPrice !== undefined ? undefined : hasPriceBeforeProduct ? i - 1
+      : hasSplitReceiptPrice ? (standaloneReceiptPrice.test(nextLine) ? i + 1 : i + 2) : undefined;
+    const paidPrice = inlinePaidPrice
+      ?? (priceLineIndex !== undefined ? parsePaidPrice(lines[priceLineIndex]) : undefined);
 
     let actualWeightGrams = pendingWeightGrams;
-    let quantity = 1;
+    let quantity = pendingQuantity;
 
-    const previousLine = lines[i - 1]?.trim() ?? "";
     const previousUnitPriceLine = /^(?:\d+(?:\s*[.,]\s*\d{1,3})?\s*(?:KG|G|GR|GRAMS?)?|\d+\s*AD(?:ET)?)\s*x\s*\d+[.,]\d{2}\s*TL\s*\/\s*(?:KG|AD(?:ET)?)$/i.test(previousLine);
     if (previousUnitPriceLine) {
       const previousWeight = previousLine.match(
@@ -359,7 +374,8 @@ function extractProductLines(lines: string[]): ExtractedProduct[] {
       hasProductCode ||
       hasUnitPrice ||
       hasQuantityPrefix ||
-      hasSplitReceiptPrice;
+      hasSplitReceiptPrice ||
+      hasPriceBeforeProduct;
 
     let matchesKnownFood = false;
     if (!hasProductSignal) {
@@ -389,10 +405,12 @@ function extractProductLines(lines: string[]): ExtractedProduct[] {
     if (cleaned.match(/^[\d\s\/\-:,.]+$/)) continue;
     if (/^(?:TL\/\w+|L\/\d+)$/i.test(cleaned)) continue;
     if (/^[A-Z]{1,3}\d{1,3}$/i.test(cleaned)) continue;
-    const excluded = NON_FOOD_PATTERNS.some((p) => p.test(cleaned));
+    const excluded = matchesKnownNonFood || NON_FOOD_PATTERNS.some((p) => p.test(cleaned));
 
     products.push({ name: cleaned, actualWeightGrams, quantity, paidPrice, excluded });
+    if (priceLineIndex !== undefined) claimedPriceLines.add(priceLineIndex);
     pendingWeightGrams = 0;
+    pendingQuantity = 1;
 
   }
 

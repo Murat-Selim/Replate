@@ -2,7 +2,7 @@ import { createHash } from "crypto";
 import { ethers } from "ethers";
 import { RequestHandler } from "express";
 import { paymentMiddleware, x402ResourceServer } from "@x402/express";
-import { HTTPFacilitatorClient } from "@x402/core/server";
+import { HTTPFacilitatorClient, type RouteConfig } from "@x402/core/server";
 import { ExactEvmScheme } from "@x402/evm/exact/server";
 import { bazaarResourceServerExtension, declareBuilderCodeExtension, declareDiscoveryExtension } from "@x402/extensions";
 import { createCdpFacilitatorClient, getCdpExtensionRegistrations } from "@coinbase/cdp-sdk/x402";
@@ -124,17 +124,25 @@ async function validateResource(client: any, resource: PaidResourceRequest, paye
       if (!Number(pricedItems.rows[0]?.count || 0)) throw new Error("This receipt has no priced line items");
     }
     if (resource.resourceType === "receipt_spending_breakdown") {
-      const pricedItems = await client.query("SELECT COUNT(*) AS count FROM receipt_items WHERE receipt_id = $1 AND paid_price IS NOT NULL", [receipt.id]);
-      if (!Number(pricedItems.rows[0]?.count || 0)) throw new Error("This receipt has no priced line items");
-      if (receipt.totalSpentSource === "receipt_total" && receipt.totalSpent && receipt.totalSpent > 0) {
-        const itemized = await client.query(
-          "SELECT COALESCE(SUM(paid_price), 0) AS total FROM receipt_items WHERE receipt_id = $1 AND paid_price IS NOT NULL",
-          [receipt.id],
-        );
-        const coverage = Number(itemized.rows[0]?.total || 0) / receipt.totalSpent;
-        if (Math.abs(coverage - 1) > 0.1) {
-          throw new Error("Recognized item prices do not match the printed receipt total closely enough. This receipt must be reprocessed before analysis.");
-        }
+      const pricedItems = await client.query(
+        "SELECT COUNT(*) AS total_count, COUNT(*) FILTER (WHERE paid_price IS NOT NULL) AS priced_count FROM receipt_items WHERE receipt_id = $1",
+        [receipt.id],
+      );
+      const pricedCount = Number(pricedItems.rows[0]?.priced_count || 0);
+      if (!pricedCount) throw new Error("This receipt has no priced line items");
+      if (pricedCount < Math.ceil(Number(pricedItems.rows[0]?.total_count || 0) * 0.8)) {
+        throw new Error("Too many receipt items are missing prices. Reprocess this receipt before running the spending analysis.");
+      }
+      if (receipt.totalSpentSource !== "receipt_total" || !receipt.totalSpent || receipt.totalSpent <= 0) {
+        throw new Error("The printed receipt total could not be read. Reprocess this receipt before running the spending analysis.");
+      }
+      const itemized = await client.query(
+        "SELECT COALESCE(SUM(paid_price), 0) AS total FROM receipt_items WHERE receipt_id = $1 AND paid_price IS NOT NULL",
+        [receipt.id],
+      );
+      const coverage = Number(itemized.rows[0]?.total || 0) / receipt.totalSpent;
+      if (Math.abs(coverage - 1) > 0.1) {
+        throw new Error("Recognized item prices do not match the printed receipt total closely enough. This receipt must be reprocessed before analysis.");
       }
     }
     if (resource.resourceType === "advanced_receipt") {
@@ -297,7 +305,7 @@ async function markPaymentFailed(context: SettleFailureContext): Promise<void> {
   } catch (error) { console.error("x402 payment failure could not be persisted:", error); }
 }
 
-function routeConfig(price: { atomic: string; usd: string }, description: string) {
+function routeConfig(price: { atomic: string; usd: string }, description: string): RouteConfig {
   return {
     accepts: {
       scheme: "exact", network: runtimeConfig.x402Network, payTo: runtimeConfig.x402PayTo,
@@ -306,6 +314,10 @@ function routeConfig(price: { atomic: string; usd: string }, description: string
     },
     description: `${description} (${price.usd} USDC)`,
     mimeType: "application/json",
+    settlementFailedResponseBody: (_context, failure) => ({
+      contentType: "application/json",
+      body: { success: false, error: failure.errorMessage || failure.errorReason || "Payment failed", errorCode: failure.errorReason || "PAYMENT_FAILED" },
+    }),
     extensions: { "builder-code": declareBuilderCodeExtension(runtimeConfig.builderCode, ["cdp_sdk_server"]) },
   };
 }
@@ -327,7 +339,13 @@ export function createX402Middleware(): RequestHandler | null {
   resourceServer.registerExtension(bazaarResourceServerExtension);
   for (const extension of getCdpExtensionRegistrations()) resourceServer.registerExtension(extension);
   resourceServer.register(runtimeConfig.x402Network, new ExactEvmScheme())
-    .onBeforeSettle(saveSubmittedPayment)
+    .onBeforeSettle(async (context) => {
+      try {
+        await saveSubmittedPayment(context);
+      } catch (error) {
+        return { abort: true, reason: "resource_not_ready", message: error instanceof Error ? error.message : "Payment resource is unavailable" };
+      }
+    })
     .onAfterSettle(settlePaymentAndBuildReport)
     .onSettleFailure(markPaymentFailed);
 

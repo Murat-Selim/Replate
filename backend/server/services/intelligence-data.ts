@@ -1,6 +1,7 @@
 import { createHash } from "crypto";
 import type { PoolClient } from "pg";
 import { buildIntelligenceReport, type IntelligenceFeatureSet } from "./intelligence-rules.js";
+import { getSpendingCategory } from "./spending-categories.js";
 
 type Db = Pick<PoolClient, "query">;
 
@@ -342,7 +343,8 @@ export async function buildReceiptSpendingBreakdown(db: Db, receiptId: string, w
   const pricedItems = items.filter((item) => item.paidPrice !== null);
   const categoryTotals = new Map<string, { amount: number; itemCount: number }>();
   for (const item of pricedItems) {
-    const category = (item.spendingCategory || "").trim() || "other";
+    const storedCategory = (item.spendingCategory || "").trim();
+    const category = storedCategory && storedCategory !== "other" ? storedCategory : getSpendingCategory(item.itemName, item.category === "excluded");
     const total = categoryTotals.get(category) || { amount: 0, itemCount: 0 };
     total.amount += item.paidPrice!;
     total.itemCount++;

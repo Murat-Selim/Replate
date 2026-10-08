@@ -31,8 +31,23 @@ export function extractReceiptMetadata(lines: string[], products: Classification
       && !/\b(?:vkn|mersis|adres|address|tarih|date|fis no|fiş no|receipt|kasiyer|cashier|terminal|tel:|www\.)\b/i.test(line))?.trim()
     || null;
 
-  const totalLine = lines.find((line) => /^\s*(?:GRAND\s+TOTAL|TOTAL(?:\s+DUE)?|GENEL\s+TOPLAM|TOPLAM)(?!\s+(?:KDV|TAX|INDIRIM|DISCOUNT))\b/i.test(line));
-  const printedTotal = totalLine ? parseReceiptAmount(totalLine) : undefined;
+  const totalPatterns = [
+    /^(?:ODENECEK\s+TUTAR|PAYABLE\s+AMOUNT)\b/,
+    /^(?:GRAND\s+TOTAL|TOTAL(?:\s+DUE)?|GENEL\s+TOPLAM|TOPLAM)(?!\s+(?:KDV|TAX|INDIRIM|DISCOUNT))\b/,
+    /^ARA\s+TOPLA[MN]\b/,
+  ];
+  let printedTotal: number | undefined;
+  for (const pattern of totalPatterns) {
+    for (let index = 0; index < lines.length; index++) {
+      const normalized = lines[index].normalize("NFKD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase();
+      if (!pattern.test(normalized)) continue;
+      const nextLine = lines[index + 1]?.trim() ?? "";
+      printedTotal = parseReceiptAmount(lines[index])
+        ?? (/^(?:S\$|[$€£¥])?\s*\*?\s*[\d.,\s]+$/.test(nextLine) ? parseReceiptAmount(nextLine) : undefined);
+      if (printedTotal !== undefined) break;
+    }
+    if (printedTotal !== undefined) break;
+  }
   const itemizedTotal = products.reduce((sum, product) => sum + (product.paidPrice ?? 0), 0);
   const hasItemPrices = products.some((product) => product.paidPrice !== undefined);
 

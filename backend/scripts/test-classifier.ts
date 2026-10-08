@@ -11,6 +11,8 @@ import {
   normalizeTurkish,
 } from "../server/services/classifier.js";
 import { PRODUCT_CATALOG } from "../server/services/product-catalog.js";
+import { extractReceiptMetadata } from "../server/services/receipt-metadata.js";
+import { getSpendingCategory } from "../server/services/spending-categories.js";
 import {
   assertUsableOCR,
   isOCRResultUsable,
@@ -186,6 +188,72 @@ async function testPaidPriceExtraction() {
 
   const currency = await classifyFoods(["Bananas", "S$2.40"]);
   assert(currency.products[0]?.paidPrice === 2.4, `currency receipt price is captured (got ${currency.products[0]?.paidPrice})`);
+
+  const volume = await classifyFoods(["PEPSI 1.25 L", "%08", "*4,70"]);
+  assert(volume.products[0]?.paidPrice === 4.7, "package volume is not used as the paid price");
+
+  const before = await classifyFoods(["%01", "*42,25", "PATLICAN", "%01", "*26,47", "SALATALIK"]);
+  assert(before.products[0]?.paidPrice === 42.25 && before.products[1]?.paidPrice === 26.47,
+    "prices before product names stay attached to the right items");
+
+  const reused = await classifyFoods(["ELMA", "%01", "*10,00", "PATATES"]);
+  assert(reused.products[0]?.paidPrice === 10 && reused.products[1]?.paidPrice === undefined,
+    "a split price cannot be assigned to two products");
+
+  const inlineThenBefore = await classifyFoods(["ELMA *10,00", "*20,00", "PATATES"]);
+  assert(inlineThenBefore.products[0]?.paidPrice === 10 && inlineThenBefore.products[1]?.paidPrice === 20,
+    "an inline price does not consume the next product's price");
+}
+
+async function testReceiptSpending() {
+  console.log("\n=== A101 receipt spending regression ===");
+  // Transcribed from the user's photo; these are offline inputs, not a fresh Vision response.
+  const items: Array<[string, number, string]> = [
+    ["BEBE BİSKÜVİSİ 172 G BEBEBİS", 29.5, "%01"],
+    ["TEMİZLİK BEZİ 5Lİ CLEANUNI", 40, "%10"],
+    ["EKMEK", 45, "%01"],
+    ["PATATES", 37.92, "%01"],
+    ["ŞEKER TOZ 1000 G NAR", 52.5, "%01"],
+    ["MEYVELİ İÇECEK EKŞİ ELMA 1 L", 55, "%10"],
+    ["BAR KAKAO KAPL. YER FISTIKLI 4", 8.5, "%01"],
+    ["DOND. MAX GÖKKUŞAĞI ÇATPAT 62", 15, "%01"],
+    ["DOND. MAX GÖKKUŞAĞI ÇATPAT 62", 15, "%01"],
+    ["KEK ÇİLEK DOLGULU 45 G KEKSPIR", 9.5, "%01"],
+    ["BAR KAKAO KAPL. YER FISTIKLI 4", 8.5, "%01"],
+    ["MADEN SUYU SADE 200 ML BEYPAZARI", 12, "%01"],
+  ];
+  for (const layout of ["inline", "after", "before"] as const) {
+    const lines = items.flatMap(([name, amount, tax]) => {
+      const price = `*${amount.toFixed(2).replace(".", ",")}`;
+      return layout === "inline" ? [`${name} ${tax} ${price}`] : layout === "after" ? [name, tax, price] : [tax, price, name];
+    });
+    const result = await classifyFoods(lines);
+    const sum = result.products.reduce((total, product) => total + (product.paidPrice ?? 0), 0);
+    const categories: Record<string, number> = {};
+    for (const product of result.products) {
+      const category = getSpendingCategory(product.name, product.category === "excluded");
+      categories[category] = Number(((categories[category] || 0) + (product.paidPrice ?? 0)).toFixed(2));
+    }
+    assert(result.products.length === 12 && Math.abs(sum - 328.42) < 0.001,
+      `${layout} layout captures all 12 prices totaling 328.42 TRY (got ${result.products.length}/${sum})`);
+    assert(result.excludedItems === 1, `${layout} cleaning wipes are excluded from nutrition scoring`);
+    assert(JSON.stringify(categories) === JSON.stringify({ snacks: 56, household: 40, bakery: 45, produce: 37.92, pantry: 52.5, drinks: 67, frozen: 30 }),
+      `${layout} layout has the expected 7 spending categories (got ${JSON.stringify(categories)})`);
+  }
+  const quantity = await classifyFoods(["3", "x15,00 TL/ad", "EKMEK", "%01", "*45,00"]);
+  assert(quantity.products[0]?.quantity === 3 && quantity.products[0]?.paidPrice === 45,
+    "split bread quantity and paid price are both captured");
+  const metadata = extractReceiptMetadata(["A101", "TL", "ARA TOPLAN *328,42", "MAL/HİZMET TOPLAM TUTARI *317,47", "TOPKDV *10,95", "ÖDENECEK TUTAR", "*328,42"], []);
+  assert(metadata.totalSpent === 328.42 && metadata.totalSpentSource === "receipt_total", "split payable total is read as 328.42");
+  const subtotal = extractReceiptMetadata(["ARA TOPLAM", "*958,79", "TOPKDV *28,99"], []);
+  assert(subtotal.totalSpent === 958.79 && subtotal.totalSpentSource === "receipt_total", "split A101 subtotal is read as 958.79");
+  const fallback = extractReceiptMetadata(["ÖDENECEK TUTAR", "unreadable", "TOPLAM *328,42"], []);
+  assert(fallback.totalSpent === 328.42, "unreadable preferred label does not hide a valid total");
+  const taxOnly = extractReceiptMetadata(["TOPLAM KDV *10,95"], []);
+  assert(taxOnly.totalSpent === null, "VAT total cannot be used as the receipt total");
+  for (const [name, expected] of [["ERİK MÜRDÜM", "produce"], ["PORTAKAL", "produce"], ["DOMATES RENDESİ", "pantry"], ["REÇEL ÇEŞİTLERİ", "pantry"], ["BUL. SUN. RENKLİ KONFOR", "household"], ["KANEPE BURGER NİMET", "bakery"]]) {
+    assert(getSpendingCategory(name) === expected, `${name} maps to ${expected}`);
+  }
 }
 
 function testOCRGates() {
@@ -238,9 +306,10 @@ async function testReceiptGolden() {
   assert(result.unhealthyItems >= 4, `unhealthy count >= 4 (got ${result.unhealthyItems})`);
   assert(result.fruitVegGrams >= 2000, `fruit/veg grams >= 2000 (got ${result.fruitVegGrams})`);
 
-  // Bags / totals must not appear
+  // Bags are spending items but must not affect the nutrition score.
   const bag = findProduct(result.products, "poset");
-  assert(!bag, "shopping bag not classified as product");
+  const excludedBag = result.products.find((product) => normalizeTurkish(product.name).includes("alisveris"));
+  assert((bag || excludedBag)?.category === "excluded", "shopping bag is captured and excluded from scoring");
 
   // Cleaned egg name should not retain grade noise
   const yumurta = findProduct(result.products, "yumurta");
@@ -484,6 +553,7 @@ async function main() {
   testCatalog();
   testCleanProductLine();
   await testPaidPriceExtraction();
+  await testReceiptSpending();
   testOCRGates();
   await testReceiptGolden();
 

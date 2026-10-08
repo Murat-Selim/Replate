@@ -85,7 +85,7 @@ async function requestPaidJson<T>(walletClient: WalletClient, path: string, init
         headers: { ...(init.headers || {}), ...httpClient.encodePaymentSignatureHeader(paymentPayload) },
     });
     const paidBody = await paid.json().catch(() => ({}));
-    if (!paid.ok || !paidBody.success) throw new Error(paidBody.error || "Replate Intelligence payment failed");
+    if (!paid.ok || !paidBody.success) throw new Error(paidBody.error || paidBody.errorMessage || "Replate Intelligence payment failed");
     return paidBody as T;
 }
 

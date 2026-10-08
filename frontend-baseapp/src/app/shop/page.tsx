@@ -527,9 +527,19 @@ export default function SmartShop() {
     const handleReceiptHuntAnalysis = () => {
         if (!result) return Promise.resolve();
         const itemizedTotal = result.products?.reduce((sum, product) => sum + (product.paidPrice ?? 0), 0) ?? 0;
-        if (result.totalSpentSource === "receipt_total" && result.totalSpent && result.totalSpent > 0 && Math.abs(itemizedTotal / result.totalSpent - 1) > 0.1) {
+        const pricedCount = result.products?.filter((product) => typeof product.paidPrice === "number").length ?? 0;
+        const totalCount = result.products?.length || result.totalItems;
+        if (result.totalSpentSource !== "receipt_total" || !result.totalSpent || result.totalSpent <= 0) {
+            setHuntNotice("The printed receipt total could not be read. This receipt must be reprocessed before the paid analysis. No payment was made.");
+            return Promise.resolve();
+        }
+        const totalMismatch = Math.abs(itemizedTotal / result.totalSpent - 1) > 0.1;
+        const missingPrices = pricedCount < Math.ceil(totalCount * 0.8);
+        if (totalMismatch || missingPrices) {
             const mismatch = Math.round(Math.abs(itemizedTotal / result.totalSpent - 1) * 100);
-            setHuntNotice(`Recognized item prices differ from the printed total by ${mismatch}%. This receipt must be reprocessed before the paid analysis. No payment was made.`);
+            setHuntNotice(missingPrices
+                ? `Prices were recognized for only ${pricedCount} of ${totalCount} detected line items. This receipt must be reprocessed before the paid analysis. No payment was made.`
+                : `Recognized item prices differ from the printed total by ${mismatch}%. This receipt must be reprocessed before the paid analysis. No payment was made.`);
             return Promise.resolve();
         }
         setHuntNotice("");
@@ -840,10 +850,10 @@ export default function SmartShop() {
                                                         <button type="button" onClick={() => handleShareReceiptHunt("x")} disabled={!huntInsight.trim() || !receiptHuntSpending.categories.length} className="rounded-xl border border-white/15 px-3 py-3 text-xs font-bold text-white disabled:opacity-40">Share to X</button>
                                                         <button type="button" onClick={() => handleShareReceiptHunt("farcaster")} disabled={!huntInsight.trim() || !receiptHuntSpending.categories.length} className="rounded-xl border border-white/15 px-3 py-3 text-xs font-bold text-white disabled:opacity-40">Share to Farcaster</button>
                                                     </div>
-                                                    {huntNotice && <p role="status" className="text-xs leading-5 text-[#00E36E]">{huntNotice}</p>}
                                                     <p className="text-[10px] leading-5 text-brand-text/45">Attach the downloaded card to your public post with #ReceiptHunt and tag @replateapp. That post is your entry; the Replate team reviews entries manually each week. The receipt image is never shared.</p>
                                                 </>
                                             )}
+                                        {huntNotice && <p role="status" className="text-xs leading-5 text-[#00E36E]">{huntNotice}</p>}
                                     </section>
                                 )}
                                 <div className="bg-[#00E36E]/5 border border-[#00E36E]/15 rounded-2xl p-4 space-y-3">
