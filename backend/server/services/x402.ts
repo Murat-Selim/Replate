@@ -126,6 +126,16 @@ async function validateResource(client: any, resource: PaidResourceRequest, paye
     if (resource.resourceType === "receipt_spending_breakdown") {
       const pricedItems = await client.query("SELECT COUNT(*) AS count FROM receipt_items WHERE receipt_id = $1 AND paid_price IS NOT NULL", [receipt.id]);
       if (!Number(pricedItems.rows[0]?.count || 0)) throw new Error("This receipt has no priced line items");
+      if (receipt.totalSpentSource === "receipt_total" && receipt.totalSpent && receipt.totalSpent > 0) {
+        const itemized = await client.query(
+          "SELECT COALESCE(SUM(paid_price), 0) AS total FROM receipt_items WHERE receipt_id = $1 AND paid_price IS NOT NULL",
+          [receipt.id],
+        );
+        const coverage = Number(itemized.rows[0]?.total || 0) / receipt.totalSpent;
+        if (Math.abs(coverage - 1) > 0.1) {
+          throw new Error("Recognized item prices do not match the printed receipt total closely enough. This receipt must be reprocessed before analysis.");
+        }
+      }
     }
     if (resource.resourceType === "advanced_receipt") {
       const features = await client.query("SELECT COUNT(*) AS count FROM derived_features WHERE receipt_id = $1 AND calculation_version = 'features-v1'", [receipt.id]);

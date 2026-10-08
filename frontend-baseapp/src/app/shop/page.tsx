@@ -526,6 +526,13 @@ export default function SmartShop() {
 
     const handleReceiptHuntAnalysis = () => {
         if (!result) return Promise.resolve();
+        const itemizedTotal = result.products?.reduce((sum, product) => sum + (product.paidPrice ?? 0), 0) ?? 0;
+        if (result.totalSpentSource === "receipt_total" && result.totalSpent && result.totalSpent > 0 && Math.abs(itemizedTotal / result.totalSpent - 1) > 0.1) {
+            const mismatch = Math.round(Math.abs(itemizedTotal / result.totalSpent - 1) * 100);
+            setHuntNotice(`Recognized item prices differ from the printed total by ${mismatch}%. This receipt must be reprocessed before the paid analysis. No payment was made.`);
+            return Promise.resolve();
+        }
+        setHuntNotice("");
         return runIntelligenceCall("receipt-hunt-spending", async () => setReceiptHuntSpending(await fetchReceiptSpendingBreakdown(walletClient!, result.receiptId)));
     };
 
@@ -806,7 +813,7 @@ export default function SmartShop() {
                                             <p className="text-xs font-black uppercase tracking-wider text-[#00E36E]">Receipt Hunt #01</p>
                                             <h4 id="receipt-hunt-entry-title" className="mt-1 text-lg font-black text-white">Which category did you spend more on than you expected?</h4>
                                             <p className="mt-1 text-xs leading-5 text-brand-text/60">Name the category and share what surprised you. The card only shows these analysis results and your text.</p>
-                                            <p className="mt-2 text-[10px] leading-5 text-brand-text/50">Your receipt is ready. Run the Receipt Spending Breakdown analysis to reveal your top category. One x402 call costs 0.05 USDC.</p>
+                                            <p className="mt-2 text-[10px] leading-5 text-brand-text/50">We compare recognized item prices with the printed total before the 0.05 USDC analysis. Incomplete receipts must be reprocessed first.</p>
                                         </div>
                                             {!receiptHuntSpending ? (
                                                 <button type="button" onClick={handleReceiptHuntAnalysis} disabled={activeIntelligenceCall !== null} className="rounded-xl bg-[#00E36E] px-4 py-3 text-sm font-black text-[#050806] disabled:opacity-50">
