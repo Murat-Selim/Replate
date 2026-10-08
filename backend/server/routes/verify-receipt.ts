@@ -95,7 +95,8 @@ router.post("/", async (req: Request, res: Response) => {
     }
 
     // Step 2: Classify food items
-    const classification = await classifyFoods(ocrResult.lines);
+    const analysisLines = ocrResult.analysisLines ?? ocrResult.lines;
+    const classification = await classifyFoods(analysisLines);
     console.log(`ğŸ¥— Classification: ${classification.healthyItems} healthy, ${classification.unhealthyItems} unhealthy`);
 
     if (classification.totalItems === 0) {
@@ -124,7 +125,7 @@ router.post("/", async (req: Request, res: Response) => {
         ...product,
         spendingCategory: getSpendingCategory(product.name, product.category === "excluded"),
       }));
-      const receiptMetadata = extractReceiptMetadata(ocrResult.lines, classification.products);
+      const receiptMetadata = extractReceiptMetadata(analysisLines, classification.products);
       const invalidProduct = products.length > 200 || products.some((product) => {
         const unitPrice = product.paidPrice === undefined ? null : product.actualWeightGrams > 0
           ? product.paidPrice * 1000 / product.actualWeightGrams

@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import { ImageAnnotatorClient } from "@google-cloud/vision";
+import { ImageAnnotatorClient, type protos } from "@google-cloud/vision";
 
 // Initialize Vision client lazily
 let visionClient: ImageAnnotatorClient | null = null;
@@ -76,7 +76,54 @@ export function getVisionClient(): ImageAnnotatorClient {
 export interface OCRResult {
   fullText: string;
   lines: string[];
+  /** Physical rows for analysis; original lines remain the receipt identity input. */
+  analysisLines?: string[];
   confidence: number;
+}
+
+/** Join receipt columns by their physical row instead of Vision's paragraph order. */
+export function reconstructReceiptLines(annotation: protos.google.cloud.vision.v1.ITextAnnotation | null | undefined, fallback: string[]): string[] {
+  if (!annotation?.pages?.length) return fallback;
+  const output: string[] = [];
+  for (const page of annotation.pages) {
+    const words = (page.blocks ?? []).flatMap((block) => (block.paragraphs ?? []).flatMap((paragraph) => paragraph.words ?? []));
+    if (!words.length) return fallback;
+    const positioned = [];
+    for (const word of words) {
+      const text = (word.symbols ?? []).map((symbol) => symbol.text ?? "").join("").trim();
+      if (!text) continue;
+      const vertices = word.boundingBox?.vertices?.length ? word.boundingBox.vertices
+        : word.boundingBox?.normalizedVertices?.map((vertex) => ({ x: (vertex.x ?? 0) * (page.width ?? 1), y: (vertex.y ?? 0) * (page.height ?? 1) }));
+      if (vertices?.length !== 4) return fallback;
+      const points = vertices.map((vertex) => ({ x: vertex.x ?? 0, y: vertex.y ?? 0 }));
+      const dx = points[1].x - points[0].x;
+      const dy = points[1].y - points[0].y;
+      const height = Math.hypot(points[3].x - points[0].x, points[3].y - points[0].y);
+      if (!height || !Math.hypot(dx, dy)) return fallback;
+      positioned.push({ text, x: points.reduce((sum, point) => sum + point.x, 0) / 4, y: points.reduce((sum, point) => sum + point.y, 0) / 4, height, angle: Math.atan2(dy, dx) });
+    }
+    if (!positioned.length) return fallback;
+    const angles = positioned.map((word) => word.angle).sort((a, b) => a - b);
+    const angle = angles[Math.floor(angles.length / 2)];
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    const aligned = positioned.map((word) => ({ ...word, x: word.x * cos + word.y * sin, y: word.y * cos - word.x * sin })).sort((a, b) => a.y - b.y || a.x - b.x);
+    const rows: Array<{ y: number; height: number; words: typeof aligned }> = [];
+    for (const word of aligned) {
+      const row = rows.at(-1);
+      if (row && Math.abs(word.y - row.y) <= Math.min(word.height, row.height) * 0.55) {
+        const count = row.words.length;
+        row.y = (row.y * count + word.y) / (count + 1);
+        row.height = (row.height * count + word.height) / (count + 1);
+        row.words.push(word);
+      } else {
+        rows.push({ y: word.y, height: word.height, words: [word] });
+      }
+    }
+    output.push(...rows.map((row) => row.words.sort((a, b) => a.x - b.x).map((word) => word.text).join(" ")
+      .replace(/(\d)\s+([.,])\s*(?=\d)/g, "$1$2").replace(/([%*])\s+(?=\d)/g, "$1")));
+  }
+  return output;
 }
 
 /**
@@ -197,7 +244,7 @@ export async function processOCR(imageBase64: string): Promise<OCRResult> {
         ? pageConfidence
         : 0.9;
 
-    return { fullText, lines, confidence };
+    return { fullText, lines, analysisLines: reconstructReceiptLines(result.fullTextAnnotation, lines), confidence };
   } catch (error) {
     if (error instanceof OCRError) throw error;
     console.error("❌ Vision API error:", error);

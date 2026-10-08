@@ -13,7 +13,7 @@ const RULES: Array<[SpendingCategory, string[]]> = [
   ["drinks", ["drink", "beverage", "icecek", "water", "su", "cola", "soda", "juice", "meyve suyu", "maden suyu", "tea", "cay", "coffee", "kahve", "limonata"]],
   ["pantry", ["rice", "pirinc", "pasta", "makarna", "flour", "un", "oil", "yag", "beans", "fasulye", "lentil", "mercimek", "canned", "konserve", "seker", "recel", "jam", "salca", "rendesi"]],
   ["produce", ["fruit", "vegetable", "meyve", "sebze", "apple", "banana", "tomato", "potato", "carrot", "broccoli", "orange", "plum", ...Object.keys(FRUIT_VEG_KEYWORDS)]],
-  ["bakery", ["bread", "ekmek", "bakery", "croissant", "pogaca", "simit", "borek", "kanepe burger"]],
+  ["bakery", ["bread", "ekmek", "bakery", "croissant", "pogaca", "simit", "borek", "kanepe burger", "lavas"]],
 ];
 
 // ponytail: keyword matching misses novel labels; add reviewed aliases when receipt corrections expose repeat errors.

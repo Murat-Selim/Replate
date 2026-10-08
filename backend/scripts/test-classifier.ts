@@ -13,11 +13,13 @@ import {
 import { PRODUCT_CATALOG } from "../server/services/product-catalog.js";
 import { extractReceiptMetadata } from "../server/services/receipt-metadata.js";
 import { getSpendingCategory } from "../server/services/spending-categories.js";
+import type { protos } from "@google-cloud/vision";
 import {
   assertUsableOCR,
   isOCRResultUsable,
   MIN_OCR_CONFIDENCE,
   OCRError,
+  reconstructReceiptLines,
   type OCRResult,
 } from "../server/services/ocr.js";
 
@@ -282,6 +284,55 @@ function testOCRGates() {
   } catch (e) {
     assert(e instanceof OCRError && e.code === "OCR_EMPTY", "OCR_EMPTY code");
   }
+}
+
+async function testInvoiceLayout() {
+  console.log("\n=== Invoice OCR column reconstruction ===");
+  // Photo transcription with simulated Vision boxes, not a fresh OCR response.
+  const cells: Array<[string, number, number]> = [
+    ["IRMAKLAR GIDA", 40, 30], ["FATURA TARİHİ 20/08/2026", 40, 60],
+    ["ÜRÜNADI", 40, 150], ["MİKTAR", 340, 150], ["BRM", 400, 150],
+    ["KDV", 490, 150], ["FİYAT", 560, 150], ["TUTAR", 650, 150],
+    ["AYCAN TANDIR LAVAŞ 5'Lİ", 40, 200], ["1", 340, 200], ["ADET", 400, 200],
+    ["1", 490, 200], ["55.00", 560, 200], ["55.00", 650, 200], ["2050000017230", 40, 225],
+    ["M BİBER CARLİSTON", 40, 270], ["0.4", 340, 270], ["KİLO", 400, 270],
+    ["1", 490, 270], ["49.99", 560, 270], ["20.00", 650, 270], ["2703215", 40, 295],
+    ["M DOMATES PETEMEK", 40, 340], ["0.83", 340, 340], ["KİLO", 400, 340],
+    ["1", 490, 340], ["19.99", 560, 340], ["16.59", 650, 340], ["2703247", 40, 365],
+    ["KDV:", 490, 395], ["0.91", 650, 395], ["TOPLAM:", 490, 425], ["91.59", 650, 425],
+    ["ÖDEME", 490, 460], ["91.59", 650, 460], ["PARA ÜSTÜ", 490, 490], ["0.00", 650, 490],
+    ["YAZI İLE: DOKSANBİR TL", 40, 540], ["HALK BANKASI", 40, 580], ["91.59", 650, 580],
+  ];
+  const raw = cells.slice().sort((a, b) => a[1] - b[1] || a[2] - b[2]).map(([text]) => text);
+  for (const degrees of [0, -8, 90]) {
+    const angle = degrees * Math.PI / 180;
+    const words = cells.flatMap(([text, startX, y]) => {
+      let x = startX;
+      return text.split(" ").map((token) => {
+        const width = token.length * 6;
+        const vertices = [[x, y], [x + width, y], [x + width, y + 14], [x, y + 14]].map(([vx, vy]) => ({
+          x: vx * Math.cos(angle) - vy * Math.sin(angle) + 800,
+          y: vx * Math.sin(angle) + vy * Math.cos(angle) + 800,
+        }));
+        x += width + 5;
+        return { boundingBox: { vertices }, symbols: [...token].map((symbol) => ({ text: symbol })) };
+      });
+    }).sort((a, b) => a.boundingBox.vertices[0].x - b.boundingBox.vertices[0].x);
+    const annotation: protos.google.cloud.vision.v1.ITextAnnotation = { pages: [{ blocks: [{ paragraphs: [{ words }] }] }] };
+    const lines = reconstructReceiptLines(annotation, raw);
+    const result = await classifyFoods(lines);
+    const metadata = extractReceiptMetadata(lines, result.products);
+    assert(result.detectedItems === 3 && JSON.stringify(result.products.map((product) => product.paidPrice)) === JSON.stringify([55, 20, 16.59]),
+      `${degrees}° invoice finds 3 products with line totals, without counting unit prices or payment rows`);
+    assert(result.products[1]?.actualWeightGrams === 400 && result.products[2]?.actualWeightGrams === 830,
+      `${degrees}° invoice keeps 0.4 and 0.83 kilo quantities`);
+    assert(metadata.totalSpent === 91.59 && metadata.currencyCode === "TRY", `${degrees}° invoice reads 91.59 TRY`);
+    const categories = result.products.map((product) => getSpendingCategory(product.name));
+    assert(JSON.stringify(categories) === JSON.stringify(["bakery", "produce", "produce"]), `${degrees}° invoice maps lavash and fresh vegetables correctly`);
+  }
+  assert(reconstructReceiptLines(undefined, raw) === raw, "missing geometry preserves the original OCR lines");
+  assert(reconstructReceiptLines({ pages: [{ blocks: [{ paragraphs: [{ words: [{ symbols: [{ text: "ELMA" }] }] }] }] }] }, raw) === raw,
+    "incomplete geometry cannot discard OCR text");
 }
 
 async function testReceiptGolden() {
@@ -555,6 +606,7 @@ async function main() {
   await testPaidPriceExtraction();
   await testReceiptSpending();
   testOCRGates();
+  await testInvoiceLayout();
   await testReceiptGolden();
 
   console.log("\n=== SUMMARY ===");

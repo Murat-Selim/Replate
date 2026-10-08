@@ -261,6 +261,11 @@ function correctOcrWeight(lines: string[], index: number, grams: number): number
 }
 
 function extractProductLines(lines: string[]): ExtractedProduct[] {
+  const tableHeader = lines.findIndex((line) => /\burun\s*adi\b/.test(normalizeTurkish(line)) && /\b(?:miktar|fiyat|tutar)\b/.test(normalizeTurkish(line)));
+  if (tableHeader >= 0) {
+    const tableEnd = lines.findIndex((line, index) => index > tableHeader && /^(?:kdv|indirim|iskonto|toplam|odeme|ara\s+toplam)\b/.test(normalizeTurkish(line.trim())));
+    lines = lines.slice(tableHeader + 1, tableEnd < 0 ? undefined : tableEnd);
+  }
   const products: ExtractedProduct[] = [];
   const standaloneReceiptPrice = /^(?:S\$|[$€£¥])?\s*\*?\s*\d+[.,]\d{2}$/;
   const taxMarker = /^(?:%|X|\*)\d{1,2}$/i;
@@ -337,8 +342,11 @@ function extractProductLines(lines: string[]): ExtractedProduct[] {
     const paidPrice = inlinePaidPrice
       ?? (priceLineIndex !== undefined ? parsePaidPrice(lines[priceLineIndex]) : undefined);
 
-    let actualWeightGrams = pendingWeightGrams;
-    let quantity = pendingQuantity;
+    // Invoice columns: product, amount, unit, VAT rate, unit price, line total.
+    const tableRow = trimmed.match(/^(.+?)\s+(\d+(?:[.,]\d{1,3})?)\s+(ADET|AD|K[Iİ]LO|KG|G|GR)\s+%?\s*\d{1,2}\s+\d+(?:[.,]\d{3})*[.,]\d{2}\s+\d+(?:[.,]\d{3})*[.,]\d{2}$/i);
+    const tableUnit = tableRow?.[3].replace(/K[Iİ]LO/i, "KG") ?? "";
+    let actualWeightGrams = tableRow && !/^AD/i.test(tableUnit) ? parseWeightGrams(`${tableRow[2]} ${tableUnit}`) : pendingWeightGrams;
+    let quantity = tableRow && /^AD/i.test(tableUnit) ? Math.max(1, Number(tableRow[2].replace(",", "."))) : pendingQuantity;
 
     const previousUnitPriceLine = /^(?:\d+(?:\s*[.,]\s*\d{1,3})?\s*(?:KG|G|GR|GRAMS?)?|\d+\s*AD(?:ET)?)\s*x\s*\d+[.,]\d{2}\s*TL\s*\/\s*(?:KG|AD(?:ET)?)$/i.test(previousLine);
     if (previousUnitPriceLine) {
@@ -363,7 +371,7 @@ function extractProductLines(lines: string[]): ExtractedProduct[] {
 
     // Pack count "15LI" (eggs)
     const packLi = trimmed.match(/\b(\d{1,2})\s*LI\b/i);
-    if (packLi && quantity === 1) {
+    if (packLi && quantity === 1 && !tableRow) {
       const n = parseInt(packLi[1], 10);
       if (n >= 2 && n <= 60) quantity = n;
     }
@@ -396,7 +404,7 @@ function extractProductLines(lines: string[]): ExtractedProduct[] {
     if (!hasProductSignal && !matchesKnownFood && !matchesKnownNonFood) continue;
 
     const { cleaned, weightGrams } = cleanProductLine(
-      trimmed,
+      tableRow?.[1] ?? trimmed,
       actualWeightGrams
     );
     actualWeightGrams = weightGrams;

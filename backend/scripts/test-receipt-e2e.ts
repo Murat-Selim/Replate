@@ -200,7 +200,7 @@ async function run(): Promise<number> {
 
     try {
       const ocr = await processOCR(b64);
-      lines = ocr.lines;
+      lines = ocr.analysisLines ?? ocr.lines;
       fullText = ocr.fullText;
       confidence = ocr.confidence;
       mode = process.env.USE_MOCK_OCR === "true" ? "mock" : "vision";
@@ -217,7 +217,7 @@ async function run(): Promise<number> {
     const dummy =
       "data:image/jpeg;base64," + Buffer.from("mock-receipt-image").toString("base64");
     const ocr = await processOCR(dummy);
-    lines = ocr.lines;
+    lines = ocr.analysisLines ?? ocr.lines;
     fullText = ocr.fullText;
     confidence = ocr.confidence;
     console.log(`🎭 Mock OCR: ${lines.length} lines`);
