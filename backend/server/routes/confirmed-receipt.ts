@@ -42,6 +42,7 @@ interface StagedReceiptAnalysis {
   currencyCode: string | null;
   totalSpent: number | null;
   totalSpentSource: "receipt_total" | "line_items" | null;
+  expectedItemsTotal?: number | null;
 }
 
 router.get("/latest", async (req: Request, res: Response) => {
@@ -252,6 +253,16 @@ router.post("/confirmed", async (req: Request, res: Response) => {
          ON CONFLICT (receipt_id, feature_name, calculation_version) DO UPDATE SET feature_value = EXCLUDED.feature_value,
            confidence = EXCLUDED.confidence, metadata = EXCLUDED.metadata`,
         [receiptId, feature.name, feature.value, feature.confidence, feature.metadata],
+      );
+    }
+    if (staged.expectedItemsTotal != null) {
+      if (!Number.isFinite(staged.expectedItemsTotal) || staged.expectedItemsTotal < 0 || staged.expectedItemsTotal > (staged.totalSpent ?? 0)) {
+        fail("Stored receipt subtotal is invalid", "INVALID_STAGED_SPENDING");
+      }
+      await client.query(
+        `INSERT INTO derived_features (receipt_id, feature_name, feature_value, calculation_version, confidence, metadata)
+         VALUES ($1,'receipt_item_total',$2,'receipt-prices-v1',1,$3)`,
+        [receiptId, staged.expectedItemsTotal, { source: "printed-subtotal-and-tax", printedTotal: staged.totalSpent }],
       );
     }
     await client.query("DELETE FROM receipt_analysis_staging WHERE lower(receipt_hash) = lower($1) AND lower(user_wallet) = lower($2)", [onchain.receiptHash, onchain.userAddress]);

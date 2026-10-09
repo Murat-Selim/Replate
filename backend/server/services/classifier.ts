@@ -42,8 +42,18 @@ export function normalizeTurkish(text: string): string {
     .toLowerCase();
 }
 
+/** Correct reviewed OCR product tokens without changing raw receipt text or amounts. */
+export function normalizeProductText(text: string): string {
+  return normalizeTurkish(text)
+    .replace(/\bb[il1]skuv[il1](?:s[il1])?\b/g, "biskuvi")
+    .replace(/\b[nmh]aden(?=\s+suyu\b)/g, "maden")
+    .replace(/\b[il1]cecek\b/g, "icecek")
+    .replace(/\b(meyve[il1]{1,2}|aromal[il1])\s*\(?\s*(?:i)?cecek\b/g, (_match, flavor: string) => `${flavor.startsWith("meyve") ? "meyveli" : "aromali"} icecek`);
+}
+
 function parseWeightGrams(text: string, lineOnly = false): number {
-  const normalized = text.replace(/\s+/g, " ").trim();
+  const normalized = text.replace(/\s+/g, " ").trim()
+    .replace(/(^|\s)([.,]\d{1,3})\s*kg\b/gi, (_match, prefix: string, amount: string) => `${prefix}0${amount} kg`);
   const weightPattern = /(\d+(?:\s*[.,]\s*\d{1,3})?)\s*(kg|g|gr|grams?)\b/i;
   const match = (lineOnly
     ? normalized.match(new RegExp(`^${weightPattern.source}$`, "i"))
@@ -134,7 +144,8 @@ const STRIP_TOKEN_REGEX = new RegExp(
 // Prefer structural/meta terms over city/brand-specific tokens.
 const SKIP_PATTERNS = [
   /\b(ORTAK\s+POS|POS|ONAY\s+KODU|REF\s+NO|TERMINAL\s+ID|BATCH\s+NO)\b/i,
-  /^(TOTAL|SUBTOTAL|TAX|DATE|STORE|CASHIER|CHANGE|RECEIPT)/i,
+  /^(TOTAL|SUB\s*TOTAL|TAX|DATE|STORE|CASHIER|CHANGE|RECEIPT)/i,
+  /^(?:(?:SALES\s+)?TAX|GST|HST|PST)(?:\s|:|$)/i,
   /^SPECIAL(?:\s|$)/i,
   /^(TOPLAM|KDV|FIS|FİŞ|SAAT|TARIH|ARA TOPLAM|NAKIT|BANKA)/i,
   /^(BELGE|ETTN|FISC|KASA|DARA|ADET|ISKONTO|İSKONTO|INDIRIM|İNDİRİM)/i,
@@ -142,7 +153,7 @@ const SKIP_PATTERNS = [
   /^[\d\/\-:,x\s]+$/, // pure numbers / weight lines
   /^\s*(?:S\$|[$€£¥])\s*\d+[.,]\d{2}\s*$/i, // OCR may put currency-only prices on their own line
   /^[*\-=]+$/, // separator lines
-  /^TEL:|^FAX:/i,
+  /^(?:TEL|FAX)(?:\s|:)/i,
   /THANK|TE[SŞ]EKK[UÜ]R/i,
   /\b(MERSIS|VKN|VERG[İI]|DAIRE|DAİRE|SICIL|SİCİL|ADRES|FATURA)\b/i,
   /\b(E-?AR[SŞ][Iİ]V|EARSIV|EARŞİV|GIB|GİB)\b/i,
@@ -156,7 +167,8 @@ const SKIP_PATTERNS = [
   /\b(ANON[Iİ]M|[SŞ][Iİ]RKET[Iİ]|LTD|[SŞ]T[Iİ]|A\.?[SŞ]\.?)\b/i,
   /\b(ARA TOPLAM|ARA TOPLAN|TOPLAM|PARA USTU|PARA ÜSTÜ)\b/i,
   /\b(YAPI KRED[Iİ]|YAPI KREDL)\b/i,
-  /\b(CREDIT\s+CARD|CARD\s+(?:USD|PAYMENT)|VISA|MASTERCARD)\b/i,
+  /\b((?:CREDIT|DEBIT)\s+CARD|CARD\s+(?:USD|PAYMENT)|VISA|MASTERCARD)\b/i,
+  /^(?:RESULT|APPROVED|TERM(?:INAL)?\s*ID|SEQUENCE)(?:\s|[:#]|$)/i,
 ];
 
 // ─── Non-food products found on grocery receipts ──────────────────────
@@ -261,6 +273,9 @@ function correctOcrWeight(lines: string[], index: number, grams: number): number
 }
 
 function extractProductLines(lines: string[]): ExtractedProduct[] {
+  // Final totals end product extraction; a subtotal can still precede charged bags or fees.
+  const totalsStart = lines.findIndex((line) => /^(?:TOPKDV|ODENECEK\s+TUTAR|GRAND\s+TOTAL|GENEL\s+TOPLAM|TOTAL|TOPLAM)(?:\s*[:*]|\s+(?:S\$|US\$|[$€£¥])?\s*\*?\d+[.,]\d{2}|\s*$)/i.test(normalizeTurkish(line.trim())));
+  if (totalsStart >= 0) lines = lines.slice(0, totalsStart);
   const tableHeader = lines.findIndex((line) => /\burun\s*adi\b/.test(normalizeTurkish(line)) && /\b(?:miktar|fiyat|tutar)\b/.test(normalizeTurkish(line)));
   if (tableHeader >= 0) {
     const tableEnd = lines.findIndex((line, index) => index > tableHeader && /^(?:kdv|indirim|iskonto|toplam|odeme|ara\s+toplam)\b/.test(normalizeTurkish(line.trim())));
@@ -336,7 +351,8 @@ function extractProductLines(lines: string[]): ExtractedProduct[] {
     const previousLine = lines[i - 1]?.trim() ?? "";
     const hasPriceBeforeProduct = standaloneReceiptPrice.test(previousLine) && !claimedPriceLines.has(i - 1)
       && (taxMarker.test(lines[i - 2]?.trim() ?? "") || /^(?:\*|S\$|[$€£¥])/.test(previousLine));
-    const inlinePaidPrice = hasPrice ? parsePaidPrice(trimmed) : undefined;
+    const endsWithUnitPrice = /(?:\/|@)\s*(?:S\$|US\$|[$€£¥])?\s*\d+[.,]\d{2}\s*$/.test(trimmed);
+    const inlinePaidPrice = hasPrice && !endsWithUnitPrice ? parsePaidPrice(trimmed) : undefined;
     const priceLineIndex = inlinePaidPrice !== undefined ? undefined : hasPriceBeforeProduct ? i - 1
       : hasSplitReceiptPrice ? (standaloneReceiptPrice.test(nextLine) ? i + 1 : i + 2) : undefined;
     const paidPrice = inlinePaidPrice
@@ -344,9 +360,13 @@ function extractProductLines(lines: string[]): ExtractedProduct[] {
 
     // Invoice columns: product, amount, unit, VAT rate, unit price, line total.
     const tableRow = trimmed.match(/^(.+?)\s+(\d+(?:[.,]\d{1,3})?)\s+(ADET|AD|K[Iİ]LO|KG|G|GR)\s+%?\s*\d{1,2}\s+\d+(?:[.,]\d{3})*[.,]\d{2}\s+\d+(?:[.,]\d{3})*[.,]\d{2}$/i);
-    const tableUnit = tableRow?.[3].replace(/K[Iİ]LO/i, "KG") ?? "";
-    let actualWeightGrams = tableRow && !/^AD/i.test(tableUnit) ? parseWeightGrams(`${tableRow[2]} ${tableUnit}`) : pendingWeightGrams;
-    let quantity = tableRow && /^AD/i.test(tableUnit) ? Math.max(1, Number(tableRow[2].replace(",", "."))) : pendingQuantity;
+    // Preserve explicit quantity cells from the secondary OCR's Markdown/HTML tables.
+    const quantityCell = trimmed.match(/\[qty=(\d+(?:[.,]\d{1,3})?)(?:\s+(ADET|AD|EA|EACH|PCS|K[Iİ]LO|KG|G|GR))?\]/i);
+    const tableAmount = tableRow?.[2] ?? quantityCell?.[1];
+    const tableUnit = (tableRow?.[3] ?? quantityCell?.[2] ?? "AD").replace(/K[Iİ]LO/i, "KG");
+    const tablePieces = /^(?:AD|ADET|EA|EACH|PCS)$/i.test(tableUnit);
+    let actualWeightGrams = tableAmount && !tablePieces ? parseWeightGrams(`${tableAmount} ${tableUnit}`) : pendingWeightGrams;
+    let quantity = tableAmount && tablePieces ? Math.max(1, Number(tableAmount.replace(",", "."))) : pendingQuantity;
 
     const previousUnitPriceLine = /^(?:\d+(?:\s*[.,]\s*\d{1,3})?\s*(?:KG|G|GR|GRAMS?)?|\d+\s*AD(?:ET)?)\s*x\s*\d+[.,]\d{2}\s*TL\s*\/\s*(?:KG|AD(?:ET)?)$/i.test(previousLine);
     if (previousUnitPriceLine) {
@@ -371,7 +391,7 @@ function extractProductLines(lines: string[]): ExtractedProduct[] {
 
     // Pack count "15LI" (eggs)
     const packLi = trimmed.match(/\b(\d{1,2})\s*LI\b/i);
-    if (packLi && quantity === 1 && !tableRow) {
+    if (packLi && quantity === 1 && !tableRow && !quantityCell) {
       const n = parseInt(packLi[1], 10);
       if (n >= 2 && n <= 60) quantity = n;
     }
@@ -387,7 +407,7 @@ function extractProductLines(lines: string[]): ExtractedProduct[] {
 
     let matchesKnownFood = false;
     if (!hasProductSignal) {
-      const lower = normalizeTurkish(trimmed);
+      const lower = normalizeProductText(trimmed);
       matchesKnownFood = [
         ...HEALTHY_KEYWORDS,
         ...UNHEALTHY_KEYWORDS,
@@ -404,7 +424,7 @@ function extractProductLines(lines: string[]): ExtractedProduct[] {
     if (!hasProductSignal && !matchesKnownFood && !matchesKnownNonFood) continue;
 
     const { cleaned, weightGrams } = cleanProductLine(
-      tableRow?.[1] ?? trimmed,
+      tableRow?.[1] ?? trimmed.replace(/\[qty=[^\]]+\]/i, ""),
       actualWeightGrams
     );
     actualWeightGrams = weightGrams;
@@ -450,6 +470,8 @@ export function cleanProductLine(
   let actualWeightGrams = existingWeightGrams;
 
   cleaned = cleaned.replace(/%\d{1,2}/g, "").trim();
+  cleaned = cleaned.replace(/\b\d+\s*@\s*\d+\s*\/\s*(?:S\$|US\$|[$€£¥])\s*\d+[.,]\d{2}/gi, "").trim();
+  cleaned = cleaned.replace(/@\s*(?:S\$|US\$|[$€£¥])\s*\d+[.,]\d{2}\s*\/\s*kg\b/gi, "").trim();
   cleaned = cleaned.replace(/\bx\d+[.,]?\d*\b/gi, "").trim();
   cleaned = cleaned.replace(/(?:S\$|[$€£¥])?\s*[*]?\d+[.,]\d{2}\s*$/, "").trim();
   cleaned = cleaned.replace(/TL\/(kg|ad|lt|adet)/gi, "").trim();
@@ -471,7 +493,7 @@ export function cleanProductLine(
 
   // Weights / volumes
   cleaned = cleaned.replace(/\b\d+\s*(?:G|GR|GRAMS?)\b/gi, "").trim();
-  cleaned = cleaned.replace(/\b\d+\s*[.,]\s*\d{1,3}\s*kg\b/gi, "").trim();
+  cleaned = cleaned.replace(/(?:\b\d+\s*[.,]\s*\d{1,3}|[.,]\d{1,3})\s*kg\b/gi, "").trim();
   cleaned = cleaned.replace(/\b\d+\s*kg\b/gi, "").trim();
   cleaned = cleaned.replace(/\b\d+[.,]?\d*\s*L\b/gi, "").trim(); // 1 L, 1.5 L
   cleaned = cleaned.replace(/\b(?:KG|KGM|AD(?:ET)?)\.?\b/gi, "").trim();
@@ -527,7 +549,7 @@ async function classifyProduct(
     };
   }
 
-  const normalized = normalizeTurkish(productName.trim());
+  const normalized = normalizeProductText(productName.trim());
   const qty = quantity > 0 ? quantity : 1;
 
   // Resolve alias → canonical id (longest match first)

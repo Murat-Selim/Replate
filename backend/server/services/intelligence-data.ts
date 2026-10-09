@@ -19,6 +19,7 @@ export interface ReceiptSummary {
   storeName: string | null;
   totalSpent: number | null;
   totalSpentSource: "receipt_total" | "line_items" | null;
+  expectedItemsTotal?: number | null;
 }
 
 export interface ReceiptItemIntelligence {
@@ -120,7 +121,9 @@ export async function findReceipt(db: Db, receiptId: string, wallet?: string, re
   const result = await db.query(
     `SELECT r.id, r.receipt_hash, u.wallet_address, r.health_score, r.nutrition_score,
             r.total_items, r.fruit_veg_grams, r.days_covered, r.verified_at
-            ,r.currency_code, r.store_name, r.total_spent, r.total_spent_source
+            ,r.currency_code, r.store_name, r.total_spent, r.total_spent_source,
+            (SELECT df.feature_value FROM derived_features df WHERE df.receipt_id = r.id
+              AND df.feature_name = 'receipt_item_total' AND df.calculation_version = 'receipt-prices-v1') AS expected_items_total
      FROM receipts r JOIN users u ON u.id = r.user_id
      WHERE r.id = $1
        AND ($2::TEXT IS NULL OR lower(u.wallet_address) = lower($2))
@@ -142,6 +145,7 @@ export async function findReceipt(db: Db, receiptId: string, wallet?: string, re
     storeName: row.store_name,
     totalSpent: row.total_spent === null ? null : Number(row.total_spent),
     totalSpentSource: row.total_spent_source,
+    expectedItemsTotal: row.expected_items_total == null ? null : Number(row.expected_items_total),
   } : null;
 }
 
@@ -344,7 +348,9 @@ export async function buildReceiptSpendingBreakdown(db: Db, receiptId: string, w
   const categoryTotals = new Map<string, { amount: number; itemCount: number }>();
   for (const item of pricedItems) {
     const storedCategory = (item.spendingCategory || "").trim();
-    const category = storedCategory && storedCategory !== "other" ? storedCategory : getSpendingCategory(item.itemName, item.category === "excluded");
+    const detectedCategory = getSpendingCategory(item.itemName, item.category === "excluded");
+    // Apply current product rules to old automatic labels, retaining labels for unknown products.
+    const category = detectedCategory !== "other" ? detectedCategory : storedCategory || "other";
     const total = categoryTotals.get(category) || { amount: 0, itemCount: 0 };
     total.amount += item.paidPrice!;
     total.itemCount++;

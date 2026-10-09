@@ -1,13 +1,14 @@
 import { Router, Request, Response } from "express";
 import { processOCR, assertUsableOCR, OCRError } from "../services/ocr.js";
-import { classifyFoods, ClassificationResult } from "../services/classifier.js";
+import { ClassificationResult } from "../services/classifier.js";
 import { submitReceiptToContract, calculateScores } from "../services/contract.js";
 import { createLegacyReceiptHash, createReceiptHash, isReceiptHashUsed } from "../services/receipt-hash.js";
 import { clearLeaderboardCache } from "./leaderboard.js";
 import { assertCompleteReceipt, ReceiptDateError, ReceiptQualityError, assertRecentReceiptDate } from "../services/receipt-date.js";
 import { assertDatabaseConfigured, getDatabasePool } from "../db.js";
-import { extractReceiptMetadata } from "../services/receipt-metadata.js";
+import { analyzeReceipt, ReceiptAnalysisError } from "../services/receipt-analysis.js";
 import { getSpendingCategory } from "../services/spending-categories.js";
+import { readReceiptWithNovita } from "../services/novita-ocr.js";
 
 const router = Router();
 // Temporarily disabled; set true when the receipt date window should be enforced again.
@@ -44,8 +45,10 @@ interface VerifyReceiptResponse {
     currencyCode?: string | null;
     totalSpent?: number | null;
     totalSpentSource?: "receipt_total" | "line_items" | null;
-    /** Vision OCR page confidence (0â€“1); useful for client UX */
+    expectedItemsTotal?: number | null;
+    /** Page confidence (0-1); zero means unknown for the secondary reader. */
     ocrConfidence: number;
+    analysisMethod?: "vision-layout" | "vision-text" | "image-recovery";
   };
   error?: string;
   errorCode?: string;
@@ -95,8 +98,11 @@ router.post("/", async (req: Request, res: Response) => {
     }
 
     // Step 2: Classify food items
-    const analysisLines = ocrResult.analysisLines ?? ocrResult.lines;
-    const classification = await classifyFoods(analysisLines);
+    const analysis = await analyzeReceipt(ocrResult, process.env.NOVITA_API_KEY?.trim()
+      ? () => readReceiptWithNovita(imageBase64) : undefined);
+    const { classification, metadata: receiptMetadata } = analysis;
+    // Novita does not supply a calibrated page confidence; zero means unknown.
+    const ocrConfidence = analysis.method === "image-recovery" ? 0 : ocrResult.confidence;
     console.log(`ğŸ¥— Classification: ${classification.healthyItems} healthy, ${classification.unhealthyItems} unhealthy`);
 
     if (classification.totalItems === 0) {
@@ -125,7 +131,6 @@ router.post("/", async (req: Request, res: Response) => {
         ...product,
         spendingCategory: getSpendingCategory(product.name, product.category === "excluded"),
       }));
-      const receiptMetadata = extractReceiptMetadata(analysisLines, classification.products);
       const invalidProduct = products.length > 200 || products.some((product) => {
         const unitPrice = product.paidPrice === undefined ? null : product.actualWeightGrams > 0
           ? product.paidPrice * 1000 / product.actualWeightGrams
@@ -146,7 +151,8 @@ router.post("/", async (req: Request, res: Response) => {
            created_at = NOW(), expires_at = NOW() + INTERVAL '24 hours'`,
         [receiptHash, userAddress.toLowerCase(), {
           receiptDate,
-          ocrConfidence: ocrResult.confidence,
+          ocrConfidence,
+          analysisMethod: analysis.method,
           products,
           ...receiptMetadata,
           totalItems: classification.totalItems,
@@ -177,7 +183,8 @@ router.post("/", async (req: Request, res: Response) => {
           badgeMinted: false,
           products,
           ...receiptMetadata,
-          ocrConfidence: ocrResult.confidence,
+          ocrConfidence,
+          analysisMethod: analysis.method,
         },
       } as VerifyReceiptResponse);
       return;
@@ -215,7 +222,8 @@ router.post("/", async (req: Request, res: Response) => {
         pointsEarned: contractResult.pointsEarned,
         badgeMinted: contractResult.badgeMinted,
         products: classification.products,
-        ocrConfidence: ocrResult.confidence,
+        ocrConfidence,
+        analysisMethod: analysis.method,
       },
     };
 
@@ -230,6 +238,11 @@ router.post("/", async (req: Request, res: Response) => {
         error: error.message,
         errorCode: error.code,
       } as VerifyReceiptResponse);
+      return;
+    }
+
+    if (error instanceof ReceiptAnalysisError) {
+      res.status(422).json({ success: false, error: error.message, errorCode: error.code } as VerifyReceiptResponse);
       return;
     }
 

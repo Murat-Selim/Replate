@@ -95,6 +95,25 @@ try {
   assert.equal(breakdown.categories.find((item) => item.category === "household")?.amount, 40);
   console.log("OK: existing Other labels are reclassified, with 12 items totaling 328.42 TRY");
 
+  items = fullItems.map((item, index) => index === 0 ? { ...item, item_name: "BEBE BLSKUVLSL BEBEBLS" }
+    : index === 5 ? { ...item, item_name: "MEYVELL CECEK EKSL ELMA", spending_category: "produce" }
+      : index === 11 ? { ...item, item_name: "NADEN SUYU SADE BEYPAZA" } : item);
+  const corrected = await buildReceiptSpendingBreakdown({ query } as never, "1", owner);
+  assert(corrected);
+  assert.equal(corrected.pricedItemsTotal, 328.42);
+  assert.equal(corrected.pricedItemCount, 12);
+  assert.equal(corrected.categories.length, 7);
+  assert.equal(corrected.categories.find((item) => item.category === "snacks")?.amount, 56);
+  assert.equal(corrected.categories.find((item) => item.category === "drinks")?.amount, 67);
+  assert.equal(corrected.categories.find((item) => item.category === "produce")?.amount, 37.92);
+  assert(!corrected.categories.some((item) => item.category === "other"));
+  items = [{ ...fullItems[0], item_name: "ORNEK URUN XYZ", spending_category: "bakery", paid_price: 5 }];
+  const unknown = await buildReceiptSpendingBreakdown({ query } as never, "1", owner);
+  assert.equal(unknown?.categories[0]?.category, "bakery");
+  assert.equal(unknown?.categories[0]?.amount, 5);
+  items = fullItems;
+  console.log("OK: actual OCR names and a stored wrong Produce label are corrected without changing receipt prices");
+
   const { createX402Middleware } = await import("../server/services/x402.js");
   const { default: intelligence } = await import("../server/routes/intelligence.js");
   console.log("Checking x402 rejection with the local mock facilitator");
@@ -130,6 +149,10 @@ try {
   const partial = fullItems.filter((_item, index) => [1, 4, 5].includes(index)); // 40 + 52.50 + 55 = 147
   items = fullItems.map((item, index) => [1, 4, 5].includes(index) ? item : { ...item, paid_price: null });
   await paidRequest(/missing prices/);
+  items = fullItems.map((item, index) => index === 10 ? { ...item, paid_price: null } : item);
+  await paidRequest(/missing prices/);
+  items = fullItems.map((item, index) => index === 10 ? { ...item, paid_price: 7.5 } : item);
+  await paidRequest(/do not match the printed receipt total/);
   items = partial;
   await paidRequest(/do not match the printed receipt total/);
   total = 147;

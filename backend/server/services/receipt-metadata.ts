@@ -7,6 +7,8 @@ export interface ReceiptMetadata {
   currencyCode: string | null;
   totalSpent: number | null;
   totalSpentSource: ReceiptTotalSource;
+  /** Printed subtotal, only when separately printed tax reconciles it to the final total. */
+  expectedItemsTotal?: number | null;
 }
 
 export function extractReceiptMetadata(lines: string[], products: ClassificationResult[]): ReceiptMetadata {
@@ -34,7 +36,6 @@ export function extractReceiptMetadata(lines: string[], products: Classification
   const totalPatterns = [
     /^(?:ODENECEK\s+TUTAR|PAYABLE\s+AMOUNT)\b/,
     /^(?:GRAND\s+TOTAL|TOTAL(?:\s+DUE)?|GENEL\s+TOPLAM|TOPLAM)(?!\s+(?:KDV|TAX|INDIRIM|DISCOUNT))\b/,
-    /^ARA\s+TOPLA[MN]\b/,
   ];
   let printedTotal: number | undefined;
   for (const pattern of totalPatterns) {
@@ -42,8 +43,11 @@ export function extractReceiptMetadata(lines: string[], products: Classification
       const normalized = lines[index].normalize("NFKD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase();
       if (!pattern.test(normalized)) continue;
       const nextLine = lines[index + 1]?.trim() ?? "";
+      const previousLine = lines[index - 1]?.trim() ?? "";
+      const standaloneAmount = /^(?:S\$|[$€£¥])?\s*\*?\s*[\d.,\s]+$/;
       printedTotal = parseReceiptAmount(lines[index])
-        ?? (/^(?:S\$|[$€£¥])?\s*\*?\s*[\d.,\s]+$/.test(nextLine) ? parseReceiptAmount(nextLine) : undefined);
+        ?? (standaloneAmount.test(nextLine) ? parseReceiptAmount(nextLine) : undefined)
+        ?? (standaloneAmount.test(previousLine) ? parseReceiptAmount(previousLine) : undefined);
       if (printedTotal !== undefined) break;
     }
     if (printedTotal !== undefined) break;
@@ -51,10 +55,28 @@ export function extractReceiptMetadata(lines: string[], products: Classification
   const itemizedTotal = products.reduce((sum, product) => sum + (product.paidPrice ?? 0), 0);
   const hasItemPrices = products.some((product) => product.paidPrice !== undefined);
 
+  let printedSubtotal: number | undefined;
+  let addedTax = 0;
+  for (let index = 0; index < lines.length; index++) {
+    const line = lines[index].trim().toUpperCase();
+    const subtotal = /^SUB\s*TOTAL\b/.test(line);
+    const tax = /^(?:(?:SALES\s+)?TAX|GST|HST|PST)\b/.test(line) && !/\bINCL(?:UDED|USIVE)?\b/.test(line);
+    if (!subtotal && !tax) continue;
+    const next = lines[index + 1]?.trim() ?? "";
+    const value = parseReceiptAmount(line) ?? (/^(?:[$€£¥])?\s*[\d.,]+$/.test(next) ? parseReceiptAmount(next) : undefined);
+    if (value === undefined) continue;
+    if (subtotal) printedSubtotal = value;
+    else addedTax += value;
+  }
+  const expectedItemsTotal = printedTotal !== undefined && printedSubtotal !== undefined && addedTax > 0
+    && Math.abs(Math.round((printedSubtotal + addedTax) * 100) - Math.round(printedTotal * 100)) <= 1
+    ? printedSubtotal : null;
+
   return {
     storeName,
     currencyCode,
     totalSpent: printedTotal ?? (hasItemPrices ? Number(itemizedTotal.toFixed(2)) : null),
     totalSpentSource: printedTotal !== undefined ? "receipt_total" : hasItemPrices ? "line_items" : null,
+    expectedItemsTotal,
   };
 }

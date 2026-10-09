@@ -41,6 +41,7 @@ interface VerificationResult {
     currencyCode?: string | null;
     totalSpent?: number | null;
     totalSpentSource?: "receipt_total" | "line_items" | null;
+    expectedItemsTotal?: number | null;
     products?: { name: string; category: string; spendingCategory?: string; fruitVegGrams: number; paidPrice?: number; quantity?: number; actualWeightGrams?: number; canonicalProductId?: string | null; priceUnit?: string }[];
 }
 
@@ -400,6 +401,7 @@ export default function SmartShop() {
             // 1. Analyze receipt off-chain (no on-chain submission from relayer)
             const response = await fetch(getApiUrl("/api/verify-receipt"), {
                 method: "POST",
+                signal: AbortSignal.timeout(60000),
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     imageBase64: base64Data,
@@ -533,8 +535,8 @@ export default function SmartShop() {
             setHuntNotice("The printed receipt total could not be read. This receipt must be reprocessed before the paid analysis. No payment was made.");
             return Promise.resolve();
         }
-        const totalMismatch = Math.abs(itemizedTotal / result.totalSpent - 1) > 0.1;
-        const missingPrices = pricedCount < Math.ceil(totalCount * 0.8);
+        const totalMismatch = Math.abs(Math.round(itemizedTotal * 100) - Math.round((result.expectedItemsTotal ?? result.totalSpent) * 100)) > 1;
+        const missingPrices = pricedCount !== totalCount;
         if (totalMismatch || missingPrices) {
             const mismatch = Math.round(Math.abs(itemizedTotal / result.totalSpent - 1) * 100);
             setHuntNotice(missingPrices
@@ -823,7 +825,7 @@ export default function SmartShop() {
                                             <p className="text-xs font-black uppercase tracking-wider text-[#00E36E]">Receipt Hunt #01</p>
                                             <h4 id="receipt-hunt-entry-title" className="mt-1 text-lg font-black text-white">Which category did you spend more on than you expected?</h4>
                                             <p className="mt-1 text-xs leading-5 text-brand-text/60">Name the category and share what surprised you. The card only shows these analysis results and your text.</p>
-                                            <p className="mt-2 text-[10px] leading-5 text-brand-text/50">We compare recognized item prices with the printed total before the 0.05 USDC analysis. Incomplete receipts must be reprocessed first.</p>
+                                            <p className="mt-2 text-[10px] leading-5 text-brand-text/50">Every item price and the printed total are checked before verification. Automatic recovery runs when the first reading is incomplete.</p>
                                         </div>
                                             {!receiptHuntSpending ? (
                                                 <button type="button" onClick={handleReceiptHuntAnalysis} disabled={activeIntelligenceCall !== null} className="rounded-xl bg-[#00E36E] px-4 py-3 text-sm font-black text-[#050806] disabled:opacity-50">

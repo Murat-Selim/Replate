@@ -3,6 +3,7 @@ node_modules/
 
 # env files
 .env*
+!.env.example
 
 # hardhat compilation output
 artifacts/
@@ -17,6 +18,9 @@ typechain-types/
 
 # google cloud credentials
 gcloud-key.json
+
+# Private receipt OCR captures used for local diagnosis
+.receipt-diagnostics/
 
 # AI metadata
 AGENTS.md

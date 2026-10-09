@@ -7,6 +7,7 @@
  *   npm run test:receipt -- path/to/receipt.jpg
  *   npm run test:receipt -- path/to/receipt.jpg --save fixtures/receipts/my-run.json
  *   npm run test:receipt -- path/to/receipt.jpg --strict
+ *   npm run test:receipt -- path/to/receipt.jpg --diagnose --save .receipt-diagnostics/capture.json
  *
  * Env (from backend/.env):
  *   GOOGLE_CREDENTIALS_JSON=gcloud-key.json   # path or raw JSON
@@ -25,10 +26,15 @@ const BACKEND_ROOT = path.resolve(__dirname, "..");
 dotenv.config({ path: path.join(BACKEND_ROOT, ".env") });
 
 // Import after dotenv so services see env
-const { processOCR, assertUsableOCR, OCRError } = await import(
+const { processOCR, assertUsableOCR, OCRError, reconstructReceiptLines } = await import(
   "../server/services/ocr.js"
 );
 const { classifyFoods } = await import("../server/services/classifier.js");
+const { extractReceiptMetadata } = await import("../server/services/receipt-metadata.js");
+const { getSpendingCategory } = await import("../server/services/spending-categories.js");
+import type { FoodClassification } from "../server/services/classifier.js";
+import type { ReceiptMetadata } from "../server/services/receipt-metadata.js";
+import type { OCRResult } from "../server/services/ocr.js";
 
 interface OcrFixture {
   name?: string;
@@ -36,10 +42,13 @@ interface OcrFixture {
   confidence?: number;
   fullText?: string;
   lines: string[];
+  analysisLines?: string[];
+  annotation?: OCRResult["annotation"];
   capturedAt?: string;
+  diagnostic?: { raw: E2EResult; analysis: E2EResult };
 }
 
-interface E2EResult {
+interface E2EResult extends ReceiptMetadata {
   mode: "mock" | "vision" | "lines";
   ocrConfidence: number;
   lineCount: number;
@@ -49,13 +58,17 @@ interface E2EResult {
   unhealthyItems: number;
   neutralItems: number;
   fruitVegGrams: number;
-  products: { name: string; category: string; fruitVegGrams: number }[];
+  pricedItems: number;
+  itemizedTotal: number;
+  differenceFromPrintedTotal: number | null;
+  products: FoodClassification["products"][number][];
 }
 
 function parseArgs(argv: string[]) {
   const args = {
     mock: false,
     strict: false,
+    diagnose: false,
     linesPath: null as string | null,
     savePath: null as string | null,
     imagePath: null as string | null,
@@ -66,6 +79,7 @@ function parseArgs(argv: string[]) {
     const a = argv[i];
     if (a === "--mock") args.mock = true;
     else if (a === "--strict") args.strict = true;
+    else if (a === "--diagnose") args.diagnose = true;
     else if (a === "--help" || a === "-h") args.help = true;
     else if (a === "--lines") args.linesPath = argv[++i] ?? null;
     else if (a === "--save") args.savePath = argv[++i] ?? null;
@@ -89,6 +103,7 @@ Flags:
   --lines F  Skip OCR; classify saved lines JSON
   --save F   Write OCR dump (lines + confidence) to F
   --strict   Exit 1 if zero products or OCR unusable
+  --diagnose Compare raw OCR and reconstructed rows, including prices (disables OpenFoodFacts)
   --help     Show this help
 `);
 }
@@ -131,6 +146,28 @@ function saveFixture(filePath: string, fixture: OcrFixture) {
   console.log(`\n💾 Saved OCR fixture → ${abs}`);
 }
 
+function summarize(mode: E2EResult["mode"], lines: string[], confidence: number, classification: FoodClassification): E2EResult {
+  const metadata = extractReceiptMetadata(lines, classification.products);
+  const itemizedTotal = Number(classification.products.reduce((sum, product) => sum + (product.paidPrice ?? 0), 0).toFixed(2));
+  return {
+    ...metadata,
+    mode,
+    ocrConfidence: confidence,
+    lineCount: lines.length,
+    totalItems: classification.totalItems,
+    detectedItems: classification.detectedItems,
+    healthyItems: classification.healthyItems,
+    unhealthyItems: classification.unhealthyItems,
+    neutralItems: classification.totalItems - classification.healthyItems - classification.unhealthyItems,
+    fruitVegGrams: classification.fruitVegGrams,
+    pricedItems: classification.products.filter((product) => product.paidPrice !== undefined).length,
+    itemizedTotal,
+    differenceFromPrintedTotal: metadata.totalSpentSource === "receipt_total" && metadata.totalSpent !== null
+      ? Number((itemizedTotal - metadata.totalSpent).toFixed(2)) : null,
+    products: classification.products,
+  };
+}
+
 function printResult(result: E2EResult) {
   console.log("\n========== E2E RESULT ==========");
   console.log(`Mode:          ${result.mode}`);
@@ -142,6 +179,10 @@ function printResult(result: E2EResult) {
   console.log(`  unhealthy:   ${result.unhealthyItems}`);
   console.log(`  neutral:     ${result.neutralItems}`);
   console.log(`Fruit/veg g:   ${result.fruitVegGrams}`);
+  console.log(`Priced items:  ${result.pricedItems}/${result.detectedItems}`);
+  console.log(`Item sum:      ${result.itemizedTotal.toFixed(2)}`);
+  console.log(`Receipt total: ${result.totalSpent ?? "unreadable"} (${result.totalSpentSource ?? "unknown"})`);
+  console.log(`Difference:    ${result.differenceFromPrintedTotal ?? "no printed total"}`);
   console.log("\n--- Products ---");
   for (const p of result.products) {
     const emoji =
@@ -151,7 +192,7 @@ function printResult(result: E2EResult) {
           ? "❌"
           : "⚪";
     console.log(
-      `${emoji} ${p.name} → ${p.category} (${p.fruitVegGrams}g)`
+      `${emoji} ${p.name} → ${p.category} / ${getSpendingCategory(p.name, p.category === "excluded")} (${p.fruitVegGrams}g), price: ${p.paidPrice ?? "MISSING"}`
     );
   }
   console.log("================================\n");
@@ -167,9 +208,12 @@ async function run(): Promise<number> {
   if (args.mock) {
     process.env.USE_MOCK_OCR = "true";
   }
+  if (args.diagnose) process.env.USE_OFF_API = "false";
 
   let mode: E2EResult["mode"] = "mock";
   let lines: string[] = [];
+  let rawLines: string[] = [];
+  let annotation: OCRResult["annotation"];
   let fullText = "";
   let confidence = 0;
 
@@ -178,7 +222,9 @@ async function run(): Promise<number> {
   if (args.linesPath) {
     mode = "lines";
     const fixture = loadLinesFixture(args.linesPath);
-    lines = fixture.lines;
+    rawLines = fixture.lines;
+    annotation = fixture.annotation;
+    lines = annotation ? reconstructReceiptLines(annotation, rawLines) : fixture.analysisLines ?? rawLines;
     fullText = fixture.fullText ?? lines.join("\n");
     confidence = fixture.confidence ?? 0.9;
     console.log(`📄 Loaded ${lines.length} lines from ${args.linesPath}`);
@@ -188,18 +234,14 @@ async function run(): Promise<number> {
     const b64 = imageToBase64(args.imagePath);
     console.log(`🖼️  Image: ${resolvePath(args.imagePath)}`);
     console.log(`   base64 length: ${b64.length}`);
-    console.log(
-      `   credentials: ${
-        process.env.GOOGLE_CREDENTIALS_JSON ||
-        process.env.GOOGLE_APPLICATION_CREDENTIALS ||
-        "(none)"
-      }`
-    );
+    console.log(`   credentials: ${Boolean(process.env.GOOGLE_CREDENTIALS_JSON || process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON || process.env.GOOGLE_APPLICATION_CREDENTIALS) ? "configured" : "none"}`);
     console.log(`   USE_MOCK_OCR: ${process.env.USE_MOCK_OCR ?? "false"}`);
     console.log("\n⏳ Running OCR...");
 
     try {
       const ocr = await processOCR(b64);
+      rawLines = ocr.lines;
+      annotation = ocr.annotation;
       lines = ocr.analysisLines ?? ocr.lines;
       fullText = ocr.fullText;
       confidence = ocr.confidence;
@@ -217,6 +259,7 @@ async function run(): Promise<number> {
     const dummy =
       "data:image/jpeg;base64," + Buffer.from("mock-receipt-image").toString("base64");
     const ocr = await processOCR(dummy);
+    rawLines = ocr.lines;
     lines = ocr.analysisLines ?? ocr.lines;
     fullText = ocr.fullText;
     confidence = ocr.confidence;
@@ -230,7 +273,9 @@ async function run(): Promise<number> {
     if (fs.existsSync(defaultFixture)) {
       mode = "lines";
       const fixture = loadLinesFixture(defaultFixture);
-      lines = fixture.lines;
+      rawLines = fixture.lines;
+      annotation = fixture.annotation;
+      lines = annotation ? reconstructReceiptLines(annotation, rawLines) : fixture.analysisLines ?? rawLines;
       fullText = fixture.fullText ?? lines.join("\n");
       confidence = fixture.confidence ?? 0.9;
       console.log(`📄 Default fixture: ${defaultFixture}`);
@@ -254,50 +299,41 @@ async function run(): Promise<number> {
     }
   }
 
-  if (args.savePath) {
-    saveFixture(args.savePath, {
-      name: args.imagePath
-        ? path.basename(args.imagePath)
-        : args.linesPath
-          ? path.basename(args.linesPath)
-          : "mock",
-      source: mode,
-      confidence,
-      fullText,
-      lines,
-      capturedAt: new Date().toISOString(),
-    });
-  }
-
   // Show first OCR lines for debugging real photos
-  console.log("\n--- OCR lines (first 40) ---");
-  lines.slice(0, 40).forEach((l, i) => console.log(`${String(i + 1).padStart(3)}| ${l}`));
-  if (lines.length > 40) console.log(`... +${lines.length - 40} more`);
+  if (args.diagnose) {
+    console.log("\n--- Raw OCR lines ---");
+    rawLines.forEach((line, index) => console.log(`${String(index + 1).padStart(3)}| ${line}`));
+  }
+  console.log("\n--- Reconstructed analysis lines ---");
+  lines.slice(0, args.diagnose ? undefined : 40).forEach((line, index) => console.log(`${String(index + 1).padStart(3)}| ${line}`));
+  if (!args.diagnose && lines.length > 40) console.log(`... +${lines.length - 40} more`);
 
   console.log("\n⏳ Classifying...");
   const classification = await classifyFoods(lines);
 
-  const neutralItems =
-    classification.totalItems -
-    classification.healthyItems -
-    classification.unhealthyItems;
+  const result = summarize(mode, lines, confidence, classification);
+  let diagnostic: OcrFixture["diagnostic"];
+  if (args.diagnose) {
+    const rawClassification = rawLines.join("\n") === lines.join("\n") ? classification : await classifyFoods(rawLines);
+    diagnostic = { raw: summarize(mode, rawLines, confidence, rawClassification), analysis: result };
+    console.log("\n--- Raw OCR parsing result ---");
+    printResult(diagnostic.raw);
+    console.log("\n--- Reconstructed row parsing result ---");
+  }
 
-  const result: E2EResult = {
-    mode,
-    ocrConfidence: confidence,
-    lineCount: lines.length,
-    totalItems: classification.totalItems,
-    detectedItems: classification.detectedItems,
-    healthyItems: classification.healthyItems,
-    unhealthyItems: classification.unhealthyItems,
-    neutralItems,
-    fruitVegGrams: classification.fruitVegGrams,
-    products: classification.products.map((p) => ({
-      name: p.name,
-      category: p.category,
-      fruitVegGrams: p.fruitVegGrams,
-    })),
-  };
+  if (args.savePath) {
+    saveFixture(args.savePath, {
+      name: args.imagePath ? path.basename(args.imagePath) : args.linesPath ? path.basename(args.linesPath) : "mock",
+      source: mode,
+      confidence,
+      fullText,
+      lines: rawLines,
+      analysisLines: lines,
+      annotation,
+      capturedAt: new Date().toISOString(),
+      diagnostic,
+    });
+  }
 
   printResult(result);
 

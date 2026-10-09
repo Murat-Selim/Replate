@@ -78,6 +78,8 @@ export interface OCRResult {
   lines: string[];
   /** Physical rows for analysis; original lines remain the receipt identity input. */
   analysisLines?: string[];
+  /** Original layout retained for offline diagnosis and row reconstruction. */
+  annotation?: protos.google.cloud.vision.v1.ITextAnnotation;
   confidence: number;
 }
 
@@ -99,29 +101,44 @@ export function reconstructReceiptLines(annotation: protos.google.cloud.vision.v
       const dx = points[1].x - points[0].x;
       const dy = points[1].y - points[0].y;
       const height = Math.hypot(points[3].x - points[0].x, points[3].y - points[0].y);
-      if (!height || !Math.hypot(dx, dy)) return fallback;
-      positioned.push({ text, x: points.reduce((sum, point) => sum + point.x, 0) / 4, y: points.reduce((sum, point) => sum + point.y, 0) / 4, height, angle: Math.atan2(dy, dx) });
+      const width = Math.hypot(dx, dy);
+      if (!height || !width) return fallback;
+      positioned.push({ text, x: points.reduce((sum, point) => sum + point.x, 0) / 4, y: points.reduce((sum, point) => sum + point.y, 0) / 4, height, width, angle: Math.atan2(dy, dx) });
     }
     if (!positioned.length) return fallback;
     const angles = positioned.map((word) => word.angle).sort((a, b) => a - b);
     const angle = angles[Math.floor(angles.length / 2)];
     const cos = Math.cos(angle);
     const sin = Math.sin(angle);
-    const aligned = positioned.map((word) => ({ ...word, x: word.x * cos + word.y * sin, y: word.y * cos - word.x * sin })).sort((a, b) => a.y - b.y || a.x - b.x);
-    const rows: Array<{ y: number; height: number; words: typeof aligned }> = [];
+    const aligned = positioned.map((word) => ({ ...word, x: word.x * cos + word.y * sin, y: word.y * cos - word.x * sin, angle: word.angle - angle })).sort((a, b) => a.x - b.x || a.y - b.y);
+    const rows: Array<{ x: number; y: number; height: number; width: number; angle: number; words: typeof aligned }> = [];
     for (const word of aligned) {
-      const row = rows.at(-1);
-      if (row && Math.abs(word.y - row.y) <= Math.min(word.height, row.height) * 0.55) {
+      // Curved receipts have different slopes at the top and bottom; match each row locally.
+      let row: typeof rows[number] | undefined;
+      let nearest = Infinity;
+      for (const candidate of rows) {
+        const slope = Math.tan((word.angle + candidate.angle) / 2);
+        const distance = Math.abs(word.y - candidate.y - slope * (word.x - candidate.x)) / Math.hypot(1, slope);
+        if (distance <= Math.min(word.height, candidate.height) * 0.65 && distance < nearest) {
+          row = candidate;
+          nearest = distance;
+        }
+      }
+      if (row) {
         const count = row.words.length;
+        row.x = (row.x * count + word.x) / (count + 1);
         row.y = (row.y * count + word.y) / (count + 1);
         row.height = (row.height * count + word.height) / (count + 1);
+        row.angle = (row.angle * row.width + word.angle * word.width) / (row.width + word.width);
+        row.width += word.width;
         row.words.push(word);
       } else {
-        rows.push({ y: word.y, height: word.height, words: [word] });
+        rows.push({ x: word.x, y: word.y, height: word.height, width: word.width, angle: word.angle, words: [word] });
       }
     }
-    output.push(...rows.map((row) => row.words.sort((a, b) => a.x - b.x).map((word) => word.text).join(" ")
-      .replace(/(\d)\s+([.,])\s*(?=\d)/g, "$1$2").replace(/([%*])\s+(?=\d)/g, "$1")));
+    output.push(...rows.sort((a, b) => a.words[0].y - b.words[0].y).map((row) => row.words.map((word) => word.text).join(" ")
+      .replace(/(\d)\s+([.,])\s*(?=\d)/g, "$1$2").replace(/([%*])\s+(?=\d)/g, "$1")
+      .replace(/(\p{L})\s+\.(?=\s|$)/gu, "$1.").replace(/\bTL\s*\/\s*(kg|ad|adet|lt)\b/gi, "TL/$1")));
   }
   return output;
 }
@@ -219,10 +236,13 @@ export async function processOCR(imageBase64: string): Promise<OCRResult> {
     const client = getVisionClient();
 
     // languageHints improve Turkish receipt accuracy (ş, ğ, ı, etc.)
-    const [result] = await client.documentTextDetection({
+    const [batch] = await client.batchAnnotateImages({ requests: [{
       image: { content: base64 },
+      features: [{ type: "DOCUMENT_TEXT_DETECTION" }],
       imageContext: { languageHints: ["tr", "en"] },
-    });
+    }] }, { timeout: 15000, retry: null });
+    const result = batch.responses?.[0];
+    if (!result || result.error?.code || result.error?.message) throw new OCRError("Failed to process receipt image", "OCR_API_ERROR");
 
     const detections = result.textAnnotations;
 
@@ -244,7 +264,7 @@ export async function processOCR(imageBase64: string): Promise<OCRResult> {
         ? pageConfidence
         : 0.9;
 
-    return { fullText, lines, analysisLines: reconstructReceiptLines(result.fullTextAnnotation, lines), confidence };
+    return { fullText, lines, analysisLines: reconstructReceiptLines(result.fullTextAnnotation, lines), annotation: result.fullTextAnnotation ?? undefined, confidence };
   } catch (error) {
     if (error instanceof OCRError) throw error;
     console.error("❌ Vision API error:", error);

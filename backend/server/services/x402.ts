@@ -10,6 +10,7 @@ import type { SettleContext, SettleFailureContext, SettleResultContext } from "@
 import { INTELLIGENCE_PRICING, runtimeConfig } from "../config.js";
 import { getDatabasePool } from "../db.js";
 import { validateImageBase64 } from "./ocr.js";
+import { receiptPriceIssues } from "./receipt-analysis.js";
 import { buildAdvancedReceiptReport, findReceipt, hasAdvancedReceiptBinding, type AdvancedReceiptReport } from "./intelligence-data.js";
 import { buildCategorySignal, buildProductSignal, MIN_SIGNAL_SAMPLE_SIZE, saveCategorySignal, saveProductSignal } from "./signal-engine.js";
 
@@ -119,31 +120,25 @@ async function validateResource(client: any, resource: PaidResourceRequest, paye
     if (resource.resourceType === "advanced_receipt" && resource.userAddress?.toLowerCase() !== payer.toLowerCase()) throw new Error("Payment payer must match userAddress");
     const receipt = await findReceipt(client, resource.receiptId!, payer, resource.receiptHash);
     if (!receipt) throw new Error("Receipt ownership or identity check failed");
-    if (resource.resourceType === "receipt_product_prices") {
-      const pricedItems = await client.query("SELECT COUNT(*) AS count FROM receipt_items WHERE receipt_id = $1 AND paid_price IS NOT NULL", [receipt.id]);
-      if (!Number(pricedItems.rows[0]?.count || 0)) throw new Error("This receipt has no priced line items");
-    }
-    if (resource.resourceType === "receipt_spending_breakdown") {
+    if (resource.resourceType === "receipt_product_prices" || resource.resourceType === "receipt_spending_breakdown") {
       const pricedItems = await client.query(
         "SELECT COUNT(*) AS total_count, COUNT(*) FILTER (WHERE paid_price IS NOT NULL) AS priced_count FROM receipt_items WHERE receipt_id = $1",
         [receipt.id],
       );
       const pricedCount = Number(pricedItems.rows[0]?.priced_count || 0);
-      if (!pricedCount) throw new Error("This receipt has no priced line items");
-      if (pricedCount < Math.ceil(Number(pricedItems.rows[0]?.total_count || 0) * 0.8)) {
-        throw new Error("Too many receipt items are missing prices. Reprocess this receipt before running the spending analysis.");
-      }
-      if (receipt.totalSpentSource !== "receipt_total" || !receipt.totalSpent || receipt.totalSpent <= 0) {
-        throw new Error("The printed receipt total could not be read. Reprocess this receipt before running the spending analysis.");
-      }
       const itemized = await client.query(
         "SELECT COALESCE(SUM(paid_price), 0) AS total FROM receipt_items WHERE receipt_id = $1 AND paid_price IS NOT NULL",
         [receipt.id],
       );
-      const coverage = Number(itemized.rows[0]?.total || 0) / receipt.totalSpent;
-      if (Math.abs(coverage - 1) > 0.1) {
-        throw new Error("Recognized item prices do not match the printed receipt total closely enough. This receipt must be reprocessed before analysis.");
-      }
+      const issues = receiptPriceIssues({
+        totalLineItemCount: Number(pricedItems.rows[0]?.total_count || 0),
+        pricedItemCount: pricedCount,
+        pricedItemsTotal: Number(itemized.rows[0]?.total || 0),
+        receiptTotal: receipt.totalSpent,
+        totalSpentSource: receipt.totalSpentSource,
+        expectedItemsTotal: receipt.expectedItemsTotal,
+      });
+      if (issues.length) throw new Error(issues.join("; "));
     }
     if (resource.resourceType === "advanced_receipt") {
       const features = await client.query("SELECT COUNT(*) AS count FROM derived_features WHERE receipt_id = $1 AND calculation_version = 'features-v1'", [receipt.id]);

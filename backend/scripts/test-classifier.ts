@@ -13,7 +13,9 @@ import {
 import { PRODUCT_CATALOG } from "../server/services/product-catalog.js";
 import { extractReceiptMetadata } from "../server/services/receipt-metadata.js";
 import { getSpendingCategory } from "../server/services/spending-categories.js";
+import { normalizeProduct } from "../server/services/product-normalization.js";
 import type { protos } from "@google-cloud/vision";
+import { readFileSync } from "node:fs";
 import {
   assertUsableOCR,
   isOCRResultUsable,
@@ -248,7 +250,7 @@ async function testReceiptSpending() {
   const metadata = extractReceiptMetadata(["A101", "TL", "ARA TOPLAN *328,42", "MAL/HİZMET TOPLAM TUTARI *317,47", "TOPKDV *10,95", "ÖDENECEK TUTAR", "*328,42"], []);
   assert(metadata.totalSpent === 328.42 && metadata.totalSpentSource === "receipt_total", "split payable total is read as 328.42");
   const subtotal = extractReceiptMetadata(["ARA TOPLAM", "*958,79", "TOPKDV *28,99"], []);
-  assert(subtotal.totalSpent === 958.79 && subtotal.totalSpentSource === "receipt_total", "split A101 subtotal is read as 958.79");
+  assert(subtotal.totalSpent === null, "a Turkish subtotal cannot replace a missing final receipt total");
   const fallback = extractReceiptMetadata(["ÖDENECEK TUTAR", "unreadable", "TOPLAM *328,42"], []);
   assert(fallback.totalSpent === 328.42, "unreadable preferred label does not hide a valid total");
   const taxOnly = extractReceiptMetadata(["TOPLAM KDV *10,95"], []);
@@ -256,6 +258,46 @@ async function testReceiptSpending() {
   for (const [name, expected] of [["ERİK MÜRDÜM", "produce"], ["PORTAKAL", "produce"], ["DOMATES RENDESİ", "pantry"], ["REÇEL ÇEŞİTLERİ", "pantry"], ["BUL. SUN. RENKLİ KONFOR", "household"], ["KANEPE BURGER NİMET", "bakery"]]) {
     assert(getSpendingCategory(name) === expected, `${name} maps to ${expected}`);
   }
+}
+
+async function testDollarReceipt() {
+  console.log("\n=== Farmer's Table dollar receipt ===");
+  // Screenshot transcription; tests parsing without contacting Vision or a payment service.
+  const items: Array<[string, number]> = [
+    ["Chicken", 4.5], ["Quick Oats", 3.79], ["Olive Oil & Vinegar", 3.99],
+    ["Bean (Green) .370 kg @ $4.39/kg", 1.62], ["Onion", 1.39],
+    ["Lemon Regular 1@ 3/$2.50", 0.84], ["Peanut Butter", 4.88],
+  ];
+  for (const layout of ["inline", "after", "before"] as const) {
+    const lines = ["Farmer's Table", "1500 First Avenue, Oshawa, ON", "Tel 555-739-7199",
+      ...items.flatMap(([name, price]) => {
+        const money = "$" + price.toFixed(2);
+        return layout === "inline" ? [`${name} ${money}`] : layout === "after" ? [name, money] : [money, name];
+      }),
+      "SUB TOTAL", "$21.01", "Debit Card", "$21.01", "TOTAL", "$21.01",
+      "RESULT APPROVED", "DATE/TIME SEP 23 2014 15:22:30", "TERM ID FE01OD03", "SEQUENCE # 59500100161",
+    ];
+    const result = await classifyFoods(lines);
+    const metadata = extractReceiptMetadata(lines, result.products);
+    assert(result.detectedItems === 7 && JSON.stringify(result.products.map((product) => product.paidPrice)) === JSON.stringify(items.map(([, price]) => price)),
+      `${layout} dollar receipt has exactly 7 priced products, without subtotal or debit payment rows`);
+    assert(metadata.totalSpent === 21.01 && metadata.totalSpentSource === "receipt_total",
+      `${layout} dollar receipt keeps the printed total of 21.01`);
+    assert(result.products[3]?.actualWeightGrams === 370 && result.products[5]?.paidPrice === 0.84,
+      `${layout} bean weight and lemon paid price are preserved`);
+    assert(!/[$@]|\bkg\b/i.test(result.products[3]?.name ?? ""), `${layout} unit price text is removed from the product name`);
+    assert(JSON.stringify(result.products.map((product) => getSpendingCategory(product.name))) === JSON.stringify(["meat", "pantry", "pantry", "produce", "produce", "produce", "pantry"]),
+      `${layout} dollar receipt maps its products to meat, pantry and produce`);
+  }
+  const unitOnly = await classifyFoods(["Lemon Regular 1@ 3/$2.50"]);
+  assert(unitOnly.products[0]?.paidPrice === undefined, "a promotion price cannot substitute for a missing line total");
+  const footer = await classifyFoods(["SUB TOTAL $21.01", "Debit Card $21.01", "TOTAL $21.01", "RESULT APPROVED $21.01"]);
+  assert(footer.detectedItems === 0, "inline subtotal and debit payment amounts cannot become products");
+  const amountBeforeTotal = extractReceiptMetadata(["SUB TOTAL $18.00", "Debit Card", "$ 21.01", "TOTAL", "RESULT APPROVED"], []);
+  assert(amountBeforeTotal.totalSpent === 21.01 && amountBeforeTotal.totalSpentSource === "receipt_total",
+    "a final total above its label takes priority over the subtotal");
+  const missingFinalTotal = extractReceiptMetadata(["SUB TOTAL $18.00", "TAX $3.01", "TOTAL", "RESULT APPROVED"], []);
+  assert(missingFinalTotal.totalSpent === null, "a subtotal cannot replace an unreadable final total on an English receipt");
 }
 
 function testOCRGates() {
@@ -333,6 +375,78 @@ async function testInvoiceLayout() {
   assert(reconstructReceiptLines(undefined, raw) === raw, "missing geometry preserves the original OCR lines");
   assert(reconstructReceiptLines({ pages: [{ blocks: [{ paragraphs: [{ words: [{ symbols: [{ text: "ELMA" }] }] }] }] }] }, raw) === raw,
     "incomplete geometry cannot discard OCR text");
+}
+
+async function testCapturedPriceLayouts() {
+  console.log("\n=== Captured Vision price layouts (offline) ===");
+  // Actual word boxes, restricted to product/total rows; no address or payment identifiers.
+  const layouts = JSON.parse(readFileSync(new URL("../fixtures/receipts/price-layouts.json", import.meta.url), "utf8")) as Array<{
+    name: string;
+    words: Array<{ text: string; vertices: number[][] }>;
+  }>;
+  for (const layout of layouts) {
+    const expected = layout.name === "a101" ? [29.5, 40, 45, 37.92, 52.5, 55, 8.5, 15, 15, 9.5, 8.5, 12] : [4.5, 3.79, 3.99, 1.62, 1.39, 0.84, 4.88];
+    const total = Number(expected.reduce((sum, amount) => sum + amount, 0).toFixed(2));
+    for (const degrees of [0, -8, 90]) {
+      const angle = degrees * Math.PI / 180;
+      const words = layout.words.map((word) => ({
+        symbols: [{ text: word.text }],
+        boundingBox: { vertices: word.vertices.map(([x, y]) => ({
+          x: x * Math.cos(angle) - y * Math.sin(angle) + 4000,
+          y: x * Math.sin(angle) + y * Math.cos(angle) + 4000,
+        })) },
+      }));
+      const annotation: protos.google.cloud.vision.v1.ITextAnnotation = { pages: [{ blocks: [{ paragraphs: [{ words }] }] }] };
+      const lines = reconstructReceiptLines(annotation, []);
+      if (layout.name === "a101") lines.push("ARA TOPLAN *328,42", "TOPKDV *10,95", "ODENECEK TUTAR *328,42", "KDV", "*233,42");
+      const result = await classifyFoods(lines);
+      const metadata = extractReceiptMetadata(lines, result.products);
+      assert(JSON.stringify(result.products.map((product) => product.paidPrice)) === JSON.stringify(expected),
+        `${layout.name} ${degrees}° captured layout keeps every price with its product and excludes tax/payment rows`);
+      assert(metadata.totalSpentSource === "receipt_total" && metadata.totalSpent === total,
+        `${layout.name} ${degrees}° captured layout finds the printed total`);
+      if (layout.name === "a101") {
+        assert(result.excludedItems === 1 && result.products[2]?.quantity === 3 && result.products[3]?.actualWeightGrams === 960,
+          `${degrees}° curved receipt retains household exclusion, bread quantity and potato weight`);
+        const categories: Record<string, number> = {};
+        for (const product of result.products) {
+          const category = getSpendingCategory(product.name, product.category === "excluded");
+          categories[category] = Number(((categories[category] ?? 0) + (product.paidPrice ?? 0)).toFixed(2));
+        }
+        assert(JSON.stringify(categories) === JSON.stringify({ snacks: 56, household: 40, bakery: 45, produce: 37.92, pantry: 52.5, drinks: 67, frozen: 30 }),
+          `${degrees}° real OCR product names produce the correct seven spending totals`);
+        assert(result.products[5]?.category !== "healthy" && result.products[5]?.fruitVegGrams === 0 && result.fruitVegGrams === 960,
+          `${degrees}° fruit-flavored drink cannot count as fresh fruit or add estimated fruit grams`);
+      }
+    }
+  }
+}
+
+async function testOcrProductCategories() {
+  console.log("\n=== OCR product category corrections ===");
+  const cases = [
+    ["BEBE BLSKUVLSL 172 G BEBEBLS", "snacks", "unhealthy", "biskuvi"],
+    ["BEBE B1SKUV1S1 172 G", "snacks", "unhealthy", "biskuvi"],
+    ["NADEN SUYU SADE 200 ML", "drinks", "healthy", "su"],
+    ["HADEN SUYU SADE 200 ML", "drinks", "healthy", "su"],
+    ["MEYVELL (CECEK EKSL ELMA 1 L", "drinks", "neutral", null],
+    ["MEYVELI LCECEK ELMA 1 L", "drinks", "neutral", null],
+    ["AROMALI (CECEK UZUM 1 L", "drinks", "neutral", null],
+  ] as const;
+  for (const [name, spending, nutrition, canonicalKey] of cases) {
+    const result = await classifyFoods([`${name} %01 *12,00`]);
+    const product = result.products[0];
+    assert(result.detectedItems === 1 && product?.paidPrice === 12, `${name}: correction preserves the line and price`);
+    assert(getSpendingCategory(product?.name ?? "") === spending && getSpendingCategory(name) === spending,
+      `${name}: both raw and cleaned names map to ${spending}`);
+    assert(product?.category === nutrition && product?.fruitVegGrams === 0, `${name}: nutrition is ${nutrition}, without fresh fruit grams`);
+    const normalized = normalizeProduct(product?.name ?? "", product?.category ?? "neutral");
+    assert(canonicalKey ? normalized.canonicalKey === canonicalKey : normalized.canonicalKey?.startsWith("item:") === true,
+      `${name}: canonical normalization agrees with the classified product`);
+  }
+  assert(getSpendingCategory("ELMA STARKING") === "produce", "fresh apples remain produce");
+  assert(getSpendingCategory("NADEN MARKA XYZ") === "other", "an ambiguous brand cannot be corrected into mineral water");
+  assert(getSpendingCategory("ORNEK URUN XYZ") === "other", "unknown product names keep the Other fallback");
 }
 
 async function testReceiptGolden() {
@@ -605,8 +719,11 @@ async function main() {
   testCleanProductLine();
   await testPaidPriceExtraction();
   await testReceiptSpending();
+  await testDollarReceipt();
   testOCRGates();
   await testInvoiceLayout();
+  await testCapturedPriceLayouts();
+  await testOcrProductCategories();
   await testReceiptGolden();
 
   console.log("\n=== SUMMARY ===");

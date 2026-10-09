@@ -1,5 +1,5 @@
 import { CATALOG_BY_ID, SORTED_ALIAS_ENTRIES } from "./product-catalog.js";
-import { normalizeTurkish } from "./classifier.js";
+import { normalizeProductText, normalizeTurkish } from "./classifier.js";
 
 export interface NormalizedProduct {
   canonicalKey: string | null;
@@ -8,7 +8,7 @@ export interface NormalizedProduct {
 }
 
 export function normalizeProduct(name: string, category: NormalizedProduct["category"]): NormalizedProduct {
-  const normalized = normalizeTurkish(name.trim());
+  const normalized = normalizeProductText(name.trim());
   // ponytail: exact normalized fallback will split wording variants; reviewed aliases when duplicate reports justify it.
   const fallbackKey = `item:${normalized.replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
   if (category === "excluded") return { canonicalKey: fallbackKey === "item:" ? null : fallbackKey, category, confidence: 0.5 };
