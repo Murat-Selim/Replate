@@ -13,7 +13,8 @@ export function compressImage(
   file: File,
   maxWidth = 1600,
   maxHeight = 1600,
-  quality = 0.8
+  quality = 0.8,
+  maxDataUrlLength = Infinity
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     // Create an object URL for the file to load it into an Image object
@@ -28,17 +29,9 @@ export function compressImage(
       let height = img.height;
 
       // Calculate new dimensions while maintaining aspect ratio
-      if (width > height) {
-        if (width > maxWidth) {
-          height = Math.round((height * maxWidth) / width);
-          width = maxWidth;
-        }
-      } else {
-        if (height > maxHeight) {
-          width = Math.round((width * maxHeight) / height);
-          height = maxHeight;
-        }
-      }
+      const scale = Math.min(1, maxWidth / width, maxHeight / height);
+      width = Math.round(width * scale);
+      height = Math.round(height * scale);
 
       const canvas = document.createElement("canvas");
       canvas.width = width;
@@ -54,7 +47,22 @@ export function compressImage(
       ctx.drawImage(img, 0, 0, width, height);
 
       // Export the canvas as a JPEG data URL with the specified quality
-      const compressedDataUrl = canvas.toDataURL("image/jpeg", quality);
+      let compressedDataUrl = canvas.toDataURL("image/jpeg", quality);
+      while (compressedDataUrl.length > maxDataUrlLength) {
+        if (quality > 0.6) quality = Math.max(0.6, quality - 0.1);
+        else {
+          if (Math.max(width, height) < 1200) {
+            reject(new Error("Receipt photo is too large. Try cropping it to the receipt."));
+            return;
+          }
+          width = Math.round(width * 0.85);
+          height = Math.round(height * 0.85);
+          canvas.width = width;
+          canvas.height = height;
+          ctx.drawImage(img, 0, 0, width, height);
+        }
+        compressedDataUrl = canvas.toDataURL("image/jpeg", quality);
+      }
       resolve(compressedDataUrl);
     };
 

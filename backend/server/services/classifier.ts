@@ -144,7 +144,7 @@ const STRIP_TOKEN_REGEX = new RegExp(
 // Prefer structural/meta terms over city/brand-specific tokens.
 const SKIP_PATTERNS = [
   /\b(ORTAK\s+POS|POS|ONAY\s+KODU|REF\s+NO|TERMINAL\s+ID|BATCH\s+NO)\b/i,
-  /^(TOTAL|SUB\s*TOTAL|TAX|DATE|STORE|CASHIER|CHANGE|RECEIPT)/i,
+  /^(TOTAL|SUB\s*TOTAL|FINAL\s+TOTAL|TAX|DATE|STORE|MERCHANT|CURRENCY|CASHIER|CHANGE|RECEIPT)/i,
   /^(?:(?:SALES\s+)?TAX|GST|HST|PST)(?:\s|:|$)/i,
   /^SPECIAL(?:\s|$)/i,
   /^(TOPLAM|KDV|FIS|FİŞ|SAAT|TARIH|ARA TOPLAM|NAKIT|BANKA)/i,

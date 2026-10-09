@@ -7,6 +7,7 @@ import { useAccount, useConnect, useWalletClient } from "wagmi";
 import { appChain } from "@/lib/network";
 import { getApiUrl, getConfiguredApiUrl } from "@/lib/api";
 import { compressImage } from "@/lib/image";
+import { analyzeReceiptForVerification, getPendingReceiptAnalysis, clearPendingReceiptAnalysis } from "@/lib/receipt-analysis";
 import { useSubmitReceipt } from "@/lib/useTransaction";
 import { track } from "@vercel/analytics";
 import {
@@ -28,6 +29,7 @@ interface VerificationResult {
     receiptId: string;
     txHash: string;
     receiptHash: `0x${string}`;
+    receiptDate?: string;
     healthScore: number;
     nutritionScore: number;
     totalItems: number;
@@ -217,6 +219,14 @@ export default function SmartShop() {
     const [duration, setDuration] = useState(7);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [pendingAnalysis, setPendingAnalysis] = useState(false);
+    const [isReadingReceipt, setIsReadingReceipt] = useState(false);
+    const verificationController = useRef<AbortController | null>(null);
+    useEffect(() => {
+        verificationController.current?.abort();
+        setPendingAnalysis(Boolean(getPendingReceiptAnalysis(address)));
+        return () => { verificationController.current?.abort(); };
+    }, [address]);
     const [isCompressing, setIsCompressing] = useState(false);
     const [result, setResult] = useState<VerificationResult | null>(null);
     const [receiptHuntEntry, setReceiptHuntEntry] = useState(false);
@@ -269,18 +279,17 @@ export default function SmartShop() {
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
+            verificationController.current?.abort();
+            clearPendingReceiptAnalysis(address);
+            setPendingAnalysis(false);
             setIsCompressing(true);
             setError(null);
             try {
-                const compressed = await compressImage(file, 2000, 3000, 0.8);
+                const compressed = await compressImage(file, 2000, 3000, 0.8, 700000);
                 setImagePreview(compressed);
             } catch (err) {
-                console.error("Image compression failed, falling back to original", err);
-                const reader = new FileReader();
-                reader.onloadend = () => {
-                    setImagePreview(reader.result as string);
-                };
-                reader.readAsDataURL(file);
+                setImagePreview(null);
+                setError(err instanceof Error ? err.message : "Receipt photo could not be prepared.");
             } finally {
                 setIsCompressing(false);
             }
@@ -348,24 +357,27 @@ export default function SmartShop() {
     };
 
     const compressCapturedImage = async (dataUrl: string) => {
+        verificationController.current?.abort();
+        clearPendingReceiptAnalysis(address);
+        setPendingAnalysis(false);
         setIsCompressing(true);
         setError(null);
         try {
             const response = await fetch(dataUrl);
             const blob = await response.blob();
             const file = new File([blob], "captured-receipt.jpg", { type: "image/jpeg" });
-            const compressed = await compressImage(file, 2000, 3000, 0.8);
+            const compressed = await compressImage(file, 2000, 3000, 0.8, 700000);
             setImagePreview(compressed);
         } catch (err) {
-            console.error("Captured image compression failed", err);
-            setImagePreview(dataUrl);
+            setImagePreview(null);
+            setError(err instanceof Error ? err.message : "Receipt photo could not be prepared.");
         } finally {
             setIsCompressing(false);
         }
     };
 
     const handleVerify = async () => {
-        if (!imagePreview) {
+        if (!imagePreview && !pendingAnalysis) {
             setError("Please upload a receipt first.");
             return;
         }
@@ -386,7 +398,10 @@ export default function SmartShop() {
             return;
         }
 
+        const controller = new AbortController();
+        verificationController.current = controller;
         setIsLoading(true);
+        setIsReadingReceipt(true);
         setError(null);
         setResult(null);
         setAdvancedReport(null);
@@ -397,26 +412,15 @@ export default function SmartShop() {
         setReceiptHuntSpending(null);
 
         try {
-            const base64Data = imagePreview.split(",")[1] || imagePreview;
-            // 1. Analyze receipt off-chain (no on-chain submission from relayer)
-            const response = await fetch(getApiUrl("/api/verify-receipt"), {
-                method: "POST",
-                signal: AbortSignal.timeout(60000),
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    imageBase64: base64Data,
-                    userAddress: address,
-                    householdSize,
-                    daysCovered: duration,
-                    onlyAnalyze: true,
-                }),
-            });
-
-            const data = await response.json();
-
-            if (!data.success || !data.data) {
-                throw new Error(data.error || "Verification failed");
-            }
+            const analysis = await analyzeReceiptForVerification<VerificationResult & { householdSize: number }>({
+                imageBase64: imagePreview?.split(",")[1] || imagePreview || undefined,
+                userAddress: address,
+                householdSize,
+                daysCovered: duration,
+            }, setPendingAnalysis, controller.signal);
+            controller.signal.throwIfAborted();
+            const data = { data: analysis };
+            setIsReadingReceipt(false);
 
             // 2. Direct on-chain receipt submission from user's wallet
             const txResult = await submitReceipt({
@@ -425,7 +429,7 @@ export default function SmartShop() {
                 healthyItems: data.data.healthyItems,
                 unhealthyItems: data.data.unhealthyItems,
                 fruitVegGrams: data.data.fruitVegGrams,
-                householdSize,
+                householdSize: data.data.householdSize ?? householdSize,
                 daysCovered: data.data.daysCovered,
             });
 
@@ -448,6 +452,8 @@ export default function SmartShop() {
                 throw new Error(confirmedData.error || "Verified receipt could not be saved");
             }
 
+            clearPendingReceiptAnalysis(address);
+            setPendingAnalysis(false);
             // 4. Show successful result with user's direct txHash
             setResult({
                 ...data.data,
@@ -458,9 +464,13 @@ export default function SmartShop() {
             track("receipt_verification_completed", { health_score: Number(data.data.healthScore) });
             setVerifiedReceiptCount((count) => count + 1);
         } catch (err) {
-            setError(err instanceof Error ? err.message : "An error occurred");
+            if (!controller.signal.aborted) setError(err instanceof Error ? err.message : "An error occurred");
         } finally {
-            setIsLoading(false);
+            if (verificationController.current === controller) {
+                verificationController.current = null;
+                setIsLoading(false);
+                setIsReadingReceipt(false);
+            }
         }
     };
 
@@ -597,6 +607,8 @@ export default function SmartShop() {
     };
 
     const resetForm = () => {
+        clearPendingReceiptAnalysis(address);
+        setPendingAnalysis(false);
         setImagePreview(null);
         setResult(null);
         setHuntInsight("");
@@ -749,13 +761,13 @@ export default function SmartShop() {
                         {/* Verify Button */}
                         <button
                             onClick={handleVerify}
-                            disabled={isLoading || isCompressing || !imagePreview}
+                            disabled={isLoading || isCompressing || (!imagePreview && !pendingAnalysis)}
                             className="w-full bg-[#00E36E] hover:bg-[#00FF66] text-[#050806] py-4 px-8 rounded-2xl font-black text-lg shadow-xl shadow-[#00E36E]/20 hover:shadow-2xl transition-all active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                             {isLoading ? (
                                 <>
                                     <Loader2 size={22} className="animate-spin" />
-                                    Verifying...
+                                    {isReadingReceipt ? "Reading receipt..." : "Verifying..."}
                                 </>
                             ) : isCompressing ? (
                                 <>
@@ -765,7 +777,7 @@ export default function SmartShop() {
                             ) : (
                                 <>
                                     <Sparkles size={22} />
-                                    {address ? "Analyze & Verify" : "Connect Wallet to Continue"}
+                                    {address ? (pendingAnalysis ? "Resume analysis" : "Analyze & Verify") : "Connect Wallet to Continue"}
                                 </>
                             )}
                         </button>

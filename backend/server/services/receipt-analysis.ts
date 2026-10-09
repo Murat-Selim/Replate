@@ -56,6 +56,11 @@ function analysisIssues(analysis: ReceiptAnalysis): string[] {
   return issues;
 }
 
+export function assertReliableReceiptAnalysis(analysis: ReceiptAnalysis): void {
+  const issues = analysisIssues(analysis);
+  if (issues.length) throw new ReceiptAnalysisError(issues);
+}
+
 /** Recover from Vision paragraph order before using a second image reader. */
 export async function analyzeReceipt(
   ocr: OCRResult,
@@ -80,9 +85,8 @@ export async function analyzeReceipt(
   if (ocr.confidence < 0.8) issues.push("The image reading confidence is too low");
   if (recoverImage) {
     const recovered = await recoverImage();
-    const recoveredIssues = analysisIssues(recovered);
-    if (recoveredIssues.length === 0) return recovered;
-    throw new ReceiptAnalysisError(recoveredIssues);
+    assertReliableReceiptAnalysis(recovered);
+    return recovered;
   }
   throw new ReceiptAnalysisError(issues);
 }

@@ -1,4 +1,5 @@
 import { Router, Request, Response } from "express";
+import { randomUUID } from "node:crypto";
 import { processOCR, assertUsableOCR, OCRError } from "../services/ocr.js";
 import { ClassificationResult } from "../services/classifier.js";
 import { submitReceiptToContract, calculateScores } from "../services/contract.js";
@@ -6,21 +7,22 @@ import { createLegacyReceiptHash, createReceiptHash, isReceiptHashUsed } from ".
 import { clearLeaderboardCache } from "./leaderboard.js";
 import { assertCompleteReceipt, ReceiptDateError, ReceiptQualityError, assertRecentReceiptDate } from "../services/receipt-date.js";
 import { assertDatabaseConfigured, getDatabasePool } from "../db.js";
-import { analyzeReceipt, ReceiptAnalysisError } from "../services/receipt-analysis.js";
+import { analyzeReceipt, assertReliableReceiptAnalysis, ReceiptAnalysisError, type ReceiptAnalysis } from "../services/receipt-analysis.js";
 import { getSpendingCategory } from "../services/spending-categories.js";
-import { readReceiptWithNovita } from "../services/novita-ocr.js";
+import { readReceiptWithDoubleword, pollReceiptWithDoubleword, validateDoublewordImage, OCRPendingError } from "../services/doubleword-ocr.js";
 
 const router = Router();
 // Temporarily disabled; set true when the receipt date window should be enforced again.
 const ENABLE_RECEIPT_DATE_RANGE_CHECK = false;
 
 interface VerifyReceiptRequest {
-  imageBase64: string;
+  imageBase64?: string;
   userAddress: string;
   householdSize: number;
   daysCovered?: number;
   fid?: number; // Farcaster ID
   onlyAnalyze?: boolean;
+  pendingAnalysis?: { receiptHash: string; token: string };
 }
 
 interface VerifyReceiptResponse {
@@ -38,6 +40,7 @@ interface VerifyReceiptResponse {
     unhealthyItems: number;
     fruitVegGrams: number;
     daysCovered: number;
+    householdSize?: number;
     pointsEarned: number;
     badgeMinted: boolean;
     products: ClassificationResult[];
@@ -52,57 +55,144 @@ interface VerifyReceiptResponse {
   };
   error?: string;
   errorCode?: string;
+  pendingAnalysis?: { receiptHash: string; token: string };
+  retryAfterMs?: number;
+}
+
+interface RecoveryJob {
+  token: string;
+  responseId: string | null;
+  receiptDate: string;
+  legacyReceiptHash: string;
+  householdSize: number;
+  daysCovered?: number;
+  startedAt: number;
+  status: "starting" | "processing" | "failed" | "ready";
+  error?: string;
+  verificationResponse?: VerifyReceiptResponse;
+}
+
+async function loadRecoveryJob(receiptHash: string, userAddress: string): Promise<RecoveryJob | undefined> {
+  assertDatabaseConfigured();
+  const result = await getDatabasePool().query(
+    "SELECT payload FROM receipt_analysis_staging WHERE receipt_hash = $1 AND user_wallet = $2 AND expires_at > NOW()",
+    [receiptHash, userAddress.toLowerCase()],
+  );
+  return result.rows[0]?.payload?.doublewordJob;
+}
+
+async function saveRecoveryJob(receiptHash: string, userAddress: string, job: RecoveryJob): Promise<void> {
+  await getDatabasePool().query(
+    "UPDATE receipt_analysis_staging SET payload = jsonb_set(payload, '{doublewordJob}', $3::jsonb) WHERE receipt_hash = $1 AND user_wallet = $2",
+    [receiptHash, userAddress.toLowerCase(), JSON.stringify(job)],
+  );
 }
 
 router.post("/", async (req: Request, res: Response) => {
+  let recoveryJob: RecoveryJob | undefined;
+  let receiptHash = "";
+  const userAddress = (req.body as VerifyReceiptRequest | undefined)?.userAddress;
   try {
-    const { imageBase64, userAddress, householdSize, daysCovered, fid, onlyAnalyze } = req.body as VerifyReceiptRequest;
-
-    // Validation
-    if (!imageBase64) {
-      res.status(400).json({ success: false, error: "Image is required", errorCode: "OCR_INVALID_INPUT" } as VerifyReceiptResponse);
+    const { imageBase64, onlyAnalyze, pendingAnalysis } = req.body as VerifyReceiptRequest;
+    let { householdSize, daysCovered } = req.body as VerifyReceiptRequest;
+    if (!imageBase64 && !pendingAnalysis) {
+      res.status(400).json({ success: false, error: "Image is required", errorCode: "OCR_INVALID_INPUT" });
       return;
     }
     if (!userAddress || !/^0x[a-fA-F0-9]{40}$/.test(userAddress)) {
-      res.status(400).json({ success: false, error: "Valid user address is required" } as VerifyReceiptResponse);
+      res.status(400).json({ success: false, error: "Valid user address is required" });
       return;
     }
-    if (!householdSize || householdSize < 1 || householdSize > 10) {
-      res.status(400).json({ success: false, error: "Household size must be 1-10" } as VerifyReceiptResponse);
+    if (!pendingAnalysis && (!Number.isInteger(householdSize) || householdSize < 1 || householdSize > 10)) {
+      res.status(400).json({ success: false, error: "Household size must be 1-10" });
       return;
     }
-
-    console.log(`ğŸ“¸ Processing receipt for ${userAddress} (onlyAnalyze: ${!!onlyAnalyze})...`);
-
-    // Step 1: OCR - Extract text from receipt
-    const ocrResult = await processOCR(imageBase64);
-    console.log(
-      `ğŸ“ OCR found ${ocrResult.lines.length} lines (confidence: ${ocrResult.confidence.toFixed(2)})`
-    );
-
-    // Gate: reject empty / low-quality scans before classification or on-chain submit
-    assertUsableOCR(ocrResult);
-    const receiptDate = assertRecentReceiptDate(ocrResult.lines, new Date(), ENABLE_RECEIPT_DATE_RANGE_CHECK);
-    assertCompleteReceipt(ocrResult.lines);
-
-    const receiptHash = createReceiptHash(ocrResult.lines, receiptDate);
-
-    const legacyReceiptHash = createLegacyReceiptHash(ocrResult.lines);
+    let ocrResult: Awaited<ReturnType<typeof processOCR>> | undefined;
+    let receiptDate: string;
+    let legacyReceiptHash: string;
+    if (pendingAnalysis) {
+      if (!onlyAnalyze || !/^0x[a-fA-F0-9]{64}$/.test(pendingAnalysis.receiptHash) || !/^[a-f0-9-]{36}$/.test(pendingAnalysis.token)) {
+        res.status(400).json({ success: false, error: "Invalid receipt analysis job" });
+        return;
+      }
+      receiptHash = pendingAnalysis.receiptHash;
+      recoveryJob = await loadRecoveryJob(receiptHash, userAddress);
+      if (!recoveryJob || recoveryJob.token !== pendingAnalysis.token) {
+        res.status(404).json({ success: false, error: "Receipt analysis job was not found or has expired" });
+        return;
+      }
+      receiptDate = recoveryJob.receiptDate;
+      legacyReceiptHash = recoveryJob.legacyReceiptHash;
+    } else {
+      ocrResult = await processOCR(imageBase64!);
+      assertUsableOCR(ocrResult);
+      receiptDate = assertRecentReceiptDate(ocrResult.lines, new Date(), ENABLE_RECEIPT_DATE_RANGE_CHECK);
+      assertCompleteReceipt(ocrResult.lines);
+      receiptHash = createReceiptHash(ocrResult.lines, receiptDate);
+      legacyReceiptHash = createLegacyReceiptHash(ocrResult.lines);
+      if (onlyAnalyze && process.env.OCR_API_KEY?.trim()) recoveryJob = await loadRecoveryJob(receiptHash, userAddress);
+    }
     if (await isReceiptHashUsed(receiptHash) || await isReceiptHashUsed(legacyReceiptHash)) {
-      res.status(409).json({
-        success: false,
-        error: "This receipt has already been uploaded",
-        errorCode: "RECEIPT_ALREADY_USED",
-      } as VerifyReceiptResponse);
+      res.status(409).json({ success: false, error: "This receipt has already been uploaded", errorCode: "RECEIPT_ALREADY_USED" });
       return;
     }
 
-    // Step 2: Classify food items
-    const analysis = await analyzeReceipt(ocrResult, process.env.NOVITA_API_KEY?.trim()
-      ? () => readReceiptWithNovita(imageBase64) : undefined);
+    const resumeJob = async (): Promise<ReceiptAnalysis> => {
+      if (!recoveryJob || recoveryJob.status === "failed") {
+        throw new OCRError(recoveryJob?.error || "Receipt OCR could not finish. Please upload a clearer photo.", "OCR_API_ERROR");
+      }
+      if (!recoveryJob.responseId) {
+        if (Date.now() - recoveryJob.startedAt > 60000) {
+          throw new OCRError("Receipt OCR submission could not be confirmed. Please contact support before retrying this receipt.", "OCR_API_ERROR");
+        }
+        throw new OCRPendingError("");
+      }
+      return pollReceiptWithDoubleword(recoveryJob.responseId);
+    };
+    if (recoveryJob?.verificationResponse) {
+      res.json(recoveryJob.verificationResponse);
+      return;
+    }
+    // Persist the job before submitting paid work; duplicate requests reuse it.
+    const analysis = recoveryJob ? await resumeJob() : await analyzeReceipt(ocrResult!, onlyAnalyze && process.env.OCR_API_KEY?.trim()
+      ? async () => {
+        validateDoublewordImage(imageBase64!);
+        recoveryJob = { token: randomUUID(), responseId: null, receiptDate, legacyReceiptHash,
+          householdSize, daysCovered, startedAt: Date.now(), status: "starting" };
+        assertDatabaseConfigured();
+        await getDatabasePool().query("DELETE FROM receipt_analysis_staging WHERE expires_at < NOW()");
+        const claim = await getDatabasePool().query(
+          `INSERT INTO receipt_analysis_staging (receipt_hash, user_wallet, payload) VALUES ($1,$2,$3)
+           ON CONFLICT (receipt_hash, user_wallet) DO UPDATE SET payload = EXCLUDED.payload
+             WHERE NOT (receipt_analysis_staging.payload ? 'doublewordJob') RETURNING payload`,
+          [receiptHash, userAddress.toLowerCase(), { doublewordJob: recoveryJob }],
+        );
+        if (!claim.rows.length) {
+          recoveryJob = await loadRecoveryJob(receiptHash, userAddress);
+          throw new OCRPendingError("");
+        }
+        try {
+          return await readReceiptWithDoubleword(imageBase64!);
+        } catch (error) {
+          if (error instanceof OCRPendingError) {
+            recoveryJob.responseId = error.responseId;
+            recoveryJob.status = "processing";
+          } else {
+            recoveryJob.status = "failed";
+            recoveryJob.error = error instanceof OCRError ? error.message : "Receipt OCR could not finish";
+          }
+          await saveRecoveryJob(receiptHash, userAddress, recoveryJob);
+          throw error;
+        }
+      } : undefined);
+    assertReliableReceiptAnalysis(analysis);
+    if (recoveryJob) {
+      householdSize = recoveryJob.householdSize;
+      daysCovered = recoveryJob.daysCovered;
+    }
     const { classification, metadata: receiptMetadata } = analysis;
-    // Novita does not supply a calibrated page confidence; zero means unknown.
-    const ocrConfidence = analysis.method === "image-recovery" ? 0 : ocrResult.confidence;
+    // The secondary reader does not supply calibrated confidence; zero means unknown.
+    const ocrConfidence = analysis.method === "image-recovery" ? 0 : ocrResult!.confidence;
     console.log(`ğŸ¥— Classification: ${classification.healthyItems} healthy, ${classification.unhealthyItems} unhealthy`);
 
     if (classification.totalItems === 0) {
@@ -142,6 +232,34 @@ router.post("/", async (req: Request, res: Response) => {
         res.status(400).json({ success: false, error: "Receipt items or prices exceed supported limits", errorCode: "RECEIPT_DATA_OUT_OF_RANGE" });
         return;
       }
+      const verificationResponse: VerifyReceiptResponse = {
+        success: true,
+        data: {
+          txHash: "",
+          receiptHash,
+          receiptDate,
+          healthScore: scores.healthScore,
+          nutritionScore: scores.nutritionScore,
+          totalItems: classification.totalItems,
+          detectedItems: classification.detectedItems,
+          excludedItems: classification.excludedItems,
+          healthyItems: classification.healthyItems,
+          unhealthyItems: classification.unhealthyItems,
+          fruitVegGrams: classification.fruitVegGrams,
+          householdSize,
+          daysCovered: targetDaysCovered,
+          pointsEarned: scores.pointsEarned,
+          badgeMinted: false,
+          products,
+          ...receiptMetadata,
+          ocrConfidence,
+          analysisMethod: analysis.method,
+        },
+      };
+      if (recoveryJob) {
+        recoveryJob.status = "ready";
+        recoveryJob.verificationResponse = verificationResponse;
+      }
       assertDatabaseConfigured();
       await getDatabasePool().query("DELETE FROM receipt_analysis_staging WHERE expires_at < NOW()");
       await getDatabasePool().query(
@@ -161,32 +279,11 @@ router.post("/", async (req: Request, res: Response) => {
           fruitVegGrams: classification.fruitVegGrams,
           householdSize,
           daysCovered: targetDaysCovered,
+          ...(recoveryJob ? { doublewordJob: recoveryJob } : {}),
         }],
       );
 
-      res.json({
-        success: true,
-        data: {
-          txHash: "",
-          receiptHash,
-          receiptDate,
-          healthScore: scores.healthScore,
-          nutritionScore: scores.nutritionScore,
-          totalItems: classification.totalItems,
-          detectedItems: classification.detectedItems,
-          excludedItems: classification.excludedItems,
-          healthyItems: classification.healthyItems,
-          unhealthyItems: classification.unhealthyItems,
-          fruitVegGrams: classification.fruitVegGrams,
-          daysCovered: targetDaysCovered,
-          pointsEarned: scores.pointsEarned,
-          badgeMinted: false,
-          products,
-          ...receiptMetadata,
-          ocrConfidence,
-          analysisMethod: analysis.method,
-        },
-      } as VerifyReceiptResponse);
+      res.json(verificationResponse);
       return;
     }
 
@@ -229,6 +326,15 @@ router.post("/", async (req: Request, res: Response) => {
 
     res.json(response);
   } catch (error) {
+    if (error instanceof OCRPendingError && recoveryJob) {
+      res.status(202).json({ success: true, pendingAnalysis: { receiptHash, token: recoveryJob.token }, retryAfterMs: 3000 });
+      return;
+    }
+    if (error instanceof ReceiptAnalysisError && recoveryJob && userAddress) {
+      recoveryJob.status = "failed";
+      recoveryJob.error = error.message;
+      await saveRecoveryJob(receiptHash, userAddress, recoveryJob).catch(() => undefined);
+    }
     console.error("âŒ Receipt verification failed:", error);
 
     if (error instanceof OCRError) {
