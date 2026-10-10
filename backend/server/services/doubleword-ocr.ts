@@ -41,9 +41,13 @@ export function ocrReceiptLines(text: string): string[] {
       continue;
     }
     const summaryRow = columns && cells.some((cell) => /^(?:total|sub\s*total|grand\s+total|final\s+total|tax|sales\s+tax|gst|hst|pst|toplam|ara\s+toplam|kdv|topkdv|odenecek\s+tutar)\b/.test(normalizeTurkish(cell)));
-    if (columns && cells.length !== columns.count) throw new OCRError("The secondary OCR returned an incomplete table row. Try a clearer receipt photo.", "OCR_API_ERROR");
+    // Only product rows must match the header; tax tables after the total may use other widths.
+    if (columns && !columns.ended && !summaryRow && cells.length !== columns.count) throw new OCRError("The secondary OCR returned an incomplete table row. Try a clearer receipt photo.", "OCR_API_ERROR");
     if (columns && summaryRow) columns.ended = true;
     if (columns && !columns.ended && cells[columns.name]) {
+      // "0,80 B" carries a VAT class letter; "2 | x | 1,29" splits the printed multiplication sign into the unit cell.
+      cells[columns.total] = cells[columns.total].replace(/(\d)\s+[A-Z]$/i, "$1");
+      if (columns.unit >= 0 && /^[x×]$/i.test(cells[columns.unit])) cells[columns.unit] = "";
       if (parseReceiptAmount(cells[columns.total]) === undefined) {
         // A unit price cannot stand in for a missing line total.
         lines.push(cells[columns.name]);
@@ -89,6 +93,51 @@ export class OCRPendingError extends Error {
   }
 }
 
+/** Index where the model started looping (blank/separator table rows or one line over and over), or -1. */
+export function transcriptionLoopStart(content: string): number {
+  const lines = content.split("\n").slice(0, -1); // the last line may still be streaming
+  let offset = 0;
+  let repeats = 1;
+  for (let index = 0; index < lines.length; index++) {
+    const blankRow = (line: string | undefined) => line !== undefined && /^\s*\|[\s|:-]*\|\s*$/.test(line) && !/-{3}/.test(line);
+    if (blankRow(lines[index]) && blankRow(lines[index + 1])) return offset;
+    repeats = index > 0 && lines[index].trim() && lines[index] === lines[index - 1] ? repeats + 1 : 1;
+    // Identical purchases can repeat a few times; dozens of copies are a decoding loop.
+    if (repeats > 12) return content.indexOf(lines[index], offset);
+    offset += lines[index].length + 1;
+  }
+  return -1;
+}
+
+/** Read a streamed transcription and stop as soon as the model degenerates into a loop. */
+async function readTranscriptionStream(response: Response): Promise<{ content: string; complete: boolean }> {
+  const reader = response.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let content = "";
+  let finishReason: string | undefined;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const events = buffer.split("\n");
+    buffer = events.pop() ?? "";
+    for (const event of events) {
+      const data = event.match(/^data:\s*(.*)$/)?.[1];
+      if (!data || data === "[DONE]") continue;
+      const chunk = JSON.parse(data) as { choices?: Array<{ finish_reason?: string | null; delta?: { content?: string | null } }> };
+      content += chunk.choices?.[0]?.delta?.content ?? "";
+      finishReason = chunk.choices?.[0]?.finish_reason ?? finishReason;
+    }
+    const loopStart = transcriptionLoopStart(content);
+    if (loopStart >= 0) {
+      await reader.cancel().catch(() => undefined);
+      return { content: content.slice(0, loopStart), complete: true };
+    }
+  }
+  return { content, complete: finishReason === "stop" };
+}
+
 async function doublewordRequest(endpoint: string, body?: unknown): Promise<ReceiptAnalysis> {
   const apiKey = process.env.OCR_API_KEY?.trim();
   if (!apiKey) throw new OCRError("Secondary receipt OCR is not configured", "OCR_API_ERROR");
@@ -102,23 +151,32 @@ async function doublewordRequest(endpoint: string, body?: unknown): Promise<Rece
       body: body === undefined ? undefined : JSON.stringify(body),
     });
     if (!response.ok) throw new OCRError(`Secondary receipt OCR failed (HTTP ${response.status}). No verification or payment was submitted.`, "OCR_API_ERROR");
-    const data = await response.json() as {
-      id?: string; status?: string;
-      output?: Array<{ type?: string; role?: string; content?: string | Array<{ type?: string; text?: string }> }>;
-      choices?: Array<{ finish_reason?: string; message?: { role?: string; content?: string } }>;
-    };
-    if (body === undefined && (data.status === "queued" || data.status === "in_progress") && typeof data.id === "string" && /^[a-zA-Z0-9_-]{1,200}$/.test(data.id)) {
-      throw new OCRPendingError(data.id);
-    }
-    const choice = data.choices?.[0];
-    content = body !== undefined ? (choice?.message?.content ?? "") : (data.output ?? []).filter((item) => item.type === "message" && item.role === "assistant").map((item) =>
-      typeof item.content === "string" ? item.content : (item.content ?? []).filter((part) => part.type === "output_text").map((part) => part.text ?? "").join("\n")
-    ).join("\n");
-    const complete = body !== undefined ? choice?.finish_reason === "stop" && choice.message?.role === "assistant" : data.status === "completed";
-    if (!complete || typeof content !== "string" || !content.trim() || content.length > 100000) {
-      throw new OCRError("Secondary receipt OCR returned an incomplete or invalid reading. No verification or payment was submitted.", "OCR_API_ERROR");
+    if (body !== undefined && response.headers.get("content-type")?.includes("text/event-stream")) {
+      const streamed = await readTranscriptionStream(response);
+      content = streamed.content;
+      if (!streamed.complete || !content.trim() || content.length > 100000) {
+        throw new OCRError("Secondary receipt OCR returned an incomplete or invalid reading. No verification or payment was submitted.", "OCR_API_ERROR");
+      }
+    } else {
+      const data = await response.json() as {
+        id?: string; status?: string;
+        output?: Array<{ type?: string; role?: string; content?: string | Array<{ type?: string; text?: string }> }>;
+        choices?: Array<{ finish_reason?: string; message?: { role?: string; content?: string } }>;
+      };
+      if (body === undefined && (data.status === "queued" || data.status === "in_progress") && typeof data.id === "string" && /^[a-zA-Z0-9_-]{1,200}$/.test(data.id)) {
+        throw new OCRPendingError(data.id);
+      }
+      const choice = data.choices?.[0];
+      content = body !== undefined ? (choice?.message?.content ?? "") : (data.output ?? []).filter((item) => item.type === "message" && item.role === "assistant").map((item) =>
+        typeof item.content === "string" ? item.content : (item.content ?? []).filter((part) => part.type === "output_text").map((part) => part.text ?? "").join("\n")
+      ).join("\n");
+      const complete = body !== undefined ? choice?.finish_reason === "stop" && choice.message?.role === "assistant" : data.status === "completed";
+      if (!complete || typeof content !== "string" || !content.trim() || content.length > 100000) {
+        throw new OCRError("Secondary receipt OCR returned an incomplete or invalid reading. No verification or payment was submitted.", "OCR_API_ERROR");
+      }
     }
   } catch (error) {
+    if (error instanceof Error && error.name === "TimeoutError") console.warn("Secondary receipt OCR timed out after 45s");
     if (error instanceof OCRError || error instanceof OCRPendingError) throw error;
     // Never expose provider error bodies, API keys or the receipt image in logs.
     throw new OCRError("Secondary receipt OCR could not finish. No verification or payment was submitted. Try again shortly.", "OCR_API_ERROR");
@@ -144,7 +202,7 @@ export function validateDoublewordImage(imageBase64: string): { base64: string; 
 export async function readReceiptWithDoubleword(imageBase64: string): Promise<ReceiptAnalysis> {
   const { base64, mime } = validateDoublewordImage(imageBase64);
   return doublewordRequest("", {
-    model: "Qwen/Qwen3-VL-30B-A3B-Instruct-FP8", temperature: 0, max_tokens: 4096, stream: false,
+    model: "Qwen/Qwen3-VL-30B-A3B-Instruct-FP8", temperature: 0, max_tokens: 4096, stream: true,
     service_tier: "priority",
     // Qwen can loop on empty table rows until max_tokens (~2 min), far past the request timeout.
     stop: ["| | | | | |\n| | | | | |", "|  |  |  |  |  |\n|  |  |  |  |  |"],
