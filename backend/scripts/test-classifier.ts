@@ -14,6 +14,7 @@ import {
 import { PRODUCT_CATALOG } from "../server/services/product-catalog.js";
 import { extractReceiptMetadata } from "../server/services/receipt-metadata.js";
 import { getSpendingCategory } from "../server/services/spending-categories.js";
+import { labelUnknownProducts, productSpendingCategory } from "../server/services/product-categorizer.js";
 import { normalizeProduct } from "../server/services/product-normalization.js";
 import type { protos } from "@google-cloud/vision";
 import { readFileSync } from "node:fs";
@@ -485,6 +486,44 @@ async function testRegexRegressions() {
   assert(sok.storeName === "ŞOK", `ŞOK store is still detected (got ${sok.storeName})`);
   const noStore = extractReceiptMetadata(["TOPLAM KDV *1,00", "TOPLAM *80,00"], []);
   assert(noStore.storeName === null, `a totals line is not a store name (got ${noStore.storeName})`);
+
+  const antonio = await names(["V.REAL STO ANTONIO", "ELMA %01 *5,00"]);
+  assert(!antonio.some((n) => n.includes("antonio")), `the "ton" alias does not match inside ANTONIO (got ${JSON.stringify(antonio)})`);
+}
+
+async function testModelLabels() {
+  console.log("\n=== model labels for unknown products ===");
+  const realFetch = globalThis.fetch;
+  const realKey = process.env.OCR_API_KEY;
+  const realOffApi = process.env.USE_OFF_API;
+  process.env.OCR_API_KEY = "offline-test-key";
+  process.env.USE_OFF_API = "false"; // an Open Food Facts hit would rightly take precedence over the model
+  let calls = 0;
+  globalThis.fetch = (async (_input: Parameters<typeof fetch>[0], init?: RequestInit) => {
+    calls++;
+    const prompt = JSON.parse(String(init?.body)).messages[0].content as string;
+    assert(prompt.includes("0: queijo feta") && !prompt.includes("elma"), "only catalog-unknown products are sent");
+    const content = JSON.stringify({ items: [
+      { i: 0, category: "dairy", health: "healthy", fruitVeg: false },
+      { i: 1, category: "vitamins", health: "healthy", fruitVeg: false },
+    ] });
+    return new Response(JSON.stringify({ choices: [{ finish_reason: "stop", message: { content } }] }), { status: 200 });
+  }) as typeof fetch;
+  try {
+    const classification = await classifyFoods(["QUEIJO FETA %01 *1,79", "XYZ PRODUTO %01 *2,00", "ELMA %01 *5,00"]);
+    const labelled = await labelUnknownProducts(classification);
+    const feta = labelled.products.find((p) => normalizeTurkish(p.name).includes("queijo"));
+    const unknown = labelled.products.find((p) => normalizeTurkish(p.name).includes("xyz"));
+    assert(feta?.spendingCategory === "dairy" && feta.category === "healthy", `a foreign product gets the model's category (got ${feta?.spendingCategory}/${feta?.category})`);
+    assert(productSpendingCategory(unknown!) === "other", "an answer outside the category list is ignored");
+    assert(labelled.healthyItems === classification.healthyItems + 1, "health counts are recomputed after labelling");
+    await labelUnknownProducts(await classifyFoods(["QUEIJO FETA %01 *1,79"]));
+    assert(calls === 1, `known labels are cached (got ${calls} calls)`);
+  } finally {
+    globalThis.fetch = realFetch;
+    if (realKey === undefined) delete process.env.OCR_API_KEY; else process.env.OCR_API_KEY = realKey;
+    if (realOffApi === undefined) delete process.env.USE_OFF_API; else process.env.USE_OFF_API = realOffApi;
+  }
 }
 
 async function testReceiptGolden() {
@@ -763,6 +802,7 @@ async function main() {
   await testCapturedPriceLayouts();
   await testOcrProductCategories();
   await testRegexRegressions();
+  await testModelLabels();
   await testReceiptGolden();
 
   console.log("\n=== SUMMARY ===");

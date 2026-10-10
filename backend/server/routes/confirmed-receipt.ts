@@ -3,7 +3,7 @@ import { assertDatabaseConfigured, getDatabasePool } from "../db.js";
 import { VerifiedReceiptError, verifyReceiptTransaction } from "../services/verified-receipt.js";
 import { normalizeProduct } from "../services/product-normalization.js";
 import { buildDerivedFeatures } from "../services/derived-features.js";
-import { getSpendingCategory } from "../services/spending-categories.js";
+import { productSpendingCategory } from "../services/product-categorizer.js";
 
 const router = Router();
 const HASH = /^0x[a-fA-F0-9]{64}$/;
@@ -210,7 +210,7 @@ router.post("/confirmed", async (req: Request, res: Response) => {
     const canonicalKeys: Array<string | null> = [];
     for (const product of staged.products) {
       const normalized = normalizeProduct(product.name, product.category);
-      const spendingCategory = getSpendingCategory(product.name, product.category === "excluded");
+      const spendingCategory = productSpendingCategory(product);
       canonicalKeys.push(normalized.canonicalKey);
       let canonicalProductId: string | null = null;
       if (normalized.canonicalKey) {

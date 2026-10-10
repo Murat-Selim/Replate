@@ -1,7 +1,7 @@
 import { classifyFoods, normalizeProductText, type FoodClassification } from "./classifier.js";
 import { extractReceiptMetadata, type ReceiptMetadata } from "./receipt-metadata.js";
 import type { OCRResult } from "./ocr.js";
-import { getSpendingCategory } from "./spending-categories.js";
+import { labelUnknownProducts, productSpendingCategory } from "./product-categorizer.js";
 
 export class ReceiptAnalysisError extends Error {
   readonly code = "RECEIPT_ANALYSIS_UNRELIABLE";
@@ -50,7 +50,7 @@ function analysisIssues(analysis: ReceiptAnalysis): string[] {
     expectedItemsTotal: analysis.metadata.expectedItemsTotal,
   });
   if (!analysis.metadata.currencyCode) issues.push("The receipt currency could not be identified");
-  if (products.some((product) => getSpendingCategory(product.name, product.category === "excluded") === "other")) {
+  if (products.some((product) => productSpendingCategory(product) === "other")) {
     issues.push("Some product categories could not be identified");
   }
   return issues;
@@ -70,7 +70,7 @@ export async function analyzeReceipt(
   const layouts: Array<[ReceiptAnalysis["method"], string[]]> = [["vision-layout", ocr.analysisLines ?? ocr.lines]];
   if (ocr.analysisLines && JSON.stringify(ocr.analysisLines) !== JSON.stringify(ocr.lines)) layouts.push(["vision-text", ocr.lines]);
   for (const [method, lines] of layouts) {
-    const classification = await classifyFoods(lines);
+    const classification = await labelUnknownProducts(await classifyFoods(lines));
     const candidate = { classification, metadata: extractReceiptMetadata(lines, classification.products), method };
     candidates.push(candidate);
   }

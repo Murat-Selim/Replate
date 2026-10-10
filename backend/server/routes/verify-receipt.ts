@@ -8,7 +8,7 @@ import { clearLeaderboardCache } from "./leaderboard.js";
 import { assertCompleteReceipt, ReceiptDateError, ReceiptQualityError, assertRecentReceiptDate, findReceiptDate } from "../services/receipt-date.js";
 import { assertDatabaseConfigured, getDatabasePool } from "../db.js";
 import { analyzeReceipt, assertReliableReceiptAnalysis, ReceiptAnalysisError, type ReceiptAnalysis } from "../services/receipt-analysis.js";
-import { getSpendingCategory } from "../services/spending-categories.js";
+import { productSpendingCategory } from "../services/product-categorizer.js";
 import { readReceiptWithDoubleword, pollReceiptWithDoubleword, validateDoublewordImage, OCRPendingError } from "../services/doubleword-ocr.js";
 
 const router = Router();
@@ -232,7 +232,7 @@ router.post("/", async (req: Request, res: Response) => {
 
       const products = classification.products.map((product) => ({
         ...product,
-        spendingCategory: getSpendingCategory(product.name, product.category === "excluded"),
+        spendingCategory: productSpendingCategory(product),
       }));
       const invalidProduct = products.length > 200 || products.some((product) => {
         const unitPrice = product.paidPrice === undefined ? null : product.actualWeightGrams > 0

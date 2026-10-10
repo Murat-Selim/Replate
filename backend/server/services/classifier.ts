@@ -101,6 +101,8 @@ export interface ClassificationResult {
   actualWeightGrams: number;
   fruitVegGrams: number;
   confidence: number;
+  /** Set when a model labelled a product the keyword rules could not place. */
+  spendingCategory?: string;
 }
 
 interface ExtractedProduct {
@@ -437,8 +439,9 @@ function extractProductLines(lines: string[]): ExtractedProduct[] {
         ...NEUTRAL_KEYWORDS,
       ].some((kw) => matchKeyword(lower, kw));
       if (!matchesKnownFood) {
+        // Word boundaries for short aliases: "ton" (tuna) must not match ANTONIO.
         matchesKnownFood = SORTED_ALIAS_ENTRIES.some(([alias]) =>
-          lower.includes(normalizeTurkish(alias))
+          matchKeyword(lower, alias)
         );
       }
     }

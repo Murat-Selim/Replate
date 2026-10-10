@@ -2,6 +2,7 @@ import { classifyFoods, normalizeTurkish, parseReceiptAmount } from "./classifie
 import { OCRError, validateImageBase64 } from "./ocr.js";
 import type { ReceiptAnalysis } from "./receipt-analysis.js";
 import { extractReceiptMetadata } from "./receipt-metadata.js";
+import { labelUnknownProducts } from "./product-categorizer.js";
 
 /** Keep table cells on their physical row; never flatten a column of prices. */
 export function ocrReceiptLines(text: string): string[] {
@@ -93,24 +94,32 @@ export class OCRPendingError extends Error {
   }
 }
 
-/** Index where the model started looping (blank/separator table rows or one line over and over), or -1. */
+/** Where the model, having finished, started emitting blank or separator table rows; -1 if it has not. */
 export function transcriptionLoopStart(content: string): number {
   const lines = content.split("\n").slice(0, -1); // the last line may still be streaming
+  const blankRow = (line: string | undefined) => line !== undefined && /^\s*\|[\s|:-]*\|\s*$/.test(line) && !/-{3}/.test(line);
   let offset = 0;
-  let repeats = 1;
   for (let index = 0; index < lines.length; index++) {
-    const blankRow = (line: string | undefined) => line !== undefined && /^\s*\|[\s|:-]*\|\s*$/.test(line) && !/-{3}/.test(line);
     if (blankRow(lines[index]) && blankRow(lines[index + 1])) return offset;
-    repeats = index > 0 && lines[index].trim() && lines[index] === lines[index - 1] ? repeats + 1 : 1;
-    // Identical purchases can repeat a few times; dozens of copies are a decoding loop.
-    if (repeats > 12) return content.indexOf(lines[index], offset);
     offset += lines[index].length + 1;
   }
   return -1;
 }
 
+/** True when one line keeps repeating: the model is inventing rows instead of reading the photo. */
+export function hasRepeatedLineLoop(content: string): boolean {
+  const lines = content.split("\n").slice(0, -1);
+  let repeats = 1;
+  for (let index = 1; index < lines.length; index++) {
+    repeats = lines[index].trim() && lines[index] === lines[index - 1] ? repeats + 1 : 1;
+    // Identical purchases can be printed a few times in a row; eight copies are a decoding loop.
+    if (repeats >= 8) return true;
+  }
+  return false;
+}
+
 /** Read a streamed transcription and stop as soon as the model degenerates into a loop. */
-async function readTranscriptionStream(response: Response): Promise<{ content: string; complete: boolean }> {
+async function readTranscriptionStream(response: Response): Promise<{ content: string; complete: boolean; repeated: boolean }> {
   const reader = response.body!.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
@@ -129,13 +138,17 @@ async function readTranscriptionStream(response: Response): Promise<{ content: s
       content += chunk.choices?.[0]?.delta?.content ?? "";
       finishReason = chunk.choices?.[0]?.finish_reason ?? finishReason;
     }
+    if (hasRepeatedLineLoop(content)) {
+      await reader.cancel().catch(() => undefined);
+      return { content, complete: false, repeated: true };
+    }
     const loopStart = transcriptionLoopStart(content);
     if (loopStart >= 0) {
       await reader.cancel().catch(() => undefined);
-      return { content: content.slice(0, loopStart), complete: true };
+      return { content: content.slice(0, loopStart), complete: true, repeated: false };
     }
   }
-  return { content, complete: finishReason === "stop" };
+  return { content, complete: finishReason === "stop", repeated: hasRepeatedLineLoop(content + "\n") };
 }
 
 async function doublewordRequest(endpoint: string, body?: unknown): Promise<ReceiptAnalysis> {
@@ -154,6 +167,9 @@ async function doublewordRequest(endpoint: string, body?: unknown): Promise<Rece
     if (body !== undefined && response.headers.get("content-type")?.includes("text/event-stream")) {
       const streamed = await readTranscriptionStream(response);
       content = streamed.content;
+      if (streamed.repeated) {
+        throw new OCRError("The receipt photo could not be read clearly. Take a sharp, well-lit photo of the whole receipt and try again. No verification or payment was submitted.", "OCR_INVALID_INPUT");
+      }
       if (!streamed.complete || !content.trim() || content.length > 100000) {
         throw new OCRError("Secondary receipt OCR returned an incomplete or invalid reading. No verification or payment was submitted.", "OCR_API_ERROR");
       }
@@ -182,8 +198,11 @@ async function doublewordRequest(endpoint: string, body?: unknown): Promise<Rece
     throw new OCRError("Secondary receipt OCR could not finish. No verification or payment was submitted. Try again shortly.", "OCR_API_ERROR");
   }
   const lines = ocrReceiptLines(content);
-  const classification = await classifyFoods(lines);
-  return { classification, metadata: extractReceiptMetadata(lines, classification.products), method: "image-recovery" };
+  const classification = await labelUnknownProducts(await classifyFoods(lines));
+  const metadata = extractReceiptMetadata(lines, classification.products);
+  // Currency may only be printed in cells the line rebuild drops, such as "1,49 EUR/kg".
+  metadata.currencyCode ??= extractReceiptMetadata(content.split(/\r?\n/), []).currencyCode;
+  return { classification, metadata, method: "image-recovery" };
 }
 
 export function validateDoublewordImage(imageBase64: string): { base64: string; mime: string } {
@@ -202,7 +221,9 @@ export function validateDoublewordImage(imageBase64: string): { base64: string; 
 export async function readReceiptWithDoubleword(imageBase64: string): Promise<ReceiptAnalysis> {
   const { base64, mime } = validateDoublewordImage(imageBase64);
   return doublewordRequest("", {
-    model: "Qwen/Qwen3-VL-30B-A3B-Instruct-FP8", temperature: 0, max_tokens: 4096, stream: true,
+    // Qwen3.6 read every item of the benchmark receipt in ~9s; Qwen3-VL-30B skipped items and sometimes looped.
+    // Thinking is off: reasoning tokens add latency and cost without improving a transcription.
+    model: "Qwen/Qwen3.6-35B-A3B-FP8", reasoning_effort: "none", temperature: 0, max_tokens: 4096, stream: true,
     service_tier: "priority",
     // Qwen can loop on empty table rows until max_tokens (~2 min), far past the request timeout.
     stop: ["| | | | | |\n| | | | | |", "|  |  |  |  |  |\n|  |  |  |  |  |"],

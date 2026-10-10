@@ -7,7 +7,7 @@ import { ImageAnnotatorClient } from "@google-cloud/vision";
 import { analyzeReceipt, receiptPriceIssues, ReceiptAnalysisError, type ReceiptAnalysis } from "../server/services/receipt-analysis.js";
 import { classifyFoods } from "../server/services/classifier.js";
 import { extractReceiptMetadata } from "../server/services/receipt-metadata.js";
-import { ocrReceiptLines, transcriptionLoopStart, readReceiptWithDoubleword, pollReceiptWithDoubleword, OCRPendingError } from "../server/services/doubleword-ocr.js";
+import { ocrReceiptLines, transcriptionLoopStart, hasRepeatedLineLoop, readReceiptWithDoubleword, pollReceiptWithDoubleword, OCRPendingError } from "../server/services/doubleword-ocr.js";
 import { OCRError } from "../server/services/ocr.js";
 
 process.env.USE_OFF_API = "false";
@@ -78,7 +78,8 @@ globalThis.fetch = (async (input: Parameters<typeof fetch>[0], init?: RequestIni
       assert(realtime, "new OCR requests use the realtime endpoint");
       providerCalls++;
       const request = JSON.parse(String(init.body));
-      assert.equal(request.model, "Qwen/Qwen3-VL-30B-A3B-Instruct-FP8");
+      assert.equal(request.model, "Qwen/Qwen3.6-35B-A3B-FP8");
+      assert.equal(request.reasoning_effort, "none");
       assert.equal(request.temperature, 0);
       assert.equal(request.service_tier, "priority");
       assert.equal(request.background, undefined);
@@ -158,8 +159,8 @@ try {
     ["SU [qty=6] 1,74", "ELMA [qty=0,540 kg] 0,80"], "a split multiplication sign and VAT class letters are not part of the row values");
   const looped = ["| Product | Amount |", "| :--- | :--- |", "| ELMA | 5,00 |", "| | |", "| **Total** | **5,00** |", "| | |", "| | |", "| | |", ""].join(String.fromCharCode(10));
   assert.equal(looped.slice(0, transcriptionLoopStart(looped)).trim().split(String.fromCharCode(10)).at(-1), "| **Total** | **5,00** |", "a run of blank table rows ends the transcription");
-  assert.equal(transcriptionLoopStart(["| ELMA | 5,00 |", "| ELMA | 5,00 |", "TOPLAM 10,00", ""].join(String.fromCharCode(10))), -1, "repeated purchases are not a loop");
-  assert.ok(transcriptionLoopStart(Array(20).fill("| SU | 1,00 |").join(String.fromCharCode(10)) + String.fromCharCode(10)) > 0, "one line repeated dozens of times is a loop");
+  assert.equal(hasRepeatedLineLoop(["| ELMA | 5,00 |", "| ELMA | 5,00 |", "| ELMA | 5,00 |", "TOPLAM 15,00", ""].join(String.fromCharCode(10))), false, "a few repeated purchases are not a loop");
+  assert.equal(hasRepeatedLineLoop(Array(10).fill("| 1X100 GR | 100 | | 1,75 | 1,75 |").join(String.fromCharCode(10)) + String.fromCharCode(10)), true, "one line repeated over and over is an invented reading");
   assert.throws(() => ocrReceiptLines("| Product | Qty | Amount |\n| APPLE | $5.00 |"), OCRError);
   const blankQuantities = await classifyFoods(ocrReceiptLines("| Product | Qty | Unit | Unit Price | Amount |\n| BREAD | | | | $3.00 |\n| Bean (Green) | .370 kg | kg | $4.39/kg | $1.62 |\n| SOGAN | 1.170 | TL/kg | | *64,23 |\n| DATE/TIME | SEP 23 2014 | | | |\n| FINAL TOTAL | | | | $68.85 |"));
   assert.deepEqual(blankQuantities.products.map((product) => product.paidPrice), [3, 1.62, 64.23]);
