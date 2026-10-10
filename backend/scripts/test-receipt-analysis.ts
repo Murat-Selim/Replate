@@ -144,6 +144,8 @@ try {
   assert.deepEqual(ocrReceiptLines('<|ref|>APPLE $5.00<|/ref|><|det|>[[0, 0, 10, 10]]\n**TOTAL** $5.00'), ["APPLE $5.00", "TOTAL $5.00"]);
   assert.throws(() => ocrReceiptLines("| Product | Qty | Amount |\n| APPLE | 0.5 | $5.00 |"), OCRError, "fractional quantity without a unit must not be guessed");
   assert.throws(() => ocrReceiptLines("| Product | Qty | Amount |\n| APPLE | two | $5.00 |"), OCRError);
+  assert.deepEqual(ocrReceiptLines("| Product | Qty | Unit | Unit Price | Amount |\n| SU 0,5 L | 6 x 0,29 | | | 1,74 |\n| AYRAN | 2 AD X 12,50 TL | | | 25,00 |\n| | | | | |"),
+    ["SU 0,5 L [qty=6] 1,74", "AYRAN [qty=2 AD] 25,00"], "printed qty x unit price keeps only the quantity");
   assert.throws(() => ocrReceiptLines("| Product | Qty | Amount |\n| APPLE | $5.00 |"), OCRError);
   const blankQuantities = await classifyFoods(ocrReceiptLines("| Product | Qty | Unit | Unit Price | Amount |\n| BREAD | | | | $3.00 |\n| Bean (Green) | .370 kg | kg | $4.39/kg | $1.62 |\n| SOGAN | 1.170 | TL/kg | | *64,23 |\n| DATE/TIME | SEP 23 2014 | | | |\n| FINAL TOTAL | | | | $68.85 |"));
   assert.deepEqual(blankQuantities.products.map((product) => product.paidPrice), [3, 1.62, 64.23]);

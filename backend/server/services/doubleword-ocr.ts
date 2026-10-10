@@ -49,7 +49,10 @@ export function ocrReceiptLines(text: string): string[] {
         lines.push(cells[columns.name]);
         continue;
       }
-      const rawQuantity = columns.quantity >= 0 ? cells[columns.quantity] : "";
+      // Receipts print "2 x 1,29" / "2 AD X 12,50"; the trailing unit price is not part of the quantity.
+      const rawQuantity = (columns.quantity >= 0 ? cells[columns.quantity] : "")
+        .replace(/\s*[x×]\s*(?:TL|TRY|USD|EUR|GBP|[$€£₺])?\s*\d+[.,]\d{2}(?:\s*(?:TL|TRY|USD|EUR|GBP|[$€£₺]))?(?:\s*\/\s*\w+)?$/i, "")
+        .trim();
       if (!rawQuantity) {
         lines.push(`${cells[columns.name]} ${cells[columns.total]}`);
         continue;
@@ -143,8 +146,10 @@ export async function readReceiptWithDoubleword(imageBase64: string): Promise<Re
   return doublewordRequest("", {
     model: "Qwen/Qwen3-VL-30B-A3B-Instruct-FP8", temperature: 0, max_tokens: 4096, stream: false,
     service_tier: "priority",
+    // Qwen can loop on empty table rows until max_tokens (~2 min), far past the request timeout.
+    stop: ["| | | | | |\n| | | | | |", "|  |  |  |  |  |\n|  |  |  |  |  |"],
     messages: [{ role: "user", content: [
-      { type: "text", text: "Transcribe this grocery receipt faithfully as Markdown. Keep every purchased product in printed order, including repeated products. Use a table with columns Product, Qty, Unit, Unit Price, Amount. Copy the printed quantity or weight and its unit when present; otherwise leave those cells blank. Amount must be the printed line total, not the unit price. Keep package sizes in the product name. Include the printed merchant, date, currency symbols, subtotal, tax, discounts and final total outside the product table. Do not calculate, guess, translate, correct or add missing data. Return only the transcription." },
+      { type: "text", text: "Transcribe this grocery receipt faithfully as Markdown. Keep every purchased product in printed order, including repeated products. Use a table with columns Product, Qty, Unit, Unit Price, Amount. Copy the printed quantity or weight and its unit when present; otherwise leave those cells blank. Amount must be the printed line total, not the unit price. Keep package sizes in the product name. Include the printed merchant, date, currency symbols, subtotal, tax, discounts and final total outside the product table. Never output empty table rows; end the table after the last product. Do not calculate, guess, translate, correct or add missing data. Return only the transcription." },
       { type: "image_url", image_url: { url: `data:${mime};base64,${base64}` } },
     ] }],
   });
