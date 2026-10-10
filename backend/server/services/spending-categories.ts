@@ -12,7 +12,7 @@ const RULES: Array<[SpendingCategory, string[]]> = [
   ["dairy", ["milk", "sut", "yogurt", "cheese", "peynir", "butter", "tereyag", "cream", "kaymak", "egg", "yumurta"]],
   ["snacks", ["snack", "cips", "chips", "biskuvi", "gofret", "cikolata", "chocolate", "cookie", "candy", "cracker", "gofret", "sekerleme", "kek", "kakao"]],
   ["drinks", ["drink", "beverage", "icecek", "water", "su", "cola", "soda", "juice", "meyve suyu", "maden suyu", "tea", "cay", "coffee", "kahve", "limonata"]],
-  ["pantry", ["rice", "pirinc", "pasta", "makarna", "flour", "un", "oil", "yag", "beans", "fasulye", "lentil", "mercimek", "canned", "konserve", "seker", "recel", "jam", "salca", "rendesi", "oats", "yulaf"]],
+  ["pantry", ["rice", "pirinc", "pasta", "makarna", "flour", "un", "oil", "yag", "margarin", "beans", "fasulye", "lentil", "mercimek", "canned", "konserve", "seker", "recel", "jam", "salca", "rendesi", "oats", "yulaf"]],
   ["produce", ["fruit", "vegetable", "meyve", "sebze", "apple", "banana", "tomato", "potato", "carrot", "broccoli", "orange", "plum", "bean green", "onion", "lemon", ...Object.keys(FRUIT_VEG_KEYWORDS)]],
   ["bakery", ["bread", "ekmek", "bakery", "croissant", "pogaca", "simit", "borek", "kanepe burger", "lavas"]],
 ];

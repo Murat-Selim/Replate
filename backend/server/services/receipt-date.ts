@@ -47,6 +47,9 @@ function turkeyToday(now: Date): Date {
 
 function parseDate(match: RegExpMatchArray): Date | null {
   const [, first, second, third] = match;
+  // Accept YYYY-MM-DD or DD.MM.YY(YY); a 1- or 3-digit year is an OCR fragment, not a date.
+  const yearFirst = first.length === 4 && third.length <= 2;
+  if (!yearFirst && (first.length > 2 || (third.length !== 2 && third.length !== 4))) return null;
   const year = first.length === 4 ? Number(first) : third.length === 2 ? 2000 + Number(third) : Number(third);
   const month = Number(second);
   const day = first.length === 4 ? Number(third) : Number(first);
@@ -68,7 +71,8 @@ function parseTextDate(match: RegExpMatchArray): Date | null {
     : null;
 }
 
-export function assertRecentReceiptDate(lines: string[], now = new Date(), enforceRange = true): string {
+/** The printed receipt date (YYYY-MM-DD), or null when none can be read. */
+export function findReceiptDate(lines: string[]): string | null {
   const candidates = lines.flatMap((line) => {
     DATE_PATTERN.lastIndex = 0;
     TEXT_DATE_PATTERN.lastIndex = 0;
@@ -78,10 +82,15 @@ export function assertRecentReceiptDate(lines: string[], now = new Date(), enfor
     ];
   });
   const candidate = candidates.find(({ line, date }) => DATE_LABEL.test(line) && date) ?? candidates.find(({ date }) => date);
-  if (!candidate || !candidate.date) {
+  return candidate?.date ? candidate.date.toISOString().slice(0, 10) : null;
+}
+
+export function assertRecentReceiptDate(lines: string[], now = new Date(), enforceRange = true): string {
+  const printed = findReceiptDate(lines);
+  if (!printed) {
     return turkeyToday(now).toISOString().slice(0, 10);
   }
-  const receiptDate = candidate.date;
+  const receiptDate = new Date(`${printed}T00:00:00Z`);
 
   if (enforceRange) {
     const today = turkeyToday(now);

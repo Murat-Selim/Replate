@@ -1,4 +1,4 @@
-import { parseReceiptAmount, type ClassificationResult } from "./classifier.js";
+import { normalizeTurkish, parseReceiptAmount, type ClassificationResult } from "./classifier.js";
 
 export type ReceiptTotalSource = "receipt_total" | "line_items" | null;
 
@@ -20,17 +20,22 @@ export function extractReceiptMetadata(lines: string[], products: Classification
         : /\bGBP\b|£/.test(joined) ? "GBP"
           : /\bUSD\b|US\$|\$/.test(joined) ? "USD"
             : /\bJPY\b|¥/.test(joined) ? "JPY"
-              : null;
+              // Turkish fiscal receipts often print bare "*50,00"; their tax labels still identify TRY.
+              : /\b(?:KDV|TOPKDV|VKN|MERSIS|ODENECEK TUTAR|FIS NO)\b/i.test(normalizeTurkish(joined)) ? "TRY"
+                : null;
 
-  const normalizedHeader = header.map((line) => line.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase());
+  const normalizedHeader = header.map((line) => line.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase())
+    // Street lines ("Mimar Sinan Sok. No:3") must not name the store \u015eOK.
+    .filter((line) => !/\b(?:adres|address|mah|mh|cad|cd|sok\s*\.|sokak|sk\s*\.)/.test(line));
   const storeAliases: Array<[string, RegExp]> = [
-    ["Migros", /\bmigros\b/], ["BİM", /\bbim\b/], ["A101", /\ba\s*101\b/], ["ŞOK", /\bsok\b/],
+    ["Migros", /\bmigros\b/], ["BİM", /\bbim\b/], ["A101", /\ba\s*101\b/], ["ŞOK", /\bsok\b(?!\s*\.)/],
     ["CarrefourSA", /\bcarrefour/], ["Macrocenter", /\bmacrocenter\b/], ["Walmart", /\bwalmart\b/],
     ["Target", /\btarget\b/], ["Costco", /\bcostco\b/],
   ];
   const storeName = storeAliases.find(([, pattern]) => normalizedHeader.some((line) => pattern.test(line)))?.[0]
     || header.find((line) => line.length >= 2 && line.length <= 80 && /[A-Za-zÇĞİÖŞÜçğıöşü]/.test(line)
-      && !/\b(?:vkn|mersis|adres|address|tarih|date|fis no|fiş no|receipt|kasiyer|cashier|terminal|tel:|www\.)\b/i.test(line))?.trim()
+      && !/\b(?:vkn|mersis|adres|address|tarih|date|fis no|fiş no|receipt|kasiyer|cashier|terminal|tel:|www\.|toplam|total|kdv)\b/i.test(line)
+      && parseReceiptAmount(line) === undefined)?.trim()
     || null;
 
   const totalPatterns = [

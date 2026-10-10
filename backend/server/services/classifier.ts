@@ -142,13 +142,15 @@ const STRIP_TOKEN_REGEX = new RegExp(
 
 // ─── Receipt meta lines to skip ───────────────────────────────────────
 // Prefer structural/meta terms over city/brand-specific tokens.
+// Matched against normalizeTurkish() text: JS \b treats Ş/İ/Ö/Ü as non-word characters.
+// Prefix rules end with (?![a-z]) so FISTIK, KASAR and DATES are not read as FIS, KASA and DATE.
 const SKIP_PATTERNS = [
   /\b(ORTAK\s+POS|POS|ONAY\s+KODU|REF\s+NO|TERMINAL\s+ID|BATCH\s+NO)\b/i,
-  /^(TOTAL|SUB\s*TOTAL|FINAL\s+TOTAL|TAX|DATE|STORE|MERCHANT|CURRENCY|CASHIER|CHANGE|RECEIPT)/i,
+  /^(?:TOTALS?|SUB\s*TOTAL|FINAL\s+TOTAL|TAX(?:ABLE)?|DATE|STORE|MERCHANT|CURRENCY|CASHIER|CHANGE|RECEIPT)(?![a-z])/i,
   /^(?:(?:SALES\s+)?TAX|GST|HST|PST)(?:\s|:|$)/i,
   /^SPECIAL(?:\s|$)/i,
-  /^(TOPLAM|KDV|FIS|FİŞ|SAAT|TARIH|ARA TOPLAM|NAKIT|BANKA)/i,
-  /^(BELGE|ETTN|FISC|KASA|DARA|ADET|ISKONTO|İSKONTO|INDIRIM|İNDİRİM)/i,
+  /^(?:TOPLAM|KDV(?:LI|SIZ)?|FIS(?:NO)?|SAAT|TARIHI?|ARA TOPLAM|NAKIT|BANKA)(?![a-z])/i,
+  /^(?:(?:BELGE|ETTN|KASA|DARA|ADET)(?![a-z])|FISC|ISKONTO|INDIRIM)/i,
   /^\d{2}[./-]\d{2}[./-]\d{2,4}/, // dates
   /^[\d\/\-:,x\s]+$/, // pure numbers / weight lines
   /^\s*(?:S\$|[$€£¥])\s*\d+[.,]\d{2}\s*$/i, // OCR may put currency-only prices on their own line
@@ -180,7 +182,7 @@ const NON_FOOD_PATTERNS = [
   /\b(PED|H[Iİ]JYEN|PE[CÇ]ETE|HAVLU|KA[GĞ]IT|MEND[Iİ]L|DETERJAN|SABUN|[SŞ]AMPUAN|DURULAY|YUMU[SŞ]ATICI|[CÇ]AMA[SŞ]IR|BULA[SŞ]IK)\b/i,
   /\b(MOLPED|HOLPED|ORK[Iİ]D|KOTEX|ALWAYS|PR[Iİ]MA|PAMPERS|HUGGIES)\b/i,
   /\b([CÇ][OÖ]P\s*PO[SŞ]ET|TORBA|FIRIN TORBASI)\b/i,
-  /\b(AMPUL|P[Iİ]L|BATARYA|LAMBA|DEODORANT|KREM|LOSYON|TIRNAK|D[IİL][SŞ]\s*FIR[CÇ]ASI|D[IİL][SŞ]\s*MAC(?:UNU)?\.?|DIPMACUNU|TRA[SŞ]|KALE(?:M|A)?TRA[SŞ])\b/i,
+  /\b(AMPUL|P[Iİ]L|BATARYA|LAMBA|DEODORANT|KREM(?!\s*(?:PEYN|[SŞ]ANT[Iİ]|KARAMEL))|LOSYON|TIRNAK|D[IİL][SŞ]\s*FIR[CÇ]ASI|D[IİL][SŞ]\s*MAC(?:UNU)?\.?|DIPMACUNU|TRA[SŞ]|KALE(?:M|A)?TRA[SŞ])\b/i,
   /SAKLAMA\s*KABI/i,
   /MENTOR.*(?:BIC|BI[CÇ]|TIRA[SŞ])/i,
   /\bMISTRAL\b.*\bK\.?\s*H\b/i,
@@ -287,6 +289,8 @@ function extractProductLines(lines: string[]): ExtractedProduct[] {
   const claimedPriceLines = new Set<number>();
   let pendingWeightGrams = 0;
   let pendingQuantity = 1;
+  let lastProductLine = -1;
+  let receiptDiscountCents = 0;
 
   for (let i = 0; i < lines.length; i++) {
     const trimmed = lines[i].trim();
@@ -296,7 +300,26 @@ function extractProductLines(lines: string[]): ExtractedProduct[] {
       pendingQuantity = Math.max(1, Number(trimmed));
     }
     if (standaloneReceiptPrice.test(trimmed) && taxMarker.test(lines[i - 1]?.trim() ?? "")) continue;
-    if (SKIP_PATTERNS.some((p) => p.test(trimmed))) continue;
+    const folded = normalizeTurkish(trimmed);
+
+    // Discounts reduce what was paid; summary lines ("TOPLAM INDIRIM") would count them twice.
+    if (DISCOUNT_LINE.test(folded) && !/\b(?:toplam|total)/.test(folded)) {
+      const nextLine = lines[i + 1]?.trim() ?? "";
+      const nextIsAmount = /^-?\s*\*?\s*-?\s*\d+(?:[.,]\d{3})*[.,]\d{2}$/.test(nextLine);
+      const amount = parseReceiptAmount(trimmed) ?? (nextIsAmount ? parseReceiptAmount(nextLine) : undefined);
+      if (amount !== undefined) {
+        if (nextIsAmount && parseReceiptAmount(trimmed) === undefined) claimedPriceLines.add(i + 1);
+        const last = products.at(-1);
+        // A discount printed right under a product belongs to it; anything else is spread over the basket.
+        if (last?.paidPrice !== undefined && lastProductLine === i - 1 && amount <= last.paidPrice) {
+          last.paidPrice = Number((last.paidPrice - amount).toFixed(2));
+        } else {
+          receiptDiscountCents += Math.round(amount * 100);
+        }
+        continue;
+      }
+    }
+    if (SKIP_PATTERNS.some((p) => p.test(folded))) continue;
     if (trimmed.length < 4) continue;
 
     const netWeightLine = /^(\d+(?:\s*[.,]\s*\d{1,3})?)\s*kg\b.*(?:S\$|[$€£¥])\s*\d+[.,]\d{2}\s*\/\s*kg$/i.test(trimmed);
@@ -420,7 +443,7 @@ function extractProductLines(lines: string[]): ExtractedProduct[] {
       }
     }
 
-    const matchesKnownNonFood = NON_FOOD_PATTERNS.some((p) => p.test(trimmed));
+    const matchesKnownNonFood = NON_FOOD_PATTERNS.some((p) => p.test(folded));
     if (!hasProductSignal && !matchesKnownFood && !matchesKnownNonFood) continue;
 
     const { cleaned, weightGrams } = cleanProductLine(
@@ -433,21 +456,50 @@ function extractProductLines(lines: string[]): ExtractedProduct[] {
     if (cleaned.match(/^[\d\s\/\-:,.]+$/)) continue;
     if (/^(?:TL\/\w+|L\/\d+)$/i.test(cleaned)) continue;
     if (/^[A-Z]{1,3}\d{1,3}$/i.test(cleaned)) continue;
-    const excluded = matchesKnownNonFood || NON_FOOD_PATTERNS.some((p) => p.test(cleaned));
+    const excluded = matchesKnownNonFood || NON_FOOD_PATTERNS.some((p) => p.test(normalizeTurkish(cleaned)));
 
     products.push({ name: cleaned, actualWeightGrams, quantity, paidPrice, excluded });
     if (priceLineIndex !== undefined) claimedPriceLines.add(priceLineIndex);
+    lastProductLine = Math.max(i, priceLineIndex ?? i);
     pendingWeightGrams = 0;
     pendingQuantity = 1;
 
   }
 
+  allocateReceiptDiscount(products, receiptDiscountCents);
   return products;
 }
 
+const DISCOUNT_LINE = /(?:^|[^a-z])(?:indirim(?:i)?|iskonto(?:su)?|discount)(?![a-z])/;
+
+/** Spread a basket-level discount over priced items in cents so item prices still add up to the total. */
+function allocateReceiptDiscount(products: ExtractedProduct[], discountCents: number): void {
+  const priced = products.filter((product) => product.paidPrice !== undefined && product.paidPrice > 0);
+  const totalCents = priced.reduce((sum, product) => sum + Math.round(product.paidPrice! * 100), 0);
+  // An unallocatable discount stays visible as a price mismatch instead of being guessed away.
+  if (discountCents <= 0 || discountCents > totalCents) return;
+  let remaining = discountCents;
+  const shares = priced.map((product) => {
+    const share = Math.floor(Math.round(product.paidPrice! * 100) * discountCents / totalCents);
+    remaining -= share;
+    return share;
+  });
+  for (let index = 0; remaining > 0; index = (index + 1) % priced.length) {
+    if (Math.round(priced[index].paidPrice! * 100) - shares[index] > 0) {
+      shares[index]++;
+      remaining--;
+    }
+  }
+  priced.forEach((product, index) => {
+    product.paidPrice = (Math.round(product.paidPrice! * 100) - shares[index]) / 100;
+  });
+}
+
 export function parseReceiptAmount(text: string): number | undefined {
-  const matches = [...text.matchAll(/(?:\*\s*)?(\d{1,3}(?:[.,\s]\d{3})*[.,]\d{2}|\d+[.,]\d{2})(?!\d)/g)];
-  const raw = matches.at(-1)?.[1];
+  // Space-grouped thousands ("*1 250,00") only after a price marker; "ELMA 2 149,90" is quantity + price.
+  const matches = [...text.matchAll(/(?:[*$€£¥₺]\s*(\d{1,3}(?:[.,\s]\d{3})*[.,]\d{2})|(\d{1,3}(?:[.,]\d{3})*[.,]\d{2}|\d+[.,]\d{2}))(?!\d)/g)];
+  const lastMatch = matches.at(-1);
+  const raw = lastMatch?.[1] ?? lastMatch?.[2];
   if (!raw) return undefined;
   const decimalSeparator = raw.at(-3);
   const normalized = `${raw.slice(0, -3).replace(/[.,\s]/g, "")}.${raw.slice(-2)}`;

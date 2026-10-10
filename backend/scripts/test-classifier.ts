@@ -9,6 +9,7 @@ import {
   classifyFoods,
   cleanProductLine,
   normalizeTurkish,
+  parseReceiptAmount,
 } from "../server/services/classifier.js";
 import { PRODUCT_CATALOG } from "../server/services/product-catalog.js";
 import { extractReceiptMetadata } from "../server/services/receipt-metadata.js";
@@ -449,6 +450,43 @@ async function testOcrProductCategories() {
   assert(getSpendingCategory("ORNEK URUN XYZ") === "other", "unknown product names keep the Other fallback");
 }
 
+async function testRegexRegressions() {
+  console.log("\n=== receipt regex regressions ===");
+  const names = async (lines: string[]) => (await classifyFoods(lines)).products.map((p) => normalizeTurkish(p.name));
+  for (const [line, name] of [
+    ["FISTIK EZMESI 340 G %01 *45,00", "fistik"],
+    ["KASAR PEYNIRI 500 G %01 *120,00", "kasar"],
+    ["DATES MEDJOOL 200 G %01 *80,00", "dates"],
+  ] as const) {
+    const found = await names([line]);
+    assert(found.some((n) => n.includes(name)), `"${line}" is kept as a product (got ${JSON.stringify(found)})`);
+  }
+  const meta = await names(["ÖDEME *15,00", "İŞLEM NO 123 *15,00", "İADE TUTARI *15,00", "MÜŞTERİ NÜSHASI"]);
+  assert(meta.length === 0, `Turkish payment/meta lines are skipped (got ${JSON.stringify(meta)})`);
+  const shampoo = await classifyFoods(["ŞAMPUAN 500ML %20 *99,90", "KREM PEYNIR 200 G %01 *60,00"]);
+  assert(shampoo.products[0]?.category === "excluded", "ŞAMPUAN is excluded as non-food");
+  assert(shampoo.products[1]?.category !== "excluded", "KREM PEYNIR stays food");
+
+  const itemDiscount = await classifyFoods(["ELMA %01 *50,00", "INDIRIM -10,00", "SUT %01 *40,00"]);
+  assert(JSON.stringify(itemDiscount.products.map((p) => p.paidPrice)) === "[40,40]",
+    `a discount under a product reduces that product (got ${JSON.stringify(itemDiscount.products.map((p) => p.paidPrice))})`);
+  const basketDiscount = await classifyFoods(["ELMA %01 *60,00", "SUT %01 *40,00", "ARA TOPLAM *100,00", "MIGROS MONEY INDIRIMI", "-10,00", "TOPLAM INDIRIM -10,00", "TOPLAM *90,00"]);
+  const basketPrices = basketDiscount.products.map((p) => p.paidPrice);
+  assert(JSON.stringify(basketPrices) === "[54,36]", `a basket discount is spread once over items (got ${JSON.stringify(basketPrices)})`);
+
+  assert(parseReceiptAmount("ELMA 2 149,90") === 149.9, "quantity is not merged into the price");
+  assert(parseReceiptAmount("TOPLAM *1 250,00") === 1250, "space-grouped thousands after * are kept");
+  assert(parseReceiptAmount("*1.135,97") === 1135.97, "dot-grouped thousands are kept");
+
+  const sokak = extractReceiptMetadata(["KARDES MARKET", "Mimar Sinan Sok. No:3", "KDV %01 *0,50", "TOPLAM *80,00"], []);
+  assert(sokak.storeName === "KARDES MARKET", `a street name is not the ŞOK store (got ${sokak.storeName})`);
+  assert(sokak.currencyCode === "TRY", `Turkish tax receipts default to TRY (got ${sokak.currencyCode})`);
+  const sok = extractReceiptMetadata(["ŞOK MARKETLER T.A.Ş.", "TOPLAM *80,00"], []);
+  assert(sok.storeName === "ŞOK", `ŞOK store is still detected (got ${sok.storeName})`);
+  const noStore = extractReceiptMetadata(["TOPLAM KDV *1,00", "TOPLAM *80,00"], []);
+  assert(noStore.storeName === null, `a totals line is not a store name (got ${noStore.storeName})`);
+}
+
 async function testReceiptGolden() {
   console.log("\n=== Golden receipt classification ===\n");
 
@@ -724,6 +762,7 @@ async function main() {
   await testInvoiceLayout();
   await testCapturedPriceLayouts();
   await testOcrProductCategories();
+  await testRegexRegressions();
   await testReceiptGolden();
 
   console.log("\n=== SUMMARY ===");

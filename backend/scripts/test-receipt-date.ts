@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {
   assertCompleteReceipt,
   assertRecentReceiptDate,
+  findReceiptDate,
   ReceiptDateError,
   ReceiptQualityError,
 } from "../server/services/receipt-date.js";
@@ -10,6 +11,10 @@ import { createReceiptHash } from "../server/services/receipt-hash.js";
 const today = new Date("2026-08-06T12:00:00Z");
 
 assert.equal(assertRecentReceiptDate(["TARIH: 06.08.2026"], today), "2026-08-06");
+assert.equal(findReceiptDate(["TARIH: 15.01.202"]), null, "a 3-digit year is an OCR fragment");
+assert.equal(findReceiptDate(["2026-08-06 14:32"]), "2026-08-06");
+assert.equal(findReceiptDate(["15.01.26"]), "2026-01-15");
+assert.equal(findReceiptDate(["ELMA 1 KG"]), null, "undated receipts report no date");
 assert.equal(assertRecentReceiptDate(["TARIH : 31/07/2026"], today), "2026-07-31");
 assert.equal(assertRecentReceiptDate(["TARIH: 07.07.2026"], today), "2026-07-07");
 assert.equal(assertRecentReceiptDate(["TARIH: 06.07.2026"], today, false), "2026-07-06");

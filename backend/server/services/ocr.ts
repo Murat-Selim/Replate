@@ -318,7 +318,7 @@ function mockOCR(): OCRResult {
     "MARGARIN PAKET 250 G VERA %01 *23,00",
     "BAR KAKAO KAPL. YER FISTIKLI %01 *8,00",
     "KAHVE INS. 3U 1 ARADA 17.5 G N %01 *12,25",
-    "MEZE CIKOFTE 384 G COKCA %01 *32,50",
+    "CIPS KLASIK 150 G %01 *32,50",
 
     // Non-food — should be skipped
     "ALISVERIS POSETI %20 *4,00",
@@ -326,10 +326,10 @@ function mockOCR(): OCRResult {
     // Totals — should be skipped by SKIP_PATTERNS
     "--------------------------------",
     "ARA TOPLAM",
-    "TOPLAM                    *1.245,67",
-    "KDV %01                      *12,46",
-    "NAKIT                     *1.300,00",
-    "PARA USTU                    *54,33",
+    "TOPLAM                    *1.135,97",
+    "KDV %01                      *11,25",
+    "NAKIT                     *1.200,00",
+    "PARA USTU                    *64,03",
     "--------------------------------",
     "TESEKKUR EDERIZ",
     "FIS NO: 20240115-00847",

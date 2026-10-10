@@ -5,7 +5,7 @@ import { ClassificationResult } from "../services/classifier.js";
 import { submitReceiptToContract, calculateScores } from "../services/contract.js";
 import { createLegacyReceiptHash, createReceiptHash, isReceiptHashUsed } from "../services/receipt-hash.js";
 import { clearLeaderboardCache } from "./leaderboard.js";
-import { assertCompleteReceipt, ReceiptDateError, ReceiptQualityError, assertRecentReceiptDate } from "../services/receipt-date.js";
+import { assertCompleteReceipt, ReceiptDateError, ReceiptQualityError, assertRecentReceiptDate, findReceiptDate } from "../services/receipt-date.js";
 import { assertDatabaseConfigured, getDatabasePool } from "../db.js";
 import { analyzeReceipt, assertReliableReceiptAnalysis, ReceiptAnalysisError, type ReceiptAnalysis } from "../services/receipt-analysis.js";
 import { getSpendingCategory } from "../services/spending-categories.js";
@@ -90,8 +90,18 @@ async function saveRecoveryJob(receiptHash: string, userAddress: string, job: Re
 
 router.post("/", async (req: Request, res: Response) => {
   let recoveryJob: RecoveryJob | undefined;
+  /** True once this request claimed the job; only the owner can leave it unfinished. */
+  let ownsRecoveryJob = false;
   let receiptHash = "";
   const userAddress = (req.body as VerifyReceiptRequest | undefined)?.userAddress;
+  // An unfinished job blocks this receipt until the staging row expires, so record every terminal failure.
+  const failRecoveryJob = async (message: string) => {
+    if (!recoveryJob || !userAddress) return;
+    recoveryJob.status = "failed";
+    recoveryJob.error = message;
+    delete recoveryJob.verificationResponse;
+    await saveRecoveryJob(receiptHash, userAddress, recoveryJob).catch(() => undefined);
+  };
   try {
     const { imageBase64, onlyAnalyze, pendingAnalysis } = req.body as VerifyReceiptRequest;
     let { householdSize, daysCovered } = req.body as VerifyReceiptRequest;
@@ -128,7 +138,8 @@ router.post("/", async (req: Request, res: Response) => {
       assertUsableOCR(ocrResult);
       receiptDate = assertRecentReceiptDate(ocrResult.lines, new Date(), ENABLE_RECEIPT_DATE_RANGE_CHECK);
       assertCompleteReceipt(ocrResult.lines);
-      receiptHash = createReceiptHash(ocrResult.lines, receiptDate);
+      // An undated receipt keeps one identity; hashing today's date would let it be reused tomorrow.
+      receiptHash = createReceiptHash(ocrResult.lines, findReceiptDate(ocrResult.lines) ?? "undated");
       legacyReceiptHash = createLegacyReceiptHash(ocrResult.lines);
       if (onlyAnalyze && process.env.OCR_API_KEY?.trim()) recoveryJob = await loadRecoveryJob(receiptHash, userAddress);
     }
@@ -171,6 +182,7 @@ router.post("/", async (req: Request, res: Response) => {
           recoveryJob = await loadRecoveryJob(receiptHash, userAddress);
           throw new OCRPendingError("");
         }
+        ownsRecoveryJob = true;
         try {
           return await readReceiptWithDoubleword(imageBase64!);
         } catch (error) {
@@ -196,6 +208,7 @@ router.post("/", async (req: Request, res: Response) => {
     console.log(`ğŸ¥— Classification: ${classification.healthyItems} healthy, ${classification.unhealthyItems} unhealthy`);
 
     if (classification.totalItems === 0) {
+      await failRecoveryJob("No food products found on this receipt. Try a full grocery receipt photo.");
       res.status(400).json({
         success: false,
         error: "No food products found on this receipt. Try a full grocery receipt photo.",
@@ -229,6 +242,7 @@ router.post("/", async (req: Request, res: Response) => {
           (unitPrice !== null && unitPrice > 99999999.9999) || (product.paidPrice ?? 0) > 100000000;
       });
       if (invalidProduct || (receiptMetadata.totalSpent ?? 0) > 9999999999.99) {
+        await failRecoveryJob("Receipt items or prices exceed supported limits");
         res.status(400).json({ success: false, error: "Receipt items or prices exceed supported limits", errorCode: "RECEIPT_DATA_OUT_OF_RANGE" });
         return;
       }
@@ -330,10 +344,8 @@ router.post("/", async (req: Request, res: Response) => {
       res.status(202).json({ success: true, pendingAnalysis: { receiptHash, token: recoveryJob.token }, retryAfterMs: 3000 });
       return;
     }
-    if (error instanceof ReceiptAnalysisError && recoveryJob && userAddress) {
-      recoveryJob.status = "failed";
-      recoveryJob.error = error.message;
-      await saveRecoveryJob(receiptHash, userAddress, recoveryJob).catch(() => undefined);
+    if (!(error instanceof OCRPendingError) && (error instanceof ReceiptAnalysisError || ownsRecoveryJob)) {
+      await failRecoveryJob(error instanceof OCRError || error instanceof ReceiptAnalysisError ? error.message : "Receipt OCR could not finish");
     }
     console.error("âŒ Receipt verification failed:", error);
 
