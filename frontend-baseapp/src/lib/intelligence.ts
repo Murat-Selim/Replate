@@ -12,6 +12,8 @@ export interface AdvancedReport {
     recommendations: { message: string }[];
 }
 
+export type MealGroup = "vegetables" | "fruit" | "protein" | "grains" | "healthy_fats" | "processed";
+
 export interface MealAnalysis {
     detectedLabels: { label: string; confidence: number }[];
     components: string[];
@@ -19,6 +21,10 @@ export interface MealAnalysis {
     confidence: number;
     insight: string;
     recommendation: string;
+    plate?: { group: MealGroup; share: number }[];
+    items?: { name: string; group: MealGroup }[];
+    missingGroups?: MealGroup[];
+    diversity?: { plantCount: number; plants: string[]; colors: string[] };
 }
 
 export interface BehaviorIntelligence {

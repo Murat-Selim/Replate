@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useWalletClient } from "wagmi";
 import { ArrowRight, CheckCircle2, ImagePlus, Loader2, Sparkles } from "lucide-react";
 import Shell from "@/components/Shell";
+import MealPlateBreakdown, { MEAL_GROUP_META } from "@/components/MealPlateBreakdown";
 import { appChain } from "@/lib/network";
 import { requestMealAnalysis, type MealAnalysis } from "@/lib/intelligence";
 import { compressImage } from "@/lib/image";
@@ -24,7 +25,7 @@ export default function MealPage() {
         setError(null);
         setResult(null);
         try {
-            setImage(await compressImage(file, 1600, 1600, 0.82));
+            setImage(await compressImage(file, 1280, 1280, 0.82, 700000));
         } catch {
             const reader = new FileReader();
             reader.onload = () => setImage(String(reader.result));
@@ -52,8 +53,10 @@ export default function MealPage() {
     const shareResult = () => {
         if (!result) return;
         track("meal_result_shared", { channel: "x" });
+        const plate = (result.plate ?? []).slice(0, 3).map(({ group, share }) => `${MEAL_GROUP_META[group].label} ${share}%`).join(" · ");
+        const plants = result.diversity?.plantCount ? `🌱 ${result.diversity.plantCount} different plants\n\n` : "";
         const components = (result.components.length ? result.components : result.detectedLabels.slice(0, 3).map(({ label }) => label)).map((component) => component.replaceAll("_", " ")).join(", ");
-        const shareText = `🍽️ My meal balance signal is ${result.balanceScore}/100.\n\n${components ? `🥗 Detected: ${components}\n\n` : ""}💡 Next time: ${result.recommendation}\n\nA visual insight by @replateapp on @base.`;
+        const shareText = `🍽️ My meal balance signal is ${result.balanceScore}/100.\n\n${plate ? `🥗 Plate: ${plate}\n\n` : components ? `🥗 Detected: ${components}\n\n` : ""}${plants}💡 Next time: ${result.recommendation}\n\nA visual insight by @replateapp on @base.`;
         window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(window.location.href)}`, "_blank", "noopener,noreferrer");
     };
 
@@ -78,7 +81,7 @@ export default function MealPage() {
                     </div>
 
                     <div className="glass-card rounded-[28px] border border-[#22D97A]/15 p-6">
-                        {result ? <div className="space-y-5"><div className="flex items-end gap-3"><span className="text-7xl font-black text-[#22D97A]">{result.balanceScore}</span><span className="pb-2 text-xs font-black uppercase tracking-wider text-[#A6B0B5]">/ 100<br />Balance signal</span></div><div className="flex items-center gap-2 text-sm font-bold text-[#22D97A]"><CheckCircle2 size={17} />{result.insight}</div><div><p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-[#A6B0B5]">Detected components</p><div className="flex flex-wrap gap-2">{(result.components.length ? result.components : result.detectedLabels.map((item) => item.label)).map((component) => <span key={component} className="rounded-full border border-[#22D97A]/20 bg-[#22D97A]/5 px-3 py-1.5 text-sm font-bold capitalize text-white/85">{component.replaceAll("_", " ")}</span>)}</div></div><div className="rounded-2xl border border-[#22D97A]/15 bg-[#22D97A]/5 p-4"><p className="text-[10px] font-black uppercase tracking-wider text-[#22D97A]">Next step</p><p className="mt-2 text-sm leading-6 text-white/85">{result.recommendation}</p></div><p className="text-xs text-[#A6B0B5]">Visual confidence: {Math.round(result.confidence * 100)}%. Replate does not claim exact calories from a photo.</p><button onClick={shareResult} className="inline-flex items-center justify-center rounded-full border border-[#22D97A]/25 px-4 py-3 text-xs font-black uppercase tracking-wider text-[#22D97A] hover:bg-[#22D97A]/10">Share on X</button></div> : <div className="flex min-h-64 flex-col justify-center"><Sparkles size={32} className="text-[#22D97A]" /><h2 className="mt-5 text-2xl font-black text-white font-heading">Insight in seconds</h2><p className="mt-2 text-sm leading-7 text-[#A6B0B5]">Replate looks for visible food groups, highlights balance and gives you a practical improvement to try next time.</p></div>}
+                        {result ? <div className="space-y-5"><div className="flex items-end gap-3"><span className="text-7xl font-black text-[#22D97A]">{result.balanceScore}</span><span className="pb-2 text-xs font-black uppercase tracking-wider text-[#A6B0B5]">/ 100<br />Balance signal</span></div><div className="flex items-center gap-2 text-sm font-bold text-[#22D97A]"><CheckCircle2 size={17} />{result.insight}</div>{result.plate?.length ? <MealPlateBreakdown result={result} /> : <div><p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-[#A6B0B5]">Detected components</p><div className="flex flex-wrap gap-2">{(result.components.length ? result.components : result.detectedLabels.map((item) => item.label)).map((component) => <span key={component} className="rounded-full border border-[#22D97A]/20 bg-[#22D97A]/5 px-3 py-1.5 text-sm font-bold capitalize text-white/85">{component.replaceAll("_", " ")}</span>)}</div></div>}<div className="rounded-2xl border border-[#22D97A]/15 bg-[#22D97A]/5 p-4"><p className="text-[10px] font-black uppercase tracking-wider text-[#22D97A]">Next step</p><p className="mt-2 text-sm leading-6 text-white/85">{result.recommendation}</p></div><p className="text-xs text-[#A6B0B5]">Visual confidence: {Math.round(result.confidence * 100)}%. Replate does not claim exact calories from a photo.</p><button onClick={shareResult} className="inline-flex items-center justify-center rounded-full border border-[#22D97A]/25 px-4 py-3 text-xs font-black uppercase tracking-wider text-[#22D97A] hover:bg-[#22D97A]/10">Share on X</button></div> : <div className="flex min-h-64 flex-col justify-center"><Sparkles size={32} className="text-[#22D97A]" /><h2 className="mt-5 text-2xl font-black text-white font-heading">Insight in seconds</h2><p className="mt-2 text-sm leading-7 text-[#A6B0B5]">Replate looks for visible food groups, highlights balance and gives you a practical improvement to try next time.</p></div>}
                     </div>
                 </section>
 
