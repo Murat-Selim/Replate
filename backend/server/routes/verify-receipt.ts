@@ -59,8 +59,15 @@ interface VerifyReceiptResponse {
   retryAfterMs?: number;
 }
 
+/**
+ * Bump whenever the secondary reader or its parsing changes: a receipt that failed under an older reader
+ * may be read once more, while a failure under the current reader is never resubmitted automatically.
+ */
+const RECOVERY_READER_VERSION = 2;
+
 interface RecoveryJob {
   token: string;
+  readerVersion?: number;
   responseId: string | null;
   receiptDate: string;
   legacyReceiptHash: string;
@@ -142,6 +149,7 @@ router.post("/", async (req: Request, res: Response) => {
       receiptHash = createReceiptHash(ocrResult.lines, findReceiptDate(ocrResult.lines) ?? "undated");
       legacyReceiptHash = createLegacyReceiptHash(ocrResult.lines);
       if (onlyAnalyze && process.env.OCR_API_KEY?.trim()) recoveryJob = await loadRecoveryJob(receiptHash, userAddress);
+      if (recoveryJob?.status === "failed" && recoveryJob.readerVersion !== RECOVERY_READER_VERSION) recoveryJob = undefined;
     }
     if (await isReceiptHashUsed(receiptHash) || await isReceiptHashUsed(legacyReceiptHash)) {
       res.status(409).json({ success: false, error: "This receipt has already been uploaded", errorCode: "RECEIPT_ALREADY_USED" });
@@ -168,15 +176,18 @@ router.post("/", async (req: Request, res: Response) => {
     const analysis = recoveryJob ? await resumeJob() : await analyzeReceipt(ocrResult!, onlyAnalyze && process.env.OCR_API_KEY?.trim()
       ? async () => {
         validateDoublewordImage(imageBase64!);
-        recoveryJob = { token: randomUUID(), responseId: null, receiptDate, legacyReceiptHash,
+        recoveryJob = { token: randomUUID(), readerVersion: RECOVERY_READER_VERSION, responseId: null, receiptDate, legacyReceiptHash,
           householdSize, daysCovered, startedAt: Date.now(), status: "starting" };
         assertDatabaseConfigured();
         await getDatabasePool().query("DELETE FROM receipt_analysis_staging WHERE expires_at < NOW()");
         const claim = await getDatabasePool().query(
           `INSERT INTO receipt_analysis_staging (receipt_hash, user_wallet, payload) VALUES ($1,$2,$3)
            ON CONFLICT (receipt_hash, user_wallet) DO UPDATE SET payload = EXCLUDED.payload
-             WHERE NOT (receipt_analysis_staging.payload ? 'doublewordJob') RETURNING payload`,
-          [receiptHash, userAddress.toLowerCase(), { doublewordJob: recoveryJob }],
+             WHERE NOT (receipt_analysis_staging.payload ? 'doublewordJob')
+               OR (receipt_analysis_staging.payload->'doublewordJob'->>'status' = 'failed'
+                 AND COALESCE(receipt_analysis_staging.payload->'doublewordJob'->>'readerVersion', '') <> $4)
+             RETURNING payload`,
+          [receiptHash, userAddress.toLowerCase(), { doublewordJob: recoveryJob }, String(RECOVERY_READER_VERSION)],
         );
         if (!claim.rows.length) {
           recoveryJob = await loadRecoveryJob(receiptHash, userAddress);

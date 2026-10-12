@@ -6,6 +6,15 @@ import { labelUnknownProducts } from "./product-categorizer.js";
 
 /** Keep table cells on their physical row; never flatten a column of prices. */
 export function ocrReceiptLines(text: string): string[] {
+  return ocrReceiptTranscription(text).lines;
+}
+
+/**
+ * Rebuild receipt lines; productsEnd is where the first product table ends (-1 without one).
+ * The model may restate totals, tax and payments below the table in its own words and language,
+ * so only rows up to productsEnd are candidates for products.
+ */
+export function ocrReceiptTranscription(text: string): { lines: string[]; productsEnd: number } {
   const plain = text
     .replace(/\*\*([^*\n]+)\*\*/g, "$1")
     .replace(/<\|det\|>\s*\[\[[\d.,\s]+\]\]/g, "")
@@ -22,11 +31,13 @@ export function ocrReceiptLines(text: string): string[] {
       "&nbsp;": " ", "&amp;": "&", "&lt;": "<", "&gt;": ">", "&quot;": '"', "&apos;": "'",
     }[entity]!));
   const lines: string[] = [];
+  let productsEnd = -1;
   let columns: { name: number; quantity: number; unit: number; total: number; count: number; ended: boolean } | undefined;
   for (const raw of plain.split(/\r?\n/)) {
     const line = raw.replace(/^\s*#{1,6}\s+/, "").trim();
     if (!line || /^```/.test(line) || /^\|?[\s:|-]+\|?$/.test(line)) continue;
     if (!line.includes("|")) {
+      if (columns && productsEnd < 0) productsEnd = lines.length;
       columns = undefined;
       lines.push(line);
       continue;
@@ -44,7 +55,10 @@ export function ocrReceiptLines(text: string): string[] {
     const summaryRow = columns && cells.some((cell) => /^(?:total|sub\s*total|grand\s+total|final\s+total|tax|sales\s+tax|gst|hst|pst|toplam|ara\s+toplam|kdv|topkdv|odenecek\s+tutar)\b/.test(normalizeTurkish(cell)));
     // Only product rows must match the header; tax tables after the total may use other widths.
     if (columns && !columns.ended && !summaryRow && cells.length !== columns.count) throw new OCRError("The secondary OCR returned an incomplete table row. Try a clearer receipt photo.", "OCR_API_ERROR");
-    if (columns && summaryRow) columns.ended = true;
+    if (columns && summaryRow) {
+      columns.ended = true;
+      if (productsEnd < 0) productsEnd = lines.length;
+    }
     if (columns && !columns.ended && cells[columns.name]) {
       // "0,80 B" carries a VAT class letter; "2 | x | 1,29" splits the printed multiplication sign into the unit cell.
       cells[columns.total] = cells[columns.total].replace(/(\d)\s+[A-Z]$/i, "$1");
@@ -84,7 +98,8 @@ export function ocrReceiptLines(text: string): string[] {
       lines.push(cells.join(" "));
     }
   }
-  return lines;
+  if (columns && productsEnd < 0) productsEnd = lines.length;
+  return { lines, productsEnd };
 }
 
 export class OCRPendingError extends Error {
@@ -197,8 +212,8 @@ async function doublewordRequest(endpoint: string, body?: unknown): Promise<Rece
     // Never expose provider error bodies, API keys or the receipt image in logs.
     throw new OCRError("Secondary receipt OCR could not finish. No verification or payment was submitted. Try again shortly.", "OCR_API_ERROR");
   }
-  const lines = ocrReceiptLines(content);
-  const classification = await labelUnknownProducts(await classifyFoods(lines));
+  const { lines, productsEnd } = ocrReceiptTranscription(content);
+  const classification = await labelUnknownProducts(await classifyFoods(productsEnd >= 0 ? lines.slice(0, productsEnd) : lines));
   const metadata = extractReceiptMetadata(lines, classification.products);
   // Currency may only be printed in cells the line rebuild drops, such as "1,49 EUR/kg".
   metadata.currencyCode ??= extractReceiptMetadata(content.split(/\r?\n/), []).currencyCode;
@@ -228,7 +243,7 @@ export async function readReceiptWithDoubleword(imageBase64: string): Promise<Re
     // Qwen can loop on empty table rows until max_tokens (~2 min), far past the request timeout.
     stop: ["| | | | | |\n| | | | | |", "|  |  |  |  |  |\n|  |  |  |  |  |"],
     messages: [{ role: "user", content: [
-      { type: "text", text: "Transcribe this grocery receipt faithfully as Markdown. Keep every purchased product in printed order, including repeated products. Use a table with columns Product, Qty, Unit, Unit Price, Amount. Copy the printed quantity or weight and its unit when present; otherwise leave those cells blank. Amount must be the printed line total, not the unit price. Keep package sizes in the product name. Include the printed merchant, date, currency symbols, subtotal, tax, discounts and final total outside the product table. Never output empty table rows; end the table after the last product. Do not calculate, guess, translate, correct or add missing data. Return only the transcription." },
+      { type: "text", text: "Transcribe this grocery receipt faithfully as Markdown. Keep every purchased product in printed order, including repeated products. Use a table with columns Product, Qty, Unit, Unit Price, Amount. Copy the printed quantity or weight and its unit when present; otherwise leave those cells blank. Amount must be the printed line total, not the unit price. Keep package sizes in the product name. Include the printed merchant, date, currency symbols, subtotal, tax, discounts and final total outside the product table. Never output empty table rows; end the table after the last product. Copy every label exactly as printed in the receipt's own language (e.g. ODENECEK TUTAR, TOPKDV, NAKIT); never translate, rename or explain labels. Do not calculate, guess, correct or add missing data. Return only the transcription." },
       { type: "image_url", image_url: { url: `data:${mime};base64,${base64}` } },
     ] }],
   });

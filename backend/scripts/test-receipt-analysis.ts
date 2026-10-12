@@ -4,10 +4,10 @@ import { createServer } from "node:http";
 import express from "express";
 import { Pool } from "pg";
 import { ImageAnnotatorClient } from "@google-cloud/vision";
-import { analyzeReceipt, receiptPriceIssues, ReceiptAnalysisError, type ReceiptAnalysis } from "../server/services/receipt-analysis.js";
+import { analyzeReceipt, assertReliableReceiptAnalysis, receiptPriceIssues, ReceiptAnalysisError, type ReceiptAnalysis } from "../server/services/receipt-analysis.js";
 import { classifyFoods } from "../server/services/classifier.js";
 import { extractReceiptMetadata } from "../server/services/receipt-metadata.js";
-import { ocrReceiptLines, transcriptionLoopStart, hasRepeatedLineLoop, readReceiptWithDoubleword, pollReceiptWithDoubleword, OCRPendingError } from "../server/services/doubleword-ocr.js";
+import { ocrReceiptLines, ocrReceiptTranscription, transcriptionLoopStart, hasRepeatedLineLoop, readReceiptWithDoubleword, pollReceiptWithDoubleword, OCRPendingError } from "../server/services/doubleword-ocr.js";
 import { OCRError } from "../server/services/ocr.js";
 
 process.env.USE_OFF_API = "false";
@@ -168,6 +168,20 @@ try {
   assert.throws(() => ocrReceiptLines("| Product | Qty | Unit | Amount |\n| APPLE | 0.5 kg | g | $5.00 |"), OCRError);
   const missingAmount = await classifyFoods(ocrReceiptLines("| Product | Qty | Unit Price | Amount |\n| APPLE | 2 | $2.50 | |\n| TOTAL | | | $2.50 |"));
   assert.equal(missingAmount.products[0].paidPrice, undefined, "missing line totals never fall back to a unit-price cell");
+  // A101 receipt: Qwen translated the summary into "**Label:** value" lines below the product table.
+  const translated = ocrReceiptTranscription([
+    "**Merchant:** A101 YENİ MAGAZACILIK A.Ş.", "**Date:** 12.10.2026 17:57", "",
+    "| Product | Qty | Unit | Unit Price | Amount |", "|---|---|---|---|---|",
+    "| GOFRET ÇİKOLATALI 47 G DİDO HAX01 | | | | *26,50 |", "| BAR KAKAO KAPL. YER FISTIKLI 4%01 | | | | *9,50 |", "| KAHVE INS. 2 SI 1 ARADA 12 G CX01 | | | | *5,00 |", "",
+    "**Subtotal:** *41,00", "**Goods/Services Total:** *40,60", "**Total VAT (TOPKDV):** *0,40", "**Amount Payable (ODENECEK TUTAR):** *41,00",
+    "**Payment:**", "- Cash (NAKİT): 200,00", "- Change (PARAUSTU): 159,00", "- VAT Amount (KDV): *0,40",
+  ].join("\n"));
+  const translatedProducts = await classifyFoods(translated.lines.slice(0, translated.productsEnd));
+  assert.deepEqual(translatedProducts.products.map((product) => product.paidPrice), [26.5, 9.5, 5], "summary lines below the table are never products");
+  const translatedMetadata = extractReceiptMetadata(translated.lines, translatedProducts.products);
+  assert.equal(translatedMetadata.totalSpent, 41, "a translated payable label is the total; Total VAT is not");
+  assertReliableReceiptAnalysis({ classification: translatedProducts, metadata: translatedMetadata, method: "image-recovery" });
+  assert.equal(ocrReceiptTranscription("APPLE $5.00\nTOTAL $5.00").productsEnd, -1, "without a table every line stays a product candidate");
   providerPhase = "queued";
   await assert.rejects(pollReceiptWithDoubleword("resp_test"), OCRPendingError, "legacy background jobs still resume by ID");
   await assert.rejects(readReceiptWithDoubleword(jpeg), OCRError, "realtime must not accept a truncated completion");
@@ -218,7 +232,8 @@ try {
     }
     if (sql.includes("INSERT INTO receipt_analysis_staging")) {
       const isClaim = sql.includes("RETURNING payload");
-      if (isClaim && staging.get(key)?.doublewordJob) return { rows: [] };
+      const existingJob = staging.get(key)?.doublewordJob as { status?: string; readerVersion?: number } | undefined;
+      if (isClaim && existingJob && !(existingJob.status === "failed" && String(existingJob.readerVersion ?? "") !== params[3])) return { rows: [] };
       const payload = structuredClone(params[2]) as { doublewordJob?: unknown };
       staging.set(key, payload);
       if (!isClaim) stagedWrites++;
@@ -305,12 +320,18 @@ try {
   const callsAfterFailure = providerCalls;
   assert.equal((await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })).status, 502);
   assert.equal(providerCalls, callsAfterFailure, "failed jobs are not automatically resubmitted");
+  const failedJob = [...staging.values()].find((payload) => payload.doublewordJob)?.doublewordJob as { readerVersion?: number };
+  delete failedJob.readerVersion;
+  providerContent = markdown;
+  const retried = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  assert.equal(retried.status, 200, "a receipt that failed under an older reader is read again by the current one");
+  assert.equal(providerCalls, callsAfterFailure + 1);
   staging.clear();
   providerContent = markdown;
   providerPhase = "incomplete";
   const truncatedRecovery = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   assert.equal(truncatedRecovery.status, 502);
-  assert.equal(stagedWrites, writesBeforeBad);
+  assert.equal(stagedWrites, writesBeforeBad + 1, "only the successful retry was staged");
   assert.equal(chainWrites, 0);
   staging.clear();
   providerPhase = "completed";

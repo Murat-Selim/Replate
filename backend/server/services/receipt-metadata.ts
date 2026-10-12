@@ -39,8 +39,9 @@ export function extractReceiptMetadata(lines: string[], products: Classification
     || null;
 
   const totalPatterns = [
-    /^(?:ODENECEK\s+TUTAR|PAYABLE\s+AMOUNT)\b/,
-    /^(?:GRAND\s+TOTAL|TOTAL(?:\s+DUE)?|GENEL\s+TOPLAM|TOPLAM)(?!\s+(?:KDV|TAX|INDIRIM|DISCOUNT))\b/,
+    // Model transcriptions may translate the label: "Amount Payable (ODENECEK TUTAR)", "Total VAT (TOPKDV)".
+    /^(?:ODENECEK\s+TUTAR|PAYABLE\s+AMOUNT|AMOUNT\s+PAYABLE)\b/,
+    /^(?:GRAND\s+TOTAL|TOTAL(?:\s+DUE)?|GENEL\s+TOPLAM|TOPLAM)(?!\s+(?:KDV|TAX|VAT|INDIRIM|DISCOUNT))\b/,
   ];
   let printedTotal: number | undefined;
   for (const pattern of totalPatterns) {
