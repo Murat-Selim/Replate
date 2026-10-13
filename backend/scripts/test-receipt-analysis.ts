@@ -55,6 +55,17 @@ assert.equal(taxedResult.metadata.totalSpent, 8.66);
 assert.equal(taxedResult.metadata.expectedItemsTotal, 8);
 const badTax = ["APPLE $5.00", "BREAD $3.00", "SUB TOTAL $8.00", "SALES TAX $0.60", "TOTAL $8.66"];
 await assert.rejects(analyzeReceipt({ ...result, lines: badTax, analysisLines: badTax }), ReceiptAnalysisError);
+// Onur Market: "URUN IND." discounts, weight lines with stray markers, and the TOPKDV/TOPLAM label column read before its values.
+const onurText = ["SAYGIN HIMALAYA", "%1", "*120,00", "ÜRÜN IND.", "*-25,00", "2. Fiyat", "LINDEN KONS. YUM", "%20", "*135,00", "ÜRÜN IND.", "*-40,00",
+  "2. Fiyat", "0,776 kg X 69,00", "M PATLICAN KEME", "*53,54", "%1", "ONUR ALISVERIS", "%20", "*3,00", "ARA TOPLAM", "*313,54", "TOPKDV", "TOPLAM", "* 9,16", "* 313.54"];
+const onurLayout = ["SAYGIN HIMALAYA %1 *120,00", "ÜRÜN IND. * -25,00", "2. Fiyat", "LINDEN KONS. YUM %20 *135,00", "ÜRÜN IND. * -40,00", "2. Fiyat",
+  "0,776 kg X 69,00 *", "M PATLICAN KEME %1 *53,54", "ONUR ALISVERIS %20 *3,00", "ARA TOPLAM *313,54", "TOPKDV *9,16", "TOPLAM *313.54"];
+for (const lines of [onurText, onurLayout]) {
+  const classification = await classifyFoods(lines);
+  assert.deepEqual(classification.products.map((product) => [product.paidPrice, product.actualWeightGrams, product.category === "excluded"]),
+    [[95, 0, false], [95, 0, false], [53.54, 776, false], [3, 0, true]]);
+  assert.equal(extractReceiptMetadata(lines, classification.products).totalSpent, 313.54);
+}
 console.log("All automatic receipt recovery and price validation checks passed.");
 
 const originalFetch = globalThis.fetch;

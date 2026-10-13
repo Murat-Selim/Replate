@@ -177,7 +177,8 @@ const SKIP_PATTERNS = [
 
 // ─── Non-food products found on grocery receipts ──────────────────────
 const NON_FOOD_PATTERNS = [
-  /\b(ALI[SŞ]VER[Iİ][SŞ]\s*PO[SŞ]ET[Iİ]?|TEM[Iİ]ZL[Iİ]K|S[UÜ]NGER|OVMA\s+TEL[Iİ])\b/i,
+  // 15-character receipt names cut "ONUR ALISVERIS POSETI" to "ONUR ALISVERIS".
+  /\b(ALI[SŞ]VER[Iİ][SŞ](?:\s*PO[SŞ]ET[Iİ]?)?|TEM[Iİ]ZL[Iİ]K|S[UÜ]NGER|OVMA\s+TEL[Iİ])\b/i,
   /\bBUL\.\s*SUN\.?/i,
   /\b(MARLBORO|SIGARA|CIGARET)\b/i,
   /\b(TOILET\s+PAPER|PAPER\s+TOWEL|SHOPPING\s+BAG|PLASTIC\s+BAG|CARRY\s+BAG)\b/i,
@@ -313,7 +314,9 @@ function extractProductLines(lines: string[]): ExtractedProduct[] {
         if (nextIsAmount && parseReceiptAmount(trimmed) === undefined) claimedPriceLines.add(i + 1);
         const last = products.at(-1);
         // A discount printed right under a product belongs to it; anything else is spread over the basket.
-        if (last?.paidPrice !== undefined && lastProductLine === i - 1 && amount <= last.paidPrice) {
+        // Vision text order can leave the product's tax marker ("%1") between them.
+        const directlyBelow = lastProductLine >= 0 && lines.slice(lastProductLine + 1, i).every((line) => taxMarker.test(line.trim()));
+        if (last?.paidPrice !== undefined && directlyBelow && amount <= last.paidPrice) {
           last.paidPrice = Number((last.paidPrice - amount).toFixed(2));
         } else {
           receiptDiscountCents += Math.round(amount * 100);
@@ -330,7 +333,8 @@ function extractProductLines(lines: string[]): ExtractedProduct[] {
       continue;
     }
 
-    const isUnitPriceLine = /^(?:\d+(?:\s*[.,]\s*\d{1,3})?\s*(?:KG|G|GR|GRAMS?)?|\d+\s*AD(?:ET)?)\s*x\s*\d+[.,]\d{2}(?:\s*TL\s*\/\s*(?:KG|AD(?:ET)?))?$/i.test(trimmed);
+    // Row reconstruction can attach a neighbour's "*" or "%1" to a weight line: "0,776 kg X 69,00 *".
+    const isUnitPriceLine = /^(?:\d+(?:\s*[.,]\s*\d{1,3})?\s*(?:KG|G|GR|GRAMS?)?|\d+\s*AD(?:ET)?)\s*x\s*\d+[.,]\d{2}(?:\s*TL\s*\/\s*(?:KG|AD(?:ET)?))?(?:\s+(?:\*|%\d{1,2}))?$/i.test(trimmed);
     const isStandaloneAdetPriceLine = /^\*?\d+[.,]\d{2}\s*(?:TL\/(?:ad|ed)|L\/\d+)$/i.test(trimmed);
     if (isUnitPriceLine || isStandaloneAdetPriceLine) {
       const weightedUnitLine = trimmed.match(
@@ -473,7 +477,8 @@ function extractProductLines(lines: string[]): ExtractedProduct[] {
   return products;
 }
 
-const DISCOUNT_LINE = /(?:^|[^a-z])(?:indirim(?:i)?|iskonto(?:su)?|discount)(?![a-z])/;
+// "URUN IND." is the abbreviated product discount on Turkish fiscal receipts.
+const DISCOUNT_LINE = /(?:^|[^a-z])(?:indirim(?:i)?|iskonto(?:su)?|discount|ind\.)(?![a-z])/;
 
 /** Spread a basket-level discount over priced items in cents so item prices still add up to the total. */
 function allocateReceiptDiscount(products: ExtractedProduct[], discountCents: number): void {

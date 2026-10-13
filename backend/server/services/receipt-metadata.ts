@@ -51,6 +51,17 @@ export function extractReceiptMetadata(lines: string[], products: Classification
       const nextLine = lines[index + 1]?.trim() ?? "";
       const previousLine = lines[index - 1]?.trim() ?? "";
       const standaloneAmount = /^(?:S\$|[$€£¥])?\s*\*?\s*[\d.,\s]+$/;
+      // Vision can read a label column before its value column: "TOPKDV", "TOPLAM", "*34,16", "*1.162,54".
+      const labelOnly = (line: string | undefined) => line !== undefined && /^[A-Za-zÇĞİÖŞÜçğıöşü .:]+$/.test(line.trim());
+      let blockStart = index;
+      while (labelOnly(lines[blockStart - 1])) blockStart--;
+      let blockEnd = index;
+      while (labelOnly(lines[blockEnd + 1])) blockEnd++;
+      const columnValues = lines.slice(blockEnd + 1, blockEnd + 1 + blockEnd - blockStart + 1);
+      if (blockEnd > blockStart && columnValues.length === blockEnd - blockStart + 1 && columnValues.every((line) => standaloneAmount.test(line.trim()))) {
+        printedTotal = parseReceiptAmount(columnValues[index - blockStart]);
+        if (printedTotal !== undefined) break;
+      }
       printedTotal = parseReceiptAmount(lines[index])
         ?? (standaloneAmount.test(nextLine) ? parseReceiptAmount(nextLine) : undefined)
         ?? (standaloneAmount.test(previousLine) ? parseReceiptAmount(previousLine) : undefined);
