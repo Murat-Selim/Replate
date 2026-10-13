@@ -1,0 +1,4 @@
+# Receipt photos carry fiscal identifiers (tax numbers, ETTN, document numbers): keep them local.
+images/
+# Raw readings written by npm run eval:receipts
+results/

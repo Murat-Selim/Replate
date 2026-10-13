@@ -1,5 +1,5 @@
 import { OCRError } from "./ocr.js";
-import { validateDoublewordImage } from "./doubleword-ocr.js";
+import { validateDoublewordImage } from "./receipt-reader.js";
 
 export const MEAL_GROUPS = ["vegetables", "fruit", "protein", "grains", "healthy_fats", "processed"] as const;
 export type MealGroup = typeof MEAL_GROUPS[number];

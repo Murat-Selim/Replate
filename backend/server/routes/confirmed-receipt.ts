@@ -3,7 +3,7 @@ import { assertDatabaseConfigured, getDatabasePool } from "../db.js";
 import { VerifiedReceiptError, verifyReceiptTransaction } from "../services/verified-receipt.js";
 import { normalizeProduct } from "../services/product-normalization.js";
 import { buildDerivedFeatures } from "../services/derived-features.js";
-import { productSpendingCategory } from "../services/product-categorizer.js";
+import { productSpendingCategory } from "../services/spending-categories.js";
 
 const router = Router();
 const HASH = /^0x[a-fA-F0-9]{64}$/;

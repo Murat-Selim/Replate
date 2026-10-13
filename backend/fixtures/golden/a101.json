@@ -1,0 +1,12 @@
+{
+  "description": "A101, slightly rotated photo. The weight line '1.170 x54,90 TL/kg' is printed ABOVE the product with a dot as decimal separator; VAT column '%01' sits next to names.",
+  "image": "images/a101.jpg",
+  "currency": "TRY",
+  "total": 130.73,
+  "items": [
+    { "name": "SOGAN", "paidPrice": 64.23, "quantity": 1, "grams": 1170, "excluded": false, "health": "healthy", "fruitVeg": true },
+    { "name": "MADEN SUYU KARPUZ CİLEK 1 L AK", "paidPrice": 39.50, "quantity": 1, "grams": 0, "excluded": false },
+    { "name": "MADEN SUYU SADE 200 ML BEYPAZA", "paidPrice": 12.00, "quantity": 1, "grams": 0, "excluded": false },
+    { "name": "DOND. TWISTER FOREST 65 ML AL", "paidPrice": 15.00, "quantity": 1, "grams": 0, "excluded": false, "health": "unhealthy" }
+  ]
+}

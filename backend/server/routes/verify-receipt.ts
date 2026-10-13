@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { processOCR, assertUsableOCR, OCRError } from "../services/ocr.js";
 import { ClassificationResult } from "../services/classifier.js";
 import { submitReceiptToContract, calculateScores } from "../services/contract.js";
@@ -7,9 +7,9 @@ import { createLegacyReceiptHash, createReceiptHash, isReceiptHashUsed } from ".
 import { clearLeaderboardCache } from "./leaderboard.js";
 import { assertCompleteReceipt, ReceiptDateError, ReceiptQualityError, assertRecentReceiptDate, findReceiptDate } from "../services/receipt-date.js";
 import { assertDatabaseConfigured, getDatabasePool } from "../db.js";
-import { analyzeReceipt, assertReliableReceiptAnalysis, ReceiptAnalysisError, type ReceiptAnalysis } from "../services/receipt-analysis.js";
-import { productSpendingCategory } from "../services/product-categorizer.js";
-import { readReceiptWithDoubleword, pollReceiptWithDoubleword, validateDoublewordImage, OCRPendingError } from "../services/doubleword-ocr.js";
+import { assertReliableReceiptAnalysis, ReceiptAnalysisError, type ReceiptAnalysis } from "../services/receipt-analysis.js";
+import { productSpendingCategory } from "../services/spending-categories.js";
+import { readReceiptImage, validateDoublewordImage, OCRPendingError } from "../services/receipt-reader.js";
 
 const router = Router();
 // Temporarily disabled; set true when the receipt date window should be enforced again.
@@ -51,7 +51,7 @@ interface VerifyReceiptResponse {
     expectedItemsTotal?: number | null;
     /** Page confidence (0-1); zero means unknown for the secondary reader. */
     ocrConfidence: number;
-    analysisMethod?: "vision-layout" | "vision-text" | "image-recovery";
+    analysisMethod?: ReceiptAnalysis["method"];
   };
   error?: string;
   errorCode?: string;
@@ -63,11 +63,15 @@ interface VerifyReceiptResponse {
  * Bump whenever the secondary reader or its parsing changes: a receipt that failed under an older reader
  * may be read once more, while a failure under the current reader is never resubmitted automatically.
  */
-const RECOVERY_READER_VERSION = 3;
+const RECOVERY_READER_VERSION = 4;
 
 interface RecoveryJob {
   token: string;
   readerVersion?: number;
+  /** SHA-256 of the uploaded photo: a failed reading is replayed only for the same photo. */
+  imageDigest?: string;
+  /** True when the failure came from the provider, not the photo. */
+  retryable?: boolean;
   responseId: string | null;
   receiptDate: string;
   legacyReceiptHash: string;
@@ -78,6 +82,8 @@ interface RecoveryJob {
   error?: string;
   verificationResponse?: VerifyReceiptResponse;
 }
+
+const imageDigest = (imageBase64: string) => createHash("sha256").update(imageBase64.replace(/^data:[^,]*,/, "").replace(/\s/g, "")).digest("hex");
 
 async function loadRecoveryJob(receiptHash: string, userAddress: string): Promise<RecoveryJob | undefined> {
   assertDatabaseConfigured();
@@ -100,6 +106,7 @@ router.post("/", async (req: Request, res: Response) => {
   /** True once this request claimed the job; only the owner can leave it unfinished. */
   let ownsRecoveryJob = false;
   let receiptHash = "";
+  let replaceFailedJob = false;
   const userAddress = (req.body as VerifyReceiptRequest | undefined)?.userAddress;
   // An unfinished job blocks this receipt until the staging row expires, so record every terminal failure.
   const failRecoveryJob = async (message: string) => {
@@ -148,8 +155,11 @@ router.post("/", async (req: Request, res: Response) => {
       // An undated receipt keeps one identity; hashing today's date would let it be reused tomorrow.
       receiptHash = createReceiptHash(ocrResult.lines, findReceiptDate(ocrResult.lines) ?? "undated");
       legacyReceiptHash = createLegacyReceiptHash(ocrResult.lines);
-      if (onlyAnalyze && process.env.OCR_API_KEY?.trim()) recoveryJob = await loadRecoveryJob(receiptHash, userAddress);
-      if (recoveryJob?.status === "failed" && recoveryJob.readerVersion !== RECOVERY_READER_VERSION) recoveryJob = undefined;
+      if (onlyAnalyze) recoveryJob = await loadRecoveryJob(receiptHash, userAddress);
+      // A failed reading is replayed only for the same photo under the same reader; a new photo or a provider outage is read again.
+      replaceFailedJob = recoveryJob?.status === "failed" && (recoveryJob.readerVersion !== RECOVERY_READER_VERSION
+        || recoveryJob.retryable === true || recoveryJob.imageDigest !== imageDigest(imageBase64!));
+      if (replaceFailedJob) recoveryJob = undefined;
     }
     if (await isReceiptHashUsed(receiptHash) || await isReceiptHashUsed(legacyReceiptHash)) {
       res.status(409).json({ success: false, error: "This receipt has already been uploaded", errorCode: "RECEIPT_ALREADY_USED" });
@@ -160,68 +170,61 @@ router.post("/", async (req: Request, res: Response) => {
       if (!recoveryJob || recoveryJob.status === "failed") {
         throw new OCRError(recoveryJob?.error || "Receipt OCR could not finish. Please upload a clearer photo.", "OCR_API_ERROR");
       }
-      if (!recoveryJob.responseId) {
-        if (Date.now() - recoveryJob.startedAt > 60000) {
-          throw new OCRError("Receipt OCR submission could not be confirmed. Please contact support before retrying this receipt.", "OCR_API_ERROR");
-        }
-        throw new OCRPendingError("");
+      if (recoveryJob.responseId) {
+        // Background jobs from the earlier Markdown reader cannot be parsed by the schema reader.
+        throw new OCRError("This receipt analysis expired. Please upload the receipt again.", "OCR_API_ERROR");
       }
-      return pollReceiptWithDoubleword(recoveryJob.responseId);
+      if (Date.now() - recoveryJob.startedAt > 60000) {
+        throw new OCRError("Receipt OCR submission could not be confirmed. Please contact support before retrying this receipt.", "OCR_API_ERROR");
+      }
+      throw new OCRPendingError();
     };
     if (recoveryJob?.verificationResponse) {
       res.json(recoveryJob.verificationResponse);
       return;
     }
-    let primaryAnalysis: ReceiptAnalysis | undefined;
-    if (recoveryJob?.status === "failed" && ocrResult) {
-      // An improved parser may now read a receipt whose recovery failed earlier; this costs no paid OCR call.
-      primaryAnalysis = await analyzeReceipt(ocrResult).catch(() => undefined);
-      if (primaryAnalysis) recoveryJob = undefined;
-    }
-    // Persist the job before submitting paid work; duplicate requests reuse it.
-    const analysis = primaryAnalysis ?? (recoveryJob ? await resumeJob() : await analyzeReceipt(ocrResult!, onlyAnalyze && process.env.OCR_API_KEY?.trim()
-      ? async () => {
-        validateDoublewordImage(imageBase64!);
-        recoveryJob = { token: randomUUID(), readerVersion: RECOVERY_READER_VERSION, responseId: null, receiptDate, legacyReceiptHash,
-          householdSize, daysCovered, startedAt: Date.now(), status: "starting" };
-        assertDatabaseConfigured();
-        await getDatabasePool().query("DELETE FROM receipt_analysis_staging WHERE expires_at < NOW()");
-        const claim = await getDatabasePool().query(
-          `INSERT INTO receipt_analysis_staging (receipt_hash, user_wallet, payload) VALUES ($1,$2,$3)
-           ON CONFLICT (receipt_hash, user_wallet) DO UPDATE SET payload = EXCLUDED.payload
-             WHERE NOT (receipt_analysis_staging.payload ? 'doublewordJob')
-               OR (receipt_analysis_staging.payload->'doublewordJob'->>'status' = 'failed'
-                 AND COALESCE(receipt_analysis_staging.payload->'doublewordJob'->>'readerVersion', '') <> $4)
-             RETURNING payload`,
-          [receiptHash, userAddress.toLowerCase(), { doublewordJob: recoveryJob }, String(RECOVERY_READER_VERSION)],
-        );
-        if (!claim.rows.length) {
-          recoveryJob = await loadRecoveryJob(receiptHash, userAddress);
-          throw new OCRPendingError("");
-        }
-        ownsRecoveryJob = true;
-        try {
-          return await readReceiptWithDoubleword(imageBase64!);
-        } catch (error) {
-          if (error instanceof OCRPendingError) {
-            recoveryJob.responseId = error.responseId;
-            recoveryJob.status = "processing";
-          } else {
-            recoveryJob.status = "failed";
-            recoveryJob.error = error instanceof OCRError ? error.message : "Receipt OCR could not finish";
-          }
-          await saveRecoveryJob(receiptHash, userAddress, recoveryJob);
-          throw error;
-        }
-      } : undefined));
+    // Persist the job before submitting paid work; duplicate and concurrent requests reuse it.
+    const readReceipt = async (): Promise<ReceiptAnalysis> => {
+      if (!onlyAnalyze) return readReceiptImage(imageBase64!);
+      validateDoublewordImage(imageBase64!);
+      if (!process.env.OCR_API_KEY?.trim()) throw new OCRError("The receipt reader is not configured", "OCR_API_ERROR");
+      recoveryJob = { token: randomUUID(), readerVersion: RECOVERY_READER_VERSION, imageDigest: imageDigest(imageBase64!), responseId: null,
+        receiptDate, legacyReceiptHash, householdSize, daysCovered, startedAt: Date.now(), status: "starting" };
+      assertDatabaseConfigured();
+      await getDatabasePool().query("DELETE FROM receipt_analysis_staging WHERE expires_at < NOW()");
+      const claim = await getDatabasePool().query(
+        `INSERT INTO receipt_analysis_staging (receipt_hash, user_wallet, payload) VALUES ($1,$2,$3)
+         ON CONFLICT (receipt_hash, user_wallet) DO UPDATE SET payload = EXCLUDED.payload
+           WHERE NOT (receipt_analysis_staging.payload ? 'doublewordJob')
+             OR ($4 AND receipt_analysis_staging.payload->'doublewordJob'->>'status' = 'failed')
+           RETURNING payload`,
+        [receiptHash, userAddress.toLowerCase(), { doublewordJob: recoveryJob }, replaceFailedJob],
+      );
+      if (!claim.rows.length) {
+        recoveryJob = await loadRecoveryJob(receiptHash, userAddress);
+        throw new OCRPendingError();
+      }
+      ownsRecoveryJob = true;
+      try {
+        return await readReceiptImage(imageBase64!);
+      } catch (error) {
+        recoveryJob.status = "failed";
+        recoveryJob.error = error instanceof OCRError || error instanceof ReceiptAnalysisError ? error.message : "Receipt OCR could not finish";
+        // Provider outages and timeouts say nothing about the photo, so the same photo may be read again.
+        recoveryJob.retryable = !(error instanceof ReceiptAnalysisError) && !(error instanceof OCRError && error.code === "OCR_INVALID_INPUT");
+        await saveRecoveryJob(receiptHash, userAddress, recoveryJob);
+        throw error;
+      }
+    };
+    const analysis = recoveryJob ? await resumeJob() : await readReceipt();
     assertReliableReceiptAnalysis(analysis);
     if (recoveryJob) {
       householdSize = recoveryJob.householdSize;
       daysCovered = recoveryJob.daysCovered;
     }
     const { classification, metadata: receiptMetadata } = analysis;
-    // The secondary reader does not supply calibrated confidence; zero means unknown.
-    const ocrConfidence = analysis.method === "image-recovery" ? 0 : ocrResult!.confidence;
+    // Vision's page confidence describes the photo; a resumed job has no photo, so zero means unknown.
+    const ocrConfidence = ocrResult?.confidence ?? 0;
     console.log(`ğŸ¥— Classification: ${classification.healthyItems} healthy, ${classification.unhealthyItems} unhealthy`);
 
     if (classification.totalItems === 0) {

@@ -1,7 +1,16 @@
-import { classifyFoods, normalizeProductText, type FoodClassification } from "./classifier.js";
-import { extractReceiptMetadata, type ReceiptMetadata } from "./receipt-metadata.js";
-import type { OCRResult } from "./ocr.js";
-import { labelUnknownProducts, productSpendingCategory } from "./product-categorizer.js";
+import type { FoodClassification } from "./classifier.js";
+import { productSpendingCategory } from "./spending-categories.js";
+
+export type ReceiptTotalSource = "receipt_total" | "line_items" | null;
+
+export interface ReceiptMetadata {
+  storeName: string | null;
+  currencyCode: string | null;
+  totalSpent: number | null;
+  totalSpentSource: ReceiptTotalSource;
+  /** Printed subtotal, only when separately printed tax reconciles it to the final total. */
+  expectedItemsTotal?: number | null;
+}
 
 export class ReceiptAnalysisError extends Error {
   readonly code = "RECEIPT_ANALYSIS_UNRELIABLE";
@@ -15,7 +24,7 @@ export class ReceiptAnalysisError extends Error {
 export interface ReceiptAnalysis {
   classification: FoodClassification;
   metadata: ReceiptMetadata;
-  method: "vision-layout" | "vision-text" | "image-recovery";
+  method: "model-schema";
 }
 
 /** Use cents: a percentage tolerance silently accepts missing low-price products. */
@@ -59,34 +68,4 @@ function analysisIssues(analysis: ReceiptAnalysis): string[] {
 export function assertReliableReceiptAnalysis(analysis: ReceiptAnalysis): void {
   const issues = analysisIssues(analysis);
   if (issues.length) throw new ReceiptAnalysisError(issues);
-}
-
-/** Recover from Vision paragraph order before using a second image reader. */
-export async function analyzeReceipt(
-  ocr: OCRResult,
-  recoverImage?: () => Promise<ReceiptAnalysis>,
-): Promise<ReceiptAnalysis> {
-  const candidates: ReceiptAnalysis[] = [];
-  const layouts: Array<[ReceiptAnalysis["method"], string[]]> = [["vision-layout", ocr.analysisLines ?? ocr.lines]];
-  if (ocr.analysisLines && JSON.stringify(ocr.analysisLines) !== JSON.stringify(ocr.lines)) layouts.push(["vision-text", ocr.lines]);
-  for (const [method, lines] of layouts) {
-    const classification = await labelUnknownProducts(await classifyFoods(lines));
-    const candidate = { classification, metadata: extractReceiptMetadata(lines, classification.products), method };
-    candidates.push(candidate);
-  }
-  const reliable = candidates.filter((candidate) => analysisIssues(candidate).length === 0);
-  const signature = (candidate: ReceiptAnalysis) => JSON.stringify(candidate.classification.products.map((product) => [
-    normalizeProductText(product.name), product.paidPrice, product.quantity, product.actualWeightGrams,
-  ]));
-  const layoutsAgree = reliable.every((candidate) => signature(candidate) === signature(reliable[0]));
-  if (reliable.length && layoutsAgree && ocr.confidence >= 0.8) return reliable[0];
-  const issues = analysisIssues(candidates[0]);
-  if (!layoutsAgree) issues.push("OCR layouts disagree about product-to-price matching");
-  if (ocr.confidence < 0.8) issues.push("The image reading confidence is too low");
-  if (recoverImage) {
-    const recovered = await recoverImage();
-    assertReliableReceiptAnalysis(recovered);
-    return recovered;
-  }
-  throw new ReceiptAnalysisError(issues);
 }

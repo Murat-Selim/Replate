@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import { ImageAnnotatorClient, type protos } from "@google-cloud/vision";
+import { ImageAnnotatorClient } from "@google-cloud/vision";
 
 // Initialize Vision client lazily
 let visionClient: ImageAnnotatorClient | null = null;
@@ -75,72 +75,9 @@ export function getVisionClient(): ImageAnnotatorClient {
 
 export interface OCRResult {
   fullText: string;
+  /** Receipt identity input: hashing, date and completeness checks. Products are read by receipt-reader.ts. */
   lines: string[];
-  /** Physical rows for analysis; original lines remain the receipt identity input. */
-  analysisLines?: string[];
-  /** Original layout retained for offline diagnosis and row reconstruction. */
-  annotation?: protos.google.cloud.vision.v1.ITextAnnotation;
   confidence: number;
-}
-
-/** Join receipt columns by their physical row instead of Vision's paragraph order. */
-export function reconstructReceiptLines(annotation: protos.google.cloud.vision.v1.ITextAnnotation | null | undefined, fallback: string[]): string[] {
-  if (!annotation?.pages?.length) return fallback;
-  const output: string[] = [];
-  for (const page of annotation.pages) {
-    const words = (page.blocks ?? []).flatMap((block) => (block.paragraphs ?? []).flatMap((paragraph) => paragraph.words ?? []));
-    if (!words.length) return fallback;
-    const positioned = [];
-    for (const word of words) {
-      const text = (word.symbols ?? []).map((symbol) => symbol.text ?? "").join("").trim();
-      if (!text) continue;
-      const vertices = word.boundingBox?.vertices?.length ? word.boundingBox.vertices
-        : word.boundingBox?.normalizedVertices?.map((vertex) => ({ x: (vertex.x ?? 0) * (page.width ?? 1), y: (vertex.y ?? 0) * (page.height ?? 1) }));
-      if (vertices?.length !== 4) return fallback;
-      const points = vertices.map((vertex) => ({ x: vertex.x ?? 0, y: vertex.y ?? 0 }));
-      const dx = points[1].x - points[0].x;
-      const dy = points[1].y - points[0].y;
-      const height = Math.hypot(points[3].x - points[0].x, points[3].y - points[0].y);
-      const width = Math.hypot(dx, dy);
-      if (!height || !width) return fallback;
-      positioned.push({ text, x: points.reduce((sum, point) => sum + point.x, 0) / 4, y: points.reduce((sum, point) => sum + point.y, 0) / 4, height, width, angle: Math.atan2(dy, dx) });
-    }
-    if (!positioned.length) return fallback;
-    const angles = positioned.map((word) => word.angle).sort((a, b) => a - b);
-    const angle = angles[Math.floor(angles.length / 2)];
-    const cos = Math.cos(angle);
-    const sin = Math.sin(angle);
-    const aligned = positioned.map((word) => ({ ...word, x: word.x * cos + word.y * sin, y: word.y * cos - word.x * sin, angle: word.angle - angle })).sort((a, b) => a.x - b.x || a.y - b.y);
-    const rows: Array<{ x: number; y: number; height: number; width: number; angle: number; words: typeof aligned }> = [];
-    for (const word of aligned) {
-      // Curved receipts have different slopes at the top and bottom; match each row locally.
-      let row: typeof rows[number] | undefined;
-      let nearest = Infinity;
-      for (const candidate of rows) {
-        const slope = Math.tan((word.angle + candidate.angle) / 2);
-        const distance = Math.abs(word.y - candidate.y - slope * (word.x - candidate.x)) / Math.hypot(1, slope);
-        if (distance <= Math.min(word.height, candidate.height) * 0.65 && distance < nearest) {
-          row = candidate;
-          nearest = distance;
-        }
-      }
-      if (row) {
-        const count = row.words.length;
-        row.x = (row.x * count + word.x) / (count + 1);
-        row.y = (row.y * count + word.y) / (count + 1);
-        row.height = (row.height * count + word.height) / (count + 1);
-        row.angle = (row.angle * row.width + word.angle * word.width) / (row.width + word.width);
-        row.width += word.width;
-        row.words.push(word);
-      } else {
-        rows.push({ x: word.x, y: word.y, height: word.height, width: word.width, angle: word.angle, words: [word] });
-      }
-    }
-    output.push(...rows.sort((a, b) => a.words[0].y - b.words[0].y).map((row) => row.words.map((word) => word.text).join(" ")
-      .replace(/(\d)\s+([.,])\s*(?=\d)/g, "$1$2").replace(/([%*])\s+(?=\d)/g, "$1")
-      .replace(/(\p{L})\s+\.(?=\s|$)/gu, "$1.").replace(/\bTL\s*\/\s*(kg|ad|adet|lt)\b/gi, "TL/$1")));
-  }
-  return output;
 }
 
 /**
@@ -264,7 +201,7 @@ export async function processOCR(imageBase64: string): Promise<OCRResult> {
         ? pageConfidence
         : 0.9;
 
-    return { fullText, lines, analysisLines: reconstructReceiptLines(result.fullTextAnnotation, lines), annotation: result.fullTextAnnotation ?? undefined, confidence };
+    return { fullText, lines, confidence };
   } catch (error) {
     if (error instanceof OCRError) throw error;
     console.error("❌ Vision API error:", error);

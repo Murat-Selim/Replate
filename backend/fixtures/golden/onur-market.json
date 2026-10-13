@@ -1,0 +1,27 @@
+{
+  "description": "Onur Market, skewed photo. Weight/count lines are printed ABOVE their product; two ÜRÜN İND. discounts; '2. Fiyat' lines are informational.",
+  "image": "images/onur-market.webp",
+  "currency": "TRY",
+  "total": 1162.54,
+  "items": [
+    { "name": "ONUR BEREKET TU", "paidPrice": 70.00, "quantity": 1, "grams": 0, "excluded": false },
+    { "name": "M PATLICAN KEME", "paidPrice": 53.54, "quantity": 1, "grams": 776, "excluded": false, "health": "healthy", "fruitVeg": true },
+    { "name": "ONUR ALISVERIS", "paidPrice": 3.00, "quantity": 3, "grams": 0, "excluded": true },
+    { "name": "M SALATALIK KG", "paidPrice": 70.10, "quantity": 1, "grams": 1016, "excluded": false, "health": "healthy", "fruitVeg": true },
+    { "name": "EKMEK NORMAL", "paidPrice": 30.00, "quantity": 2, "grams": 0, "excluded": false },
+    { "name": "SAYGIN HIMALAYA", "paidPrice": 95.00, "quantity": 1, "grams": 0, "excluded": false },
+    { "name": "M SOGAN KURU DO", "paidPrice": 44.87, "quantity": 1, "grams": 1282, "excluded": false, "health": "healthy", "fruitVeg": true },
+    { "name": "M BIBER KOY KG", "paidPrice": 35.96, "quantity": 1, "grams": 404, "excluded": false, "health": "healthy", "fruitVeg": true },
+    { "name": "LINDEN KONS.YUM", "paidPrice": 95.00, "quantity": 1, "grams": 0, "excluded": true },
+    { "name": "KOTEX ULTRA TEK", "paidPrice": 90.00, "quantity": 1, "grams": 0, "excluded": true },
+    { "name": "M HAVUC KG", "paidPrice": 34.40, "quantity": 1, "grams": 702, "excluded": false, "health": "healthy", "fruitVeg": true },
+    { "name": "DURU PRATIK HAS", "paidPrice": 60.00, "quantity": 1, "grams": 0, "excluded": false },
+    { "name": "M BIBER KAPYA K", "paidPrice": 24.50, "quantity": 1, "grams": 500, "excluded": false, "health": "healthy", "fruitVeg": true },
+    { "name": "M ARMUT SANTA M", "paidPrice": 90.88, "quantity": 1, "grams": 918, "excluded": false, "health": "healthy", "fruitVeg": true },
+    { "name": "M NAR KG", "paidPrice": 40.76, "quantity": 1, "grams": 458, "excluded": false, "health": "healthy", "fruitVeg": true },
+    { "name": "M MANDALINA NAT", "paidPrice": 29.89, "quantity": 1, "grams": 610, "excluded": false, "health": "healthy", "fruitVeg": true },
+    { "name": "KNORR CORBA HAZ", "paidPrice": 49.50, "quantity": 1, "grams": 0, "excluded": false },
+    { "name": "S PEYNIR COBAN", "paidPrice": 205.14, "quantity": 1, "grams": 526, "excluded": false },
+    { "name": "M BIBER KIL KG", "paidPrice": 40.00, "quantity": 1, "grams": 404, "excluded": false, "health": "healthy", "fruitVeg": true }
+  ]
+}

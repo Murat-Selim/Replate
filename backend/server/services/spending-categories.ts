@@ -27,3 +27,10 @@ export function getSpendingCategory(name: string, isExcluded = false): SpendingC
   }
   return isExcluded ? "household" : "other";
 }
+
+/** The product's spending category: a stored model label first, then the keyword rules. */
+export function productSpendingCategory(product: { name: string; category: string; spendingCategory?: string }): SpendingCategory {
+  const stored = product.spendingCategory as SpendingCategory | undefined;
+  if (stored && SPENDING_CATEGORIES.includes(stored) && stored !== "other") return stored;
+  return getSpendingCategory(product.name, product.category === "excluded");
+}
