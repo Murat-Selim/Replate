@@ -63,7 +63,7 @@ interface VerifyReceiptResponse {
  * Bump whenever the secondary reader or its parsing changes: a receipt that failed under an older reader
  * may be read once more, while a failure under the current reader is never resubmitted automatically.
  */
-const RECOVERY_READER_VERSION = 2;
+const RECOVERY_READER_VERSION = 3;
 
 interface RecoveryJob {
   token: string;
@@ -172,8 +172,14 @@ router.post("/", async (req: Request, res: Response) => {
       res.json(recoveryJob.verificationResponse);
       return;
     }
+    let primaryAnalysis: ReceiptAnalysis | undefined;
+    if (recoveryJob?.status === "failed" && ocrResult) {
+      // An improved parser may now read a receipt whose recovery failed earlier; this costs no paid OCR call.
+      primaryAnalysis = await analyzeReceipt(ocrResult).catch(() => undefined);
+      if (primaryAnalysis) recoveryJob = undefined;
+    }
     // Persist the job before submitting paid work; duplicate requests reuse it.
-    const analysis = recoveryJob ? await resumeJob() : await analyzeReceipt(ocrResult!, onlyAnalyze && process.env.OCR_API_KEY?.trim()
+    const analysis = primaryAnalysis ?? (recoveryJob ? await resumeJob() : await analyzeReceipt(ocrResult!, onlyAnalyze && process.env.OCR_API_KEY?.trim()
       ? async () => {
         validateDoublewordImage(imageBase64!);
         recoveryJob = { token: randomUUID(), readerVersion: RECOVERY_READER_VERSION, responseId: null, receiptDate, legacyReceiptHash,
@@ -207,7 +213,7 @@ router.post("/", async (req: Request, res: Response) => {
           await saveRecoveryJob(receiptHash, userAddress, recoveryJob);
           throw error;
         }
-      } : undefined);
+      } : undefined));
     assertReliableReceiptAnalysis(analysis);
     if (recoveryJob) {
       householdSize = recoveryJob.householdSize;
