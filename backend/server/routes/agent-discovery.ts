@@ -63,6 +63,7 @@ const capabilities: Capability[] = [
   { id: "categorySignal", name: "Category Signal", method: "GET", path: "/api/signals/category/{category}", description: "Category signals are coming soon / Yakında.", price: INTELLIGENCE_PRICING.categorySignal, status: "soon", input: receiptPathInput("category"), output: ["priceMomentum30d", "demandMomentum30d", "observationCount", "confidence", "signalVersion", "calculationVersion"] },
   { id: "merchantSignal", name: "Merchant Signal", method: "GET", path: "/api/signals/merchant/{merchantId}", description: "Merchant signals are coming soon / Yakında.", price: INTELLIGENCE_PRICING.merchantSignal, status: "soon", input: receiptPathInput("merchantId"), output: ["average_basket_value", "price_competitiveness", "category_strength", "deal_frequency", "observation_count", "confidence"] },
 ];
+const publicCapabilities = capabilities.filter((capability) => capability.id === "mealAnalysis");
 
 for (const capability of capabilities) {
   const metadata = INTELLIGENCE_DISCOVERY[capability.id];
@@ -78,6 +79,7 @@ function endpointDescription(capability: Capability): Record<string, unknown> {
     summary: capability.name,
     description: capability.description,
     "x-status": capability.status,
+    "x-bazaar-discoverable": publicCapabilities.includes(capability),
     responses: capability.status === "soon"
       ? { "501": { description: "This capability is coming soon / Yakında." } }
       : {
@@ -136,16 +138,16 @@ function endpointDescription(capability: Capability): Record<string, unknown> {
 }
 
 function agentManifest(origin: string) {
-  const payment = x402Metadata();
+  const payment = x402Metadata(INTELLIGENCE_PRICING.mealAnalysis);
   return {
     name: "Replate Intelligence",
-    description: "Paid grocery receipt and aggregate commerce intelligence for users and autonomous agents via x402 on Base Mainnet.",
+    description: MEAL_DESCRIPTION,
     url: origin,
     version: "1.0.0",
-    capabilities: ["x402", "agent-native", "receipt-intelligence", "commerce-signals"],
+    capabilities: ["x402", "agent-native", "meal-analysis"],
     x402: { enabled: x402Configured, facilitator: payment.facilitator, network: payment.network, asset: "USDC", assetAddress: payment.asset, builderCode: payment.builderCode },
     agenticWallets: { compatible: true, skills: ["search-for-service", "pay-for-service"], installCommand: "npx skills add coinbase/agentic-wallet-skills" },
-    endpoints: capabilities.map((capability) => ({
+    endpoints: publicCapabilities.map((capability) => ({
       path: capability.path,
       method: capability.method,
       status: capability.status,
@@ -155,7 +157,7 @@ function agentManifest(origin: string) {
       output: capability.output,
       authorization: capability.authorization,
     })),
-    tags: ["receipt", "grocery", "nutrition", "price", "signals", "intelligence", "x402", "agent-native"],
+    tags: ["meal-analysis", "food", "nutrition", "vision", "x402", "agent-native"],
     builderCode: payment.builderCode,
     openapiUrl: `${origin}/openapi.json`,
   };
@@ -188,7 +190,7 @@ function openApiDocument(origin: string) {
       title: "Replate Intelligence API",
       version: "1.0.0",
       description: "Paid receipt, personal, and aggregate commerce intelligence for autonomous agents.",
-      "x-guidance": "Choose a capability from this document. Live paid endpoints return a 402 challenge; pay the listed USDC amount on Base Mainnet and retry with PAYMENT-SIGNATURE.",
+      "x-guidance": "Public agent discovery advertises only Meal Analysis. Private receipt and wallet endpoints remain documented for their owners, with x-bazaar-discoverable=false. Live paid endpoints return a 402 challenge; pay the listed USDC amount on Base Mainnet and retry with PAYMENT-SIGNATURE.",
     },
     servers: [{ url: origin }],
     paths: Object.fromEntries(capabilities.map((capability) => [capability.path, endpointDescription(capability)])),
@@ -200,10 +202,10 @@ router.get("/openapi.json", (req, res) => res.set("Cache-Control", "public, max-
 router.get("/.well-known/agent.json", (req, res) => res.set("Cache-Control", "public, max-age=300").json(agentManifest(baseUrl(req))));
 router.get("/.well-known/agent-card.json", (req: Request, res: Response) => {
   const origin = baseUrl(req);
-  const payment = x402Metadata();
+  const payment = x402Metadata(INTELLIGENCE_PRICING.mealAnalysis);
   res.set("Cache-Control", "public, max-age=300").json({
     name: "Replate Intelligence",
-    description: "Paid grocery receipt and aggregate commerce intelligence available to users and autonomous agents.",
+    description: MEAL_DESCRIPTION,
     url: origin,
     version: "1.0.0",
     protocolVersion: "0.3.0",
@@ -211,11 +213,11 @@ router.get("/.well-known/agent-card.json", (req: Request, res: Response) => {
     capabilities: { streaming: false, pushNotifications: false, stateTransitionHistory: false },
     defaultInputModes: ["application/json"],
     defaultOutputModes: ["application/json"],
-    skills: capabilities.filter((capability) => capability.status === "live").map((capability) => ({
+    skills: publicCapabilities.map((capability) => ({
       id: capability.id,
       name: capability.name,
       description: capability.description,
-      tags: ["grocery", "intelligence", "x402"],
+      tags: ["meal-analysis", "food", "nutrition", "vision", "x402"],
       examples: [`Use ${capability.method} ${capability.path}.`],
       inputModes: ["application/json"],
       outputModes: ["application/json"],

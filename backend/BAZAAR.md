@@ -4,29 +4,24 @@ Discovery uses the installed `@x402/extensions` 2.22 SDK and the existing x402 v
 CDP Facilitator on Base mainnet. No API route, price, payment asset or facilitator
 is replaced. All examples in the public discovery metadata are synthetic.
 
-## Resources
+## Public discovery resources
 
 | Method | Existing route | USDC / successful call | Authorization |
 | --- | --- | --- | --- |
 | POST | `/api/analyze-meal` | 0.01 | Payer supplies their own meal photo |
-| POST | `/api/intelligence/advanced` | 0.10 | Payer, receipt owner, receipt hash and body wallet must match |
-| GET | `/api/intelligence/basket/{receiptId}` | 0.04 | Receipt owner only |
-| GET | `/api/intelligence/price/receipt/{receiptId}` | 0.03 | Receipt owner only; all products in one call |
-| GET | `/api/intelligence/spending/receipt/{receiptId}` | 0.05 | Receipt owner only; one receipt and its currency |
-| GET | `/api/intelligence/behavior/me` | 0.05 | Registered payer's own history only |
-| GET | `/api/intelligence/spending/me` | 0.05 | Registered payer's own history only |
 
-Each route declares its description, input example/schema and JSON output
-example/schema through `declareDiscoveryExtension`. Dynamic GET routes use
-`pathParams` and the SDK-generated `routeTemplate`. The same schemas are included
-in `/openapi.json`. Recommendations are part of the existing Advanced Receipt
-report (`report.recommendations`) and Meal response (`data.recommendation`); there
-is no separate Recommendation endpoint.
+Only Meal Analysis declares `extensions.bazaar` and appears in the public agent
+manifest and agent card. Its description, input/output schemas and synthetic
+examples use `declareDiscoveryExtension`. Barcode is excluded from this scope;
+its existing application route is unchanged. Product, Category and Merchant
+Signals remain coming soon / 501 and are not advertised as working services.
 
-Discovery describes private APIs but does not authorize access. Agents with
-independent wallets cannot read another wallet's receipts or history, even if
-they offer payment. No delegation has been introduced. Private intelligence
-responses use `Cache-Control: private, no-store`.
+Advanced Receipt, Basket, Receipt Prices, Receipt Spending and personal Behavior
+and Spending keep their existing routes, x402 prices, payment verification,
+owner restrictions and private cache headers. They do not declare Bazaar
+metadata. `/openapi.json` retains their owner-facing documentation with
+`x-bazaar-discoverable: false`; the public Meal operation is marked true.
+Recommendations remain part of existing reports, with no separate endpoint.
 
 ## Public Meal Analysis
 
@@ -99,11 +94,12 @@ Sources:
   after successful settlement. The retry endpoint still requires the original
   settled entitlement.
 - Offline checks: `node node_modules/tsx/dist/cli.mjs scripts/test-bazaar.ts`.
-  Covers all seven v2 402 declarations and Bazaar schemas, actual owner response
-  schemas, wrong owner/hash/payer, unregistered and registered stranger wallets,
-  rejected signatures, first-call settlement, failed-settlement response privacy
-  and private cache headers. The facilitator and database are mocks; these are
-  not live settlement claims.
+  Covers all seven v2 402 declarations, Meal's Bazaar schema, absence of Bazaar
+  metadata on private routes, Meal-only public manifests, owner response schemas,
+  wrong owner/hash/payer, unregistered and registered stranger wallets, rejected
+  signatures, first-call settlement, failed-settlement response privacy and
+  private cache headers. The facilitator and database are mocks; these are not
+  live settlement claims.
 - Receipt price pre-settlement regression checks:
   `node node_modules/tsx/dist/cli.mjs scripts/test-receipt-spending.ts`.
 - Backend TypeScript check: `node node_modules/typescript/bin/tsc --noEmit --incremental false`.
@@ -115,9 +111,7 @@ Sources:
   block 52688839, successful receipt and matching 0.01 USDC transfer to the
   configured recipient. No new mainnet payment was made for this audit.
 
-Meal's confirmed listing does not imply that all private resources are indexed.
-Check every resource separately after deployment. Each newly declared resource
-needs its own successful owner-authorized CDP payment before indexing can be
-confirmed. Validation does not perform that payment. Do not use a server
-validator key, expose private receipts or weaken ownership checks to seed a
-listing.
+Only Meal is in the current listing scope. No activation payments for private
+receipt or wallet APIs are needed. If public aggregate Signals are implemented
+later, their data quality, privacy and successful CDP settlement must be verified
+before claiming a listing. Validation alone does not perform a payment.

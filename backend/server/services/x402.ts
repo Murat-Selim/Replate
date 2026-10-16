@@ -346,12 +346,8 @@ export function createX402Middleware(): RequestHandler | null {
     .onAfterSettle(settlePaymentAndBuildReport)
     .onSettleFailure(markPaymentFailed);
 
-  const intelligenceRoute = (price: { usd: string; atomic: string }, id: string): RouteConfig => {
-    const metadata = INTELLIGENCE_DISCOVERY[id];
-    const route = routeConfig(price, metadata.description);
-    return { ...route, serviceName: "Replate Intelligence", tags: ["grocery", "receipt-intelligence", "owner-only"],
-      extensions: { ...route.extensions, ...declareDiscoveryExtension(metadata.discovery) } };
-  };
+  const intelligenceRoute = (price: { usd: string; atomic: string }, id: string): RouteConfig =>
+    routeConfig(price, INTELLIGENCE_DISCOVERY[id].description);
   const meal = routeConfig(INTELLIGENCE_PRICING.mealAnalysis, MEAL_DESCRIPTION);
   meal.serviceName = "Replate Intelligence";
   meal.tags = ["meal-analysis", "food", "nutrition", "vision"];

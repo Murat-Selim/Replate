@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { createServer, type Server } from "node:http";
 import express from "express";
 import { Pool } from "pg";
-import { validateDiscoveryExtension } from "@x402/extensions";
+import { declareDiscoveryExtension, validateDiscoveryExtension } from "@x402/extensions";
 
 const owner = `0x${"1".repeat(40)}`;
 const stranger = `0x${"3".repeat(40)}`;
@@ -117,6 +117,7 @@ try {
   app.use("/api/intelligence", intelligence);
   apiServer = createServer(app);
   const origin = await listen(apiServer);
+  const spec = await (await fetch(origin + "/openapi.json")).json();
   const routes = [
     ["POST", "/api/intelligence/advanced", "100000"], ["GET", "/api/intelligence/basket/1", "40000"],
     ["GET", "/api/intelligence/price/receipt/1", "30000"], ["GET", "/api/intelligence/spending/receipt/1", "50000"],
@@ -166,13 +167,15 @@ try {
     assert.equal(required.accepts[0].network, "eip155:8453");
     assert.equal(required.accepts[0].payTo, payTo);
     assert.match(required.resource.url, /^https:/);
+    assert(required.extensions["builder-code"], "all payment routes preserve builder attribution");
     const bazaar = required.extensions.bazaar;
-    assert(bazaar);
-    assert.equal(bazaar.info.input.method, method);
-    const valid = validateDiscoveryExtension(bazaar);
-    assert(valid.valid, JSON.stringify(valid.errors));
+    if (path === "/api/analyze-meal") {
+      assert(bazaar);
+      assert.equal(bazaar.info.input.method, method);
+      const valid = validateDiscoveryExtension(bazaar);
+      assert(valid.valid, JSON.stringify(valid.errors));
+    } else assert.equal(bazaar, undefined, "private resources are excluded from Bazaar discovery");
     assert(!JSON.stringify(required).includes("Private example apple"));
-    if (path.endsWith("/1")) assert.equal(bazaar.routeTemplate, path.replace(/\/1$/, "/:receiptId"));
   }
   for (const path of ["/api/intelligence/basket/1", "/api/intelligence/price/receipt/1", "/api/intelligence/spending/receipt/1", "/api/intelligence/behavior/me", "/api/intelligence/spending/me"]) {
     const before: number = settlements;
@@ -184,8 +187,12 @@ try {
     const body = await allowed.response.json();
     assert.equal(allowed.response.status, 200, `${path}: ${JSON.stringify(body)}`);
     assert.equal(allowed.response.headers.get("cache-control"), "private, no-store");
-    const bazaar = allowed.required.extensions.bazaar;
-    const valid = validateDiscoveryExtension({ ...bazaar, info: { ...bazaar.info, output: { type: "json", example: body } } });
+    const routePath = path.replace(/\/1$/, "/{receiptId}");
+    const schema = spec.paths[routePath].get.responses["200"].content["application/json"].schema;
+    const bazaar = declareDiscoveryExtension({ output: { schema, example: body } }).bazaar;
+    assert(bazaar.info.input.type === "http");
+    bazaar.info.input.method = "GET";
+    const valid = validateDiscoveryExtension(bazaar);
     assert(valid.valid, JSON.stringify(valid.errors));
     assert.equal(settlements, before + 1);
   }
@@ -213,10 +220,18 @@ try {
   const failedAdvanced = await request("POST", "/api/intelligence/advanced", owner, advancedBody);
   assert(failedAdvanced.response.status >= 400);
   assert(!JSON.stringify(await failedAdvanced.response.json()).includes("Private example apple"));
-  const spec = await (await fetch(origin + "/openapi.json")).json();
+  const manifest = await (await fetch(origin + "/.well-known/agent.json")).json();
+  const card = await (await fetch(origin + "/.well-known/agent-card.json")).json();
+  assert.deepEqual(manifest.endpoints.map((endpoint: { path: string }) => endpoint.path), ["/api/analyze-meal"]);
+  assert.deepEqual(card.skills.map((skill: { id: string }) => skill.id), ["mealAnalysis"]);
+  assert.equal(card.x402.amountAtomic, "10000");
+  assert.equal(spec.paths["/api/analyze-meal"].post["x-bazaar-discoverable"], true);
+  for (const [method, path] of routes.filter(([, path]) => path !== "/api/analyze-meal")) {
+    assert.equal(spec.paths[path.replace(/\/1$/, "/{receiptId}")][method.toLowerCase()]["x-bazaar-discoverable"], false);
+  }
   assert(spec.paths["/api/intelligence/advanced"].post.responses["200"].content["application/json"].schema.properties.report.properties.recommendations);
   assert(!Object.keys(spec.paths).some((path) => /recommendations?$/.test(path)), "no removed recommendation route is invented");
-  console.log("Bazaar checks passed: seven 402 declarations, schemas, owner isolation, rejected signatures, first-call settlement and failed-settlement privacy.");
+  console.log("Bazaar checks passed: only Meal is advertised, all seven paid routes work, private owner isolation and settlement checks pass.");
 } finally {
   globalThis.fetch = originalFetch;
   Pool.prototype.connect = originalConnect;
