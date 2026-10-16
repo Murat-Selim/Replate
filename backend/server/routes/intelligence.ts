@@ -8,6 +8,7 @@ import {
   buildReceiptProductPrices,
   buildReceiptSpendingBreakdown,
   buildSpendingBreakdown,
+  findReceipt,
   hasAdvancedReceiptBinding,
 } from "../services/intelligence-data.js";
 
@@ -16,6 +17,7 @@ const HASH = /^0x[a-fA-F0-9]{64}$/;
 const ADDRESS = /^0x[a-fA-F0-9]{40}$/;
 
 router.use((_req, res, next) => {
+  res.set("Cache-Control", "private, no-store");
   if (!x402Configured) {
     res.status(503).json({ success: false, error: "x402 is not configured", errorCode: "X402_NOT_CONFIGURED" });
     return;
@@ -52,6 +54,11 @@ router.post("/advanced", async (req: Request, res: Response) => {
     assertDatabaseConfigured();
     const client = await getDatabasePool().connect();
     try {
+      const receipt = await findReceipt(client, String(receiptId), payer, receiptHash);
+      if (!receipt) {
+        res.status(404).json({ success: false, error: "Verified receipt not found", errorCode: "RECEIPT_NOT_FOUND" });
+        return;
+      }
       const entitlement = await client.query(
         `SELECT p.source_commitment, p.source_snapshot, ir.report_payload
          FROM x402_payments p
@@ -60,14 +67,12 @@ router.post("/advanced", async (req: Request, res: Response) => {
            AND lower(p.user_wallet) = lower($4) AND p.payment_status = 'settled'`,
         [paymentIdentifier(paymentPayload), String(receiptId), receiptHash, payer],
       );
-      if (!entitlement.rows[0]) {
-        res.status(403).json({ success: false, error: "No settled intelligence entitlement found", errorCode: "ENTITLEMENT_NOT_FOUND" });
-        return;
-      }
-      const report = hasAdvancedReceiptBinding(entitlement.rows[0].report_payload, entitlement.rows[0].source_commitment)
-        ? entitlement.rows[0].report_payload
-        : hasAdvancedReceiptBinding(entitlement.rows[0].source_snapshot, entitlement.rows[0].source_commitment)
-          ? entitlement.rows[0].source_snapshot
+      const stored = entitlement.rows[0];
+      // x402 buffers this verified payer's response until settlement; a first call has no settled row yet.
+      const report = stored && hasAdvancedReceiptBinding(stored.report_payload, stored.source_commitment)
+        ? stored.report_payload
+        : stored && hasAdvancedReceiptBinding(stored.source_snapshot, stored.source_commitment)
+          ? stored.source_snapshot
           : await buildAdvancedReceiptReport(client, String(receiptId), receiptHash);
       if (!report) {
         res.status(409).json({ success: false, error: "Receipt intelligence features are not ready", errorCode: "FEATURES_NOT_READY" });

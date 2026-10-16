@@ -14,6 +14,7 @@ import { receiptPriceIssues } from "./receipt-analysis.js";
 import { buildAdvancedReceiptReport, findReceipt, hasAdvancedReceiptBinding, type AdvancedReceiptReport } from "./intelligence-data.js";
 import { buildCategorySignal, buildProductSignal, MIN_SIGNAL_SAMPLE_SIZE, saveCategorySignal, saveProductSignal } from "./signal-engine.js";
 import { MEAL_DESCRIPTION, MEAL_INPUT_EXAMPLE, MEAL_INPUT_SCHEMA, MEAL_RESPONSE_EXAMPLE, MEAL_RESPONSE_SCHEMA } from "./meal-discovery.js";
+import { INTELLIGENCE_DISCOVERY } from "./intelligence-discovery.js";
 
 export const X402_ROUTE = "POST /api/intelligence/advanced";
 export const MEAL_ANALYSIS_ROUTE = "POST /api/analyze-meal";
@@ -101,7 +102,7 @@ function requestResource(context: SettleContext): PaidResourceRequest | null {
   ];
   for (const [pattern, resourceType] of dynamicRoutes) {
     const match = path.match(pattern);
-    if (method === "GET" && match) return { resourceType, resourceId: decodeURIComponent(match[1]), endpoint };
+    if (method === "GET" && match) return { resourceType, resourceId: decodeURIComponent(match[1]), receiptId: match[1], endpoint };
   }
   if (method === "GET" && path === "/api/intelligence/behavior/me") return { resourceType: "behavior_intelligence", resourceId: "me", endpoint };
   if (method === "GET" && path === "/api/intelligence/spending/me") return { resourceType: "spending_breakdown", resourceId: "me", endpoint };
@@ -345,15 +346,11 @@ export function createX402Middleware(): RequestHandler | null {
     .onAfterSettle(settlePaymentAndBuildReport)
     .onSettleFailure(markPaymentFailed);
 
-  const advanced = routeConfig(INTELLIGENCE_PRICING.advancedReceipt, "Advanced Replate Intelligence report");
-  advanced.extensions = {
-    ...advanced.extensions,
-    ...declareDiscoveryExtension({
-      bodyType: "json",
-      input: { receiptId: 1, receiptHash: "0x0000000000000000000000000000000000000000000000000000000000000000", userAddress: "0x0000000000000000000000000000000000000000" },
-      inputSchema: { type: "object", required: ["receiptId", "receiptHash", "userAddress"], properties: { receiptId: { type: ["string", "number"] }, receiptHash: { type: "string", pattern: "^0x[a-fA-F0-9]{64}$" }, userAddress: { type: "string", pattern: "^0x[a-fA-F0-9]{40}$" } }, additionalProperties: false },
-      output: { example: { success: true, receiptId: "1", report: {} } },
-    }),
+  const intelligenceRoute = (price: { usd: string; atomic: string }, id: string): RouteConfig => {
+    const metadata = INTELLIGENCE_DISCOVERY[id];
+    const route = routeConfig(price, metadata.description);
+    return { ...route, serviceName: "Replate Intelligence", tags: ["grocery", "receipt-intelligence", "owner-only"],
+      extensions: { ...route.extensions, ...declareDiscoveryExtension(metadata.discovery) } };
   };
   const meal = routeConfig(INTELLIGENCE_PRICING.mealAnalysis, MEAL_DESCRIPTION);
   meal.serviceName = "Replate Intelligence";
@@ -366,13 +363,13 @@ export function createX402Middleware(): RequestHandler | null {
     }),
   };
   const routes = {
-    [X402_ROUTE]: advanced,
+    [X402_ROUTE]: intelligenceRoute(INTELLIGENCE_PRICING.advancedReceipt, "advancedReceipt"),
     [MEAL_ANALYSIS_ROUTE]: meal,
-    "GET /api/intelligence/basket/:receiptId": routeConfig(INTELLIGENCE_PRICING.basket, "Basket Intelligence"),
-    "GET /api/intelligence/price/receipt/:receiptId": routeConfig(INTELLIGENCE_PRICING.productPrice, "Product prices from one verified receipt"),
-    "GET /api/intelligence/spending/receipt/:receiptId": routeConfig(INTELLIGENCE_PRICING.receiptSpendingBreakdown, "Spending category breakdown from one verified receipt"),
-    "GET /api/intelligence/spending/me": routeConfig(INTELLIGENCE_PRICING.spendingBreakdown, "Spending Breakdown Intelligence"),
-    "GET /api/intelligence/behavior/me": routeConfig(INTELLIGENCE_PRICING.behavior, "Behavior Intelligence"),
+    "GET /api/intelligence/basket/:receiptId": intelligenceRoute(INTELLIGENCE_PRICING.basket, "basket"),
+    "GET /api/intelligence/price/receipt/:receiptId": intelligenceRoute(INTELLIGENCE_PRICING.productPrice, "productPrice"),
+    "GET /api/intelligence/spending/receipt/:receiptId": intelligenceRoute(INTELLIGENCE_PRICING.receiptSpendingBreakdown, "receiptSpendingBreakdown"),
+    "GET /api/intelligence/spending/me": intelligenceRoute(INTELLIGENCE_PRICING.spendingBreakdown, "spendingBreakdown"),
+    "GET /api/intelligence/behavior/me": intelligenceRoute(INTELLIGENCE_PRICING.behavior, "behavior"),
   };
   return paymentMiddleware(routes, resourceServer);
 }

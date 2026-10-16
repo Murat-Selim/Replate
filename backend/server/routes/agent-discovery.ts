@@ -2,6 +2,7 @@ import { Request, Response, Router } from "express";
 import { INTELLIGENCE_PRICING, runtimeConfig } from "../config.js";
 import { x402Configured } from "../services/x402.js";
 import { MEAL_DESCRIPTION, MEAL_INPUT_EXAMPLE, MEAL_INPUT_SCHEMA, MEAL_RESPONSE_EXAMPLE, MEAL_RESPONSE_SCHEMA } from "../services/meal-discovery.js";
+import { INTELLIGENCE_DISCOVERY } from "../services/intelligence-discovery.js";
 
 const router = Router();
 type Method = "GET" | "POST";
@@ -63,6 +64,14 @@ const capabilities: Capability[] = [
   { id: "merchantSignal", name: "Merchant Signal", method: "GET", path: "/api/signals/merchant/{merchantId}", description: "Merchant signals are coming soon / Yakında.", price: INTELLIGENCE_PRICING.merchantSignal, status: "soon", input: receiptPathInput("merchantId"), output: ["average_basket_value", "price_competitiveness", "category_strength", "deal_frequency", "observation_count", "confidence"] },
 ];
 
+for (const capability of capabilities) {
+  const metadata = INTELLIGENCE_DISCOVERY[capability.id];
+  if (metadata) {
+    capability.description = metadata.description;
+    capability.authorization = metadata.authorization;
+  }
+}
+
 function endpointDescription(capability: Capability): Record<string, unknown> {
   const operation: Record<string, unknown> = {
     operationId: capability.id,
@@ -109,6 +118,19 @@ function endpointDescription(capability: Capability): Record<string, unknown> {
     responses["422"] = { description: "Invalid image or no visible meal; no USDC payment is settled." };
     responses["502"] = { description: "Meal analysis could not finish; no USDC payment is settled." };
     responses["503"] = { description: "Meal analysis payments are unavailable." };
+  }
+  const metadata = INTELLIGENCE_DISCOVERY[capability.id];
+  if (metadata) {
+    const discovery = metadata.discovery;
+    const responses = operation.responses as Record<string, unknown>;
+    responses["200"] = { description: "JSON intelligence scoped to the verified x402 payer.",
+      content: { "application/json": { schema: discovery.output?.schema, example: discovery.output?.example } } };
+    responses["401"] = { description: "The payment payer does not match the request." };
+    responses["403"] = { description: "Payment or ownership authorization failed; private data is not returned." };
+    responses["503"] = { description: "Payments are not configured." };
+    operation["x-authorization"] = metadata.authorization;
+    if ("bodyType" in discovery) operation.requestBody = { required: true,
+      content: { "application/json": { schema: discovery.inputSchema, example: discovery.input } } };
   }
   return { [capability.method.toLowerCase()]: operation };
 }
