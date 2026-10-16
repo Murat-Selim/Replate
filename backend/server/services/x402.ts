@@ -13,6 +13,7 @@ import { validateImageBase64 } from "./ocr.js";
 import { receiptPriceIssues } from "./receipt-analysis.js";
 import { buildAdvancedReceiptReport, findReceipt, hasAdvancedReceiptBinding, type AdvancedReceiptReport } from "./intelligence-data.js";
 import { buildCategorySignal, buildProductSignal, MIN_SIGNAL_SAMPLE_SIZE, saveCategorySignal, saveProductSignal } from "./signal-engine.js";
+import { MEAL_DESCRIPTION, MEAL_INPUT_EXAMPLE, MEAL_INPUT_SCHEMA, MEAL_RESPONSE_EXAMPLE, MEAL_RESPONSE_SCHEMA } from "./meal-discovery.js";
 
 export const X402_ROUTE = "POST /api/intelligence/advanced";
 export const MEAL_ANALYSIS_ROUTE = "POST /api/analyze-meal";
@@ -354,9 +355,19 @@ export function createX402Middleware(): RequestHandler | null {
       output: { example: { success: true, receiptId: "1", report: {} } },
     }),
   };
+  const meal = routeConfig(INTELLIGENCE_PRICING.mealAnalysis, MEAL_DESCRIPTION);
+  meal.serviceName = "Replate Intelligence";
+  meal.tags = ["meal-analysis", "food", "nutrition", "vision"];
+  meal.extensions = {
+    ...meal.extensions,
+    ...declareDiscoveryExtension({
+      bodyType: "json", input: MEAL_INPUT_EXAMPLE, inputSchema: MEAL_INPUT_SCHEMA,
+      output: { example: MEAL_RESPONSE_EXAMPLE, schema: MEAL_RESPONSE_SCHEMA },
+    }),
+  };
   const routes = {
     [X402_ROUTE]: advanced,
-    [MEAL_ANALYSIS_ROUTE]: routeConfig(INTELLIGENCE_PRICING.mealAnalysis, "Meal photo analysis"),
+    [MEAL_ANALYSIS_ROUTE]: meal,
     "GET /api/intelligence/basket/:receiptId": routeConfig(INTELLIGENCE_PRICING.basket, "Basket Intelligence"),
     "GET /api/intelligence/price/receipt/:receiptId": routeConfig(INTELLIGENCE_PRICING.productPrice, "Product prices from one verified receipt"),
     "GET /api/intelligence/spending/receipt/:receiptId": routeConfig(INTELLIGENCE_PRICING.receiptSpendingBreakdown, "Spending category breakdown from one verified receipt"),

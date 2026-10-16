@@ -30,6 +30,8 @@ validateRuntimeConfig();
 
 // Trigger reload dummy comment 1
 const app = express();
+// Vercel terminates TLS before Express; x402 must advertise the public HTTPS URL.
+if (process.env.VERCEL === "1") app.set("trust proxy", 1);
 const PORT = process.env.PORT || 3001;
 
 // Middleware

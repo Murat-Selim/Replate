@@ -1,6 +1,7 @@
 import { Request, Response, Router } from "express";
 import { INTELLIGENCE_PRICING, runtimeConfig } from "../config.js";
 import { x402Configured } from "../services/x402.js";
+import { MEAL_DESCRIPTION, MEAL_INPUT_EXAMPLE, MEAL_INPUT_SCHEMA, MEAL_RESPONSE_EXAMPLE, MEAL_RESPONSE_SCHEMA } from "../services/meal-discovery.js";
 
 const router = Router();
 type Method = "GET" | "POST";
@@ -49,7 +50,7 @@ const capabilities: Capability[] = [
     { name: "receiptHash", in: "json", required: true, description: "Verified receipt hash." },
     { name: "userAddress", in: "json", required: true, description: "Receipt owner and paying wallet." },
   ], output: ["report.receiptId", "report.healthScore", "report.nutritionScore", "report.verification.receiptHash", "report.verification.lineItems", "report.verification.lineItemDigest", "report.verification.sourceCommitment", "report.verification.hashAlgorithm", "report.verification.canonicalization"], authorization: "receipt owner and x402 payer must match" },
-  { id: "mealAnalysis", name: "Meal Photo Analysis", method: "POST", path: "/api/analyze-meal", description: "Analyze a meal photo for visible foods, plate composition by food group, missing groups, plant diversity and a balance score.", price: INTELLIGENCE_PRICING.mealAnalysis, status: "live", input: [
+  { id: "mealAnalysis", name: "Meal Photo Analysis", method: "POST", path: "/api/analyze-meal", description: MEAL_DESCRIPTION, price: INTELLIGENCE_PRICING.mealAnalysis, status: "live", input: [
     { name: "imageBase64", in: "json", required: true, description: "Base64-encoded meal photo." },
   ], output: ["data.detectedLabels", "data.components", "data.balanceScore", "data.insight", "data.recommendation", "data.plate", "data.items", "data.missingGroups", "data.diversity"] },
   { id: "spendingBreakdown", name: "Spending Breakdown", method: "GET", path: "/api/intelligence/spending/me", description: "Return receipt totals, category amounts and 30-day category-share changes grouped by currency, including food and household totals, for the paying wallet.", price: INTELLIGENCE_PRICING.spendingBreakdown, status: "live", input: [], output: ["currencies"] },
@@ -94,6 +95,20 @@ function endpointDescription(capability: Capability): Record<string, unknown> {
       required: true,
       content: { "application/json": { schema: { type: "object", required: capability.input.filter((input) => input.required).map((input) => input.name), properties: Object.fromEntries(capability.input.map((input) => [input.name, { type: input.name === "include" ? "array" : "string", description: input.description }])) } } },
     };
+  }
+  if (capability.id === "mealAnalysis") {
+    operation.requestBody = {
+      required: true,
+      content: { "application/json": { schema: MEAL_INPUT_SCHEMA, example: MEAL_INPUT_EXAMPLE } },
+    };
+    const responses = operation.responses as Record<string, unknown>;
+    responses["200"] = {
+      description: "Estimated visual meal composition and balance; not an exact nutrition or calorie measurement.",
+      content: { "application/json": { schema: MEAL_RESPONSE_SCHEMA, example: MEAL_RESPONSE_EXAMPLE } },
+    };
+    responses["422"] = { description: "Invalid image or no visible meal; no USDC payment is settled." };
+    responses["502"] = { description: "Meal analysis could not finish; no USDC payment is settled." };
+    responses["503"] = { description: "Meal analysis payments are unavailable." };
   }
   return { [capability.method.toLowerCase()]: operation };
 }
