@@ -137,11 +137,12 @@ export default function Home() {
                 </div>
 
                 <Link href="/receipt-hunt" className="w-full max-w-md rounded-[24px] border border-[#22D97A]/20 bg-[#22D97A]/5 p-5 text-left transition hover:border-[#22D97A]/45">
-                    <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#22D97A] font-heading">Weekly community challenge · #01</p>
+                    <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#22D97A] font-heading">Weekly community challenge · Week 01</p>
                     <div className="mt-2 flex items-center justify-between gap-3">
                         <div><h2 className="text-xl font-black text-white font-heading">Receipt Hunt</h2><p className="mt-1 text-[11px] leading-5 text-[#A6B0B5]">Don’t share your receipt. Share what it revealed.</p></div>
                         <ArrowRight className="shrink-0 text-[#22D97A]" size={20} />
                     </div>
+                    <p className="mt-2 text-[10px] leading-5 text-[#A6B0B5]">Oct 16–22, 2026 · Week 01 reward: $5 USDC worth of AAPLc</p>
                 </Link>
 
                 {/* User Trust & Rewards Widget */}

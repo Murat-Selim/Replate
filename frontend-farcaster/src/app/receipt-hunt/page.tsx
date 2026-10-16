@@ -22,14 +22,15 @@ export default function ReceiptHuntPage() {
 
                     <article className="mt-6 rounded-[24px] border border-[#22D97A]/20 bg-black/20 p-4 sm:p-5">
                         <div className="flex flex-wrap items-center justify-between gap-3">
-                            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#22D97A]">This week · RECEİPT HUNT #01</p>
-                            <span className="rounded-full border border-white/10 px-3 py-1 text-[10px] font-bold text-white/70">Open challenge</span>
+                            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#22D97A]">RECEIPT HUNT #01</p>
+                            <span className="rounded-full border border-white/10 px-3 py-1 text-[10px] font-bold text-white/70"><time dateTime="2026-10-16">Oct 16</time>–<time dateTime="2026-10-22">22, 2026</time></span>
                         </div>
                         <h2 className="mt-4 text-2xl font-black leading-tight text-white font-heading">Which category did you spend more on than you expected?</h2>
                         <p className="mt-3 text-xs leading-6 text-[#A6B0B5]">Submit your receipt on Replate, then run the Receipt Spending Breakdown analysis (0.05 USDC) to find your top category. Add one surprising observation and share your privacy-safe card.</p>
+                        <p className="mt-3 text-[10px] leading-5 text-[#A6B0B5]">Entries close <time dateTime="2026-10-22T23:59:00+03:00">October 22 at 23:59 TRT (UTC+3)</time>. Winner announced <time dateTime="2026-10-23">October 23</time>.</p>
                         <Link href="/verify-receipt?challenge=receipt-hunt-01" className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#22D97A] px-5 py-4 text-xs font-black uppercase tracking-wider text-[#0B1114] transition hover:brightness-110">
                             <Camera size={17} />
-                            Join this week’s Hunt
+                            Join the first Hunt
                             <ArrowRight size={17} />
                         </Link>
                     </article>
@@ -37,7 +38,7 @@ export default function ReceiptHuntPage() {
                     <div className="mt-4 flex items-center gap-3 rounded-[20px] border border-[#22D97A]/10 bg-[#22D97A]/5 p-4">
                         <Gift className="shrink-0 text-[#22D97A]" size={20} />
                         <div className="text-xs leading-5 text-white">
-                            <p><span className="font-black">Weekly reward: $5 USDC worth of AAPLc</span><span className="text-[#A6B0B5]"> (tokenized Apple stock on Base), valued at payout time.</span></p>
+                            <p><span className="font-black">Week 01 reward: $5 USDC worth of AAPLc</span><span className="text-[#A6B0B5]"> (tokenized Apple stock on Base), valued at payout time.</span></p>
                             <p className="mt-1 text-[10px] leading-5 text-[#A6B0B5]">The team selects one winner, confirms issuer eligibility and a Base wallet, then manually sends the reward and features their entry. AAPLc is offered only in eligible jurisdictions.</p>
                         </div>
                     </div>
@@ -57,7 +58,7 @@ export default function ReceiptHuntPage() {
                                 </li>
                             ))}
                         </ol>
-                        <p className="mt-4 border-t border-white/10 pt-4 text-[10px] leading-5 text-[#A6B0B5]">Public posts using #ReceiptHunt and tagging @replateapp are reviewed by the Replate team each week. The most useful, specific, and creative observation gets the reward and spotlight.</p>
+                        <p className="mt-4 border-t border-white/10 pt-4 text-[10px] leading-5 text-[#A6B0B5]">Public posts using #ReceiptHunt and tagging @replateapp are reviewed by the Replate team after entries close. The most useful, specific, and creative observation gets the reward and spotlight.</p>
                     </div>
 
                     <aside className="rounded-[24px] border border-[#22D97A]/15 bg-[#22D97A]/5 p-5">
@@ -74,14 +75,14 @@ export default function ReceiptHuntPage() {
                 </section>
 
                 <section className="rounded-[24px] border border-white/10 bg-[#131C20]/80 p-5">
-                    <h2 className="text-lg font-black text-white font-heading">The weekly rhythm</h2>
+                    <h2 className="text-lg font-black text-white font-heading">Week 01 schedule</h2>
                     <div className="mt-4 space-y-2">
                         {[
-                            ["Monday", "New challenge"],
-                            ["Tue–Thu", "Community entries"],
-                            ["Friday", "Top 3 shortlisted"],
-                            ["Saturday", "Winner spotlight"],
-                            ["Sunday", "What we learned"],
+                            ["Oct 16", "Challenge opens"],
+                            ["Oct 16–22", "Community entries"],
+                            ["Oct 22 · 23:59 TRT", "Entries close"],
+                            ["Oct 23", "Winner spotlight"],
+                            ["Oct 24", "What we learned"],
                         ].map(([day, activity]) => <div key={day} className="flex items-center justify-between gap-3 rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2.5"><p className="text-[10px] font-black text-[#22D97A]">{day}</p><p className="text-right text-[10px] font-semibold text-white/80">{activity}</p></div>)}
                     </div>
                 </section>
