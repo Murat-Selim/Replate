@@ -23,11 +23,11 @@ export default function ReceiptHuntPage() {
                     <article className="mt-6 rounded-[24px] border border-[#22D97A]/20 bg-black/20 p-4 sm:p-5">
                         <div className="flex flex-wrap items-center justify-between gap-3">
                             <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#22D97A]">RECEIPT HUNT #01</p>
-                            <span className="rounded-full border border-white/10 px-3 py-1 text-[10px] font-bold text-white/70"><time dateTime="2026-10-16">Oct 16</time>–<time dateTime="2026-10-22">22, 2026</time></span>
+                            <span className="rounded-full border border-white/10 px-3 py-1 text-[10px] font-bold text-white/70"><time dateTime="2026-10-17">Oct 17</time>–<time dateTime="2026-10-23">23, 2026</time></span>
                         </div>
                         <h2 className="mt-4 text-2xl font-black leading-tight text-white font-heading">Which category did you spend more on than you expected?</h2>
                         <p className="mt-3 text-xs leading-6 text-[#A6B0B5]">Submit your receipt on Replate, then run the Receipt Spending Breakdown analysis (0.05 USDC) to find your top category. Add one surprising observation and share your privacy-safe card.</p>
-                        <p className="mt-3 text-[10px] leading-5 text-[#A6B0B5]">Entries close <time dateTime="2026-10-22T23:59:00+03:00">October 22 at 23:59 TRT (UTC+3)</time>. Winner announced <time dateTime="2026-10-23">October 23</time>.</p>
+                        <p className="mt-3 text-[10px] leading-5 text-[#A6B0B5]">Entries close <time dateTime="2026-10-23T23:59:00+03:00">October 23 at 23:59 TRT (UTC+3)</time>. Winner announced <time dateTime="2026-10-24">October 24</time>.</p>
                         <Link href="/verify-receipt?challenge=receipt-hunt-01" className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#22D97A] px-5 py-4 text-xs font-black uppercase tracking-wider text-[#0B1114] transition hover:brightness-110">
                             <Camera size={17} />
                             Join the first Hunt
@@ -78,11 +78,11 @@ export default function ReceiptHuntPage() {
                     <h2 className="text-lg font-black text-white font-heading">Week 01 schedule</h2>
                     <div className="mt-4 space-y-2">
                         {[
-                            ["Oct 16", "Challenge opens"],
-                            ["Oct 16–22", "Community entries"],
-                            ["Oct 22 · 23:59 TRT", "Entries close"],
-                            ["Oct 23", "Winner spotlight"],
-                            ["Oct 24", "What we learned"],
+                            ["Oct 17", "Challenge opens"],
+                            ["Oct 17–23", "Community entries"],
+                            ["Oct 23 · 23:59 TRT", "Entries close"],
+                            ["Oct 24", "Winner spotlight"],
+                            ["Oct 25", "What we learned"],
                         ].map(([day, activity]) => <div key={day} className="flex items-center justify-between gap-3 rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2.5"><p className="text-[10px] font-black text-[#22D97A]">{day}</p><p className="text-right text-[10px] font-semibold text-white/80">{activity}</p></div>)}
                     </div>
                 </section>
