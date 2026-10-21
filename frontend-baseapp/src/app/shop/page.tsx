@@ -838,7 +838,12 @@ export default function SmartShop() {
                                         <div>
                                             <p className="text-xs font-black uppercase tracking-wider text-[#00E36E]">Receipt Hunt #01</p>
                                             <h4 id="receipt-hunt-entry-title" className="mt-1 text-lg font-black text-white">Where does your grocery money really go?</h4>
-                                            <p className="mt-1 text-xs leading-5 text-brand-text/60">Run the Receipt Spending Breakdown (0.05 USDC) to find your top category. Add one surprising observation (e.g. “I spend more on snacks than vegetables”). Share your privacy-safe card on X and paste the post link to complete the quest.</p>
+                                            <ol className="mt-3 list-decimal space-y-2 pl-5 text-xs leading-6 text-white/85 marker:font-bold marker:text-[#00E36E]">
+                                                <li>Submit your receipt on Replate.</li>
+                                                <li>Run the Receipt Spending Breakdown (0.05 USDC) to find your top category.</li>
+                                                <li>Add one surprising observation (e.g. “I spend more on snacks than vegetables”).</li>
+                                                <li>Share your privacy-safe card on X and paste the post link to complete the quest.</li>
+                                            </ol>
                                             <p className="mt-2 text-[10px] leading-5 text-brand-text/50">Every item price and the printed total are checked before verification. Automatic recovery runs when the first reading is incomplete.</p>
                                         </div>
                                             {!receiptHuntSpending ? (

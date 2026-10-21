@@ -28,7 +28,9 @@ export default function ReceiptHuntPage() {
                             <span className="rounded-full border border-white/10 px-3 py-1 text-xs font-bold text-white/70"><time dateTime="2026-10-21">Oct 21</time>–<time dateTime="2026-10-27">27, 2026</time></span>
                         </div>
                         <h2 className="mt-5 max-w-2xl text-2xl font-black leading-tight text-white sm:text-3xl">Where does your grocery money really go?</h2>
-                        <p className="mt-3 max-w-2xl text-sm leading-7 text-[#8c9790]">Submit your receipt on Replate. Run the Receipt Spending Breakdown (0.05 USDC) to find your top category. Add one surprising observation (e.g. “I spend more on snacks than vegetables”). Share your privacy-safe card on X and paste the post link to complete the quest.</p>
+                        <ol className="mt-4 max-w-2xl list-decimal space-y-3 pl-5 text-sm leading-7 text-white/85 marker:font-bold marker:text-[#00E36E]">
+                            {steps.map(([number, instruction]) => <li key={number} className="pl-1">{instruction}</li>)}
+                        </ol>
                         <p className="mt-3 text-xs leading-6 text-[#8c9790]">Entries close <time dateTime="2026-10-27T23:59:00+03:00">October 27 at 23:59 TRT (UTC+3)</time>. Winner announced <time dateTime="2026-10-28">October 28</time>.</p>
                         <Link href="#hunt-tasks" className="mt-6 inline-flex items-center justify-center gap-2 rounded-2xl bg-[#00E36E] px-5 py-3.5 text-sm font-black text-[#050806] transition hover:bg-[#00FF66]">
                             <Camera size={18} />

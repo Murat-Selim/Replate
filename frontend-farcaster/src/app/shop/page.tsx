@@ -868,7 +868,12 @@ Join me in reducing food waste!`,
                                             <div>
                                                 <p className="text-[10px] font-black uppercase tracking-wider text-[#22D97A]">Receipt Hunt #01</p>
                                                 <h4 id="receipt-hunt-entry-title" className="mt-1 text-base font-black text-white font-heading">Where does your grocery money really go?</h4>
-                                                <p className="mt-1 text-[10px] leading-5 text-[#A6B0B5]">Run the Receipt Spending Breakdown (0.05 USDC) to find your top category. Add one surprising observation (e.g. “I spend more on snacks than vegetables”). Share your privacy-safe card on X and paste the post link to complete the quest.</p>
+                                                <ol className="mt-3 list-decimal space-y-2 pl-5 text-xs leading-6 text-white/85 marker:font-bold marker:text-[#22D97A]">
+                                                    <li>Submit your receipt on Replate.</li>
+                                                    <li>Run the Receipt Spending Breakdown (0.05 USDC) to find your top category.</li>
+                                                    <li>Add one surprising observation (e.g. “I spend more on snacks than vegetables”).</li>
+                                                    <li>Share your privacy-safe card on X and paste the post link to complete the quest.</li>
+                                                </ol>
                                                 <p className="mt-2 text-[9px] leading-5 text-[#A6B0B5]/70">Every item price and the printed total are checked before verification. Automatic recovery runs when the first reading is incomplete.</p>
                                             </div>
                                             {!receiptHuntSpending ? (
