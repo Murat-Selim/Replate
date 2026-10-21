@@ -68,6 +68,8 @@ export interface ReceiptSpendingBreakdown {
 
 export interface BasketIntelligence { basketScore: number; basketDiversity: number; healthyItemRatio: number; fruitVegRatio: number; categories: Record<string, number> }
 
+const SELF_PAYMENT_ERROR = "This wallet is the payment recipient. Connect a different wallet to pay for Replate Intelligence.";
+
 async function requestPaidJson<T>(walletClient: WalletClient, path: string, init: RequestInit = {}): Promise<T> {
     if (!walletClient.account) throw new Error("Connect your wallet before unlocking Replate Intelligence");
     const signer: ClientEvmSigner = {
@@ -75,7 +77,12 @@ async function requestPaidJson<T>(walletClient: WalletClient, path: string, init
         signTypedData: (message) => walletClient.signTypedData({ ...message, account: walletClient.account } as never),
     };
     const httpClient = new x402HTTPClient(
-        new x402Client().register("eip155:8453", new ExactEvmScheme(signer)),
+        new x402Client().register("eip155:8453", new ExactEvmScheme(signer))
+            .onBeforePaymentCreation(async ({ selectedRequirements }) => {
+                if (selectedRequirements.payTo.toLowerCase() === signer.address.toLowerCase()) {
+                    return { abort: true, reason: SELF_PAYMENT_ERROR };
+                }
+            }),
     );
     const url = getApiUrl(path);
     const unpaid = await fetch(url, { ...init, body: undefined });
@@ -91,7 +98,13 @@ async function requestPaidJson<T>(walletClient: WalletClient, path: string, init
         headers: { ...(init.headers || {}), ...httpClient.encodePaymentSignatureHeader(paymentPayload) },
     });
     const paidBody = await paid.json().catch(() => ({}));
-    if (!paid.ok || !paidBody.success) throw new Error(paidBody.error || paidBody.errorMessage || "Replate Intelligence payment failed");
+    const paymentResult = httpClient.parsePaymentResult({ status: paid.status, getHeader: (name) => paid.headers.get(name), body: paidBody });
+    if (!paid.ok || !paidBody?.success || paymentResult.paymentStatus === "settle_failed") {
+        const header = paymentResult.header;
+        const headerError = header && ("success" in header ? header.errorMessage || header.errorReason : header.error);
+        const message = String(paidBody?.error || paidBody?.errorMessage || headerError || `Replate Intelligence request failed (HTTP ${paid.status})`);
+        throw new Error(message.includes("self_send_not_allowed") ? SELF_PAYMENT_ERROR : message);
+    }
     return paidBody as T;
 }
 
