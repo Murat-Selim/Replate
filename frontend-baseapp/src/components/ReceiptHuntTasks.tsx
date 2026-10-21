@@ -2,15 +2,23 @@
 
 import { useSyncExternalStore, type ReactNode } from "react";
 import Link from "next/link";
-import { useAccount } from "wagmi";
+import { useAccount, useWalletClient } from "wagmi";
+import { appChain } from "@/lib/network";
 import { ArrowRight, Check, ExternalLink, Gift, LockKeyhole } from "lucide-react";
 import { getHuntAnnouncementUrl, getHuntSnapshot, isHuntUnlocked, readHuntProgress, subscribeHuntProgress, updateHuntTask, type HuntTask } from "@/lib/receipt-hunt";
 
 export default function ReceiptHuntTasks({ children }: { children?: ReactNode }) {
     const { address, isConnected } = useAccount();
-    const walletAddress = isConnected ? address : undefined;
+    const { data: walletClient, isError } = useWalletClient({ account: address, chainId: appChain.id });
+    const walletAddress = isConnected && !isError && walletClient?.account?.address.toLowerCase() === address?.toLowerCase()
+        ? address?.toLowerCase() : undefined;
+
+    return <WalletReceiptHuntTasks key={walletAddress || "disconnected"} walletAddress={walletAddress} isConnected={isConnected}>{children}</WalletReceiptHuntTasks>;
+}
+
+function WalletReceiptHuntTasks({ walletAddress, isConnected, children }: { walletAddress?: string; isConnected: boolean; children?: ReactNode }) {
     const snapshot = useSyncExternalStore(subscribeHuntProgress, () => getHuntSnapshot(walletAddress), () => "");
-    const progress = readHuntProgress(snapshot);
+    const progress = readHuntProgress(snapshot, walletAddress);
     const unlocked = isHuntUnlocked(progress);
     const completed = Number(progress.follow.verified) + Number(progress.engagement.verified);
     const announcementUrl = getHuntAnnouncementUrl();
@@ -23,7 +31,8 @@ export default function ReceiptHuntTasks({ children }: { children?: ReactNode })
         <section id="hunt-tasks" aria-labelledby="hunt-tasks-title" className="scroll-mt-28 space-y-4 rounded-3xl border border-brand-primary/20 bg-brand-surface p-5 sm:p-6">
             <h2 id="hunt-tasks-title" className="text-xl font-black text-white">Unlock the Hunt task</h2>
             <p className="text-sm leading-6 text-brand-text-muted">Complete both tasks on X and press Verify here to confirm. Replate checks X activity before awarding the prize.</p>
-            {!walletAddress && <p className="text-sm text-brand-primary">Connect your wallet to verify tasks and save your progress.</p>}
+            {walletAddress ? <p className="break-all text-xs text-brand-text-muted">Wallet: <span className="font-mono">{walletAddress}</span></p>
+                : <p className="text-sm text-brand-primary">{isConnected ? "Checking the connected wallet. Reconnect if this message remains." : "Connect your wallet to verify tasks and save your progress."}</p>}
             <p role="status" className="text-xs font-bold text-brand-primary">{completed}/2 tasks verified · {unlocked ? "Hunt task unlocked" : "Hunt task locked"}</p>
             <ol className="space-y-3">
                 {tasks.map((task, index) => (

@@ -9,12 +9,15 @@ const CHANGE_EVENT = "replate:receipt-hunt-progress";
 const memorySnapshots = new Map<string, string>();
 const memoryOnlyKeys = new Set<string>();
 
-export function readHuntProgress(snapshot: string): HuntProgress {
+export function readHuntProgress(snapshot: string, address?: string): HuntProgress {
     try {
         const saved = JSON.parse(snapshot);
+        const walletMatches = Boolean(address) && saved?.walletAddress === address?.toLowerCase();
+        const followOpened = walletMatches && saved?.follow?.opened === true;
+        const engagementOpened = walletMatches && saved?.engagement?.opened === true;
         return {
-            follow: { opened: saved?.follow?.opened === true, verified: saved?.follow?.opened === true && saved?.follow?.verified === true },
-            engagement: { opened: saved?.engagement?.opened === true, verified: saved?.engagement?.opened === true && saved?.engagement?.verified === true },
+            follow: { opened: followOpened, verified: followOpened && saved?.follow?.verified === true },
+            engagement: { opened: engagementOpened, verified: engagementOpened && saved?.engagement?.verified === true },
         };
     } catch {
         return { follow: { opened: false, verified: false }, engagement: { opened: false, verified: false } };
@@ -41,13 +44,13 @@ export function subscribeHuntProgress(listener: () => void): () => void {
 export function updateHuntTask(address: string | undefined, task: HuntTask, action: "open" | "verify"): void {
     if (!address) return;
     const key = `${STORAGE_KEY}:${address.toLowerCase()}`;
-    const progress = readHuntProgress(getHuntSnapshot(address));
+    const progress = readHuntProgress(getHuntSnapshot(address), address);
     const current = progress[task];
     progress[task] = {
         opened: current.opened || action === "open",
         verified: current.verified || (action === "verify" && current.opened),
     };
-    const snapshot = JSON.stringify(progress);
+    const snapshot = JSON.stringify({ walletAddress: address.toLowerCase(), ...progress });
     memorySnapshots.set(key, snapshot);
     try { window.localStorage.setItem(key, snapshot); } catch { memoryOnlyKeys.add(key); }
     window.dispatchEvent(new Event(CHANGE_EVENT));
