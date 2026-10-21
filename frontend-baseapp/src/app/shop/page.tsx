@@ -589,7 +589,11 @@ export default function SmartShop() {
         const insight = huntInsight.trim().replace(/\s+/g, " ");
         const topCategory = receiptHuntSpending.categories[0];
         const pageUrl = window.location.origin + "/receipt-hunt";
-        const shareText = "Where does your grocery money really go?\n\nMy top category: "
+        const shareText = "Where does your grocery money really go?\n\n"
+            + `🥗 Health Score: ${result.healthScore}/100\n`
+            + `🌿 Nutrition Score: ${result.nutritionScore}/100\n`
+            + `🥕 Fruits & Veg: ${result.fruitVegGrams}g\n`
+            + `⭐ Earned: ${result.pointsEarned} RP\n\nMy top category: `
             + (topCategory ? `${topCategory.category} (${(topCategory.share * 100).toFixed(1)}%)` : "not available")
             + ".\n“" + insight + "”\n\n@replateapp @base #ReceiptHunt #replate #base\n" + pageUrl;
         track("receipt_hunt_share_clicked", { channel, challenge: "receipt-hunt-01" });
