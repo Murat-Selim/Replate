@@ -1,57 +1,58 @@
-import { keccak256, toBytes } from "viem";
-import { CONTRACT_ADDRESS, appChain } from "@/lib/network";
-import { getApiUrl } from "@/lib/api";
-
-export type HuntTaskStatus = "not_submitted" | "pending" | "approved" | "rejected";
-export interface HuntStatus {
-    followStatus: HuntTaskStatus;
-    engagementStatus: HuntTaskStatus;
-    revision: number;
-    unlocked: boolean;
-    announcementUrl: string | null;
-}
-export interface HuntReview {
-    id: string;
-    wallet_address: string;
-    x_username: string;
-    repost_url: string;
-    follow_status: Exclude<HuntTaskStatus, "not_submitted">;
-    engagement_status: Exclude<HuntTaskStatus, "not_submitted">;
-    revision: number;
-    follow_proof?: string;
-    engagement_proof?: string;
-}
-export interface HuntAuthorization {
-    wallet: string;
-    data: unknown;
-    deadline: number;
-    signature: string;
+export type HuntTask = "follow" | "engagement";
+export interface HuntProgress {
+    follow: { opened: boolean; verified: boolean };
+    engagement: { opened: boolean; verified: boolean };
 }
 
-export function huntMessage(action: string, wallet: string, data: unknown, deadline: number): string {
-    return ["Replate Receipt Hunt", "Campaign: receipt-hunt-01", `Chain: ${appChain.id}`,
-        `Contract: ${CONTRACT_ADDRESS.toLowerCase()}`, `Action: ${action}`,
-        `Wallet: ${wallet.toLowerCase()}`, `Data: ${keccak256(toBytes(JSON.stringify(data)))}`, `Expires: ${deadline}`].join("\n");
+const STORAGE_KEY = "replate:receipt-hunt-01:2026-10-21:social";
+const CHANGE_EVENT = "replate:receipt-hunt-progress";
+let memorySnapshot = "";
+let useMemory = false;
+
+export function readHuntProgress(snapshot: string): HuntProgress {
+    try {
+        const saved = JSON.parse(snapshot);
+        return {
+            follow: { opened: saved?.follow?.opened === true, verified: saved?.follow?.opened === true && saved?.follow?.verified === true },
+            engagement: { opened: saved?.engagement?.opened === true, verified: saved?.engagement?.opened === true && saved?.engagement?.verified === true },
+        };
+    } catch {
+        return { follow: { opened: false, verified: false }, engagement: { opened: false, verified: false } };
+    }
 }
 
-export async function signHuntRequest(wallet: string, action: string, data: unknown, sign: (message: string) => Promise<string>): Promise<HuntAuthorization> {
-    const deadline = Math.floor(Date.now() / 1000) + 240;
-    const signature = await sign(huntMessage(action, wallet, data, deadline));
-    return { wallet, data, deadline, signature };
+export function getHuntSnapshot(): string {
+    if (useMemory) return memorySnapshot;
+    try { return window.localStorage.getItem(STORAGE_KEY) || ""; }
+    catch { useMemory = true; return memorySnapshot; }
 }
 
-async function readResponse<T>(response: Response): Promise<T> {
-    const payload = await response.json();
-    if (!response.ok || !payload.success) throw new Error(payload.error || "Receipt Hunt is unavailable");
-    return payload.data as T;
+export function subscribeHuntProgress(listener: () => void): () => void {
+    window.addEventListener("storage", listener);
+    window.addEventListener(CHANGE_EVENT, listener);
+    return () => {
+        window.removeEventListener("storage", listener);
+        window.removeEventListener(CHANGE_EVENT, listener);
+    };
 }
 
-export async function getHuntStatus(wallet: string, signal?: AbortSignal): Promise<HuntStatus> {
-    return readResponse<HuntStatus>(await fetch(getApiUrl(`/api/receipt-hunt/status/${wallet}`), { cache: "no-store", signal }));
+export function updateHuntTask(task: HuntTask, action: "open" | "verify"): void {
+    const progress = readHuntProgress(getHuntSnapshot());
+    const current = progress[task];
+    progress[task] = {
+        opened: current.opened || action === "open",
+        verified: current.verified || (action === "verify" && current.opened),
+    };
+    memorySnapshot = JSON.stringify(progress);
+    try { window.localStorage.setItem(STORAGE_KEY, memorySnapshot); } catch { useMemory = true; }
+    window.dispatchEvent(new Event(CHANGE_EVENT));
 }
 
-export async function postHunt<T>(path: string, body: HuntAuthorization): Promise<T> {
-    return readResponse<T>(await fetch(getApiUrl(`/api/receipt-hunt${path}`), {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
-    }));
+export function isHuntUnlocked(progress: HuntProgress): boolean {
+    return progress.follow.verified && progress.engagement.verified;
+}
+
+export function getHuntAnnouncementUrl(): string | null {
+    const url = process.env.NEXT_PUBLIC_RECEIPT_HUNT_ANNOUNCEMENT_URL?.trim() || "";
+    return /^https:\/\/(?:www\.)?(?:x\.com|twitter\.com)\/[a-z0-9_]{1,15}\/status\/\d+(?:[/?#].*)?$/i.test(url) ? url : null;
 }
