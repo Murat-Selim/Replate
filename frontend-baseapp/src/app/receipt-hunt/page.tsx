@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, Camera, EyeOff, Gift, Lightbulb, ShieldCheck } from "lucide-react";
 import Shell from "@/components/Shell";
+import ReceiptHuntTasks from "@/components/ReceiptHuntTasks";
 
 const steps = [
     ["01", "Verify a grocery receipt", "Replate analyzes your basket and creates a private result."],
@@ -23,14 +24,14 @@ export default function ReceiptHuntPage() {
                     <article className="mt-8 rounded-3xl border border-[#00E36E]/20 bg-black/20 p-5 sm:p-7">
                         <div className="flex flex-wrap items-center justify-between gap-3">
                             <p className="text-xs font-black uppercase tracking-[0.18em] text-[#00E36E]">RECEIPT HUNT #01</p>
-                            <span className="rounded-full border border-white/10 px-3 py-1 text-xs font-bold text-white/70"><time dateTime="2026-10-20">Oct 20</time>–<time dateTime="2026-10-26">26, 2026</time></span>
+                            <span className="rounded-full border border-white/10 px-3 py-1 text-xs font-bold text-white/70"><time dateTime="2026-10-21">Oct 21</time>–<time dateTime="2026-10-27">27, 2026</time></span>
                         </div>
                         <h2 className="mt-5 max-w-2xl text-2xl font-black leading-tight text-white sm:text-3xl">Which category did you spend more on than you expected?</h2>
                         <p className="mt-3 max-w-2xl text-sm leading-7 text-[#8c9790]">Submit your receipt on Replate, then run the Receipt Spending Breakdown analysis (0.05 USDC) to find your top category. Add one surprising observation and share your privacy-safe card.</p>
-                        <p className="mt-3 text-xs leading-6 text-[#8c9790]">Entries close <time dateTime="2026-10-26T23:59:00+03:00">October 26 at 23:59 TRT (UTC+3)</time>. Winner announced <time dateTime="2026-10-27">October 27</time>.</p>
-                        <Link href="/verify-receipt?challenge=receipt-hunt-01" className="mt-6 inline-flex items-center justify-center gap-2 rounded-2xl bg-[#00E36E] px-5 py-3.5 text-sm font-black text-[#050806] transition hover:bg-[#00FF66]">
+                        <p className="mt-3 text-xs leading-6 text-[#8c9790]">Entries close <time dateTime="2026-10-27T23:59:00+03:00">October 27 at 23:59 TRT (UTC+3)</time>. Winner announced <time dateTime="2026-10-28">October 28</time>.</p>
+                        <Link href="#hunt-tasks" className="mt-6 inline-flex items-center justify-center gap-2 rounded-2xl bg-[#00E36E] px-5 py-3.5 text-sm font-black text-[#050806] transition hover:bg-[#00FF66]">
                             <Camera size={18} />
-                            Join the first Hunt
+                            Complete tasks to join
                             <ArrowRight size={17} />
                         </Link>
                     </article>
@@ -44,9 +45,11 @@ export default function ReceiptHuntPage() {
                     </div>
                 </section>
 
+                <ReceiptHuntTasks />
+
                 <section className="grid gap-6 md:grid-cols-[1fr_0.9fr]">
                     <div className="rounded-3xl border border-white/10 bg-[#0c1310]/80 p-6">
-                        <h2 className="text-xl font-black text-white">How to enter</h2>
+                        <h2 className="text-xl font-black text-white">After unlocking: how to enter</h2>
                         <ol className="mt-5 space-y-4">
                             {steps.map(([number, title, description]) => (
                                 <li key={number} className="flex gap-4">
@@ -78,11 +81,11 @@ export default function ReceiptHuntPage() {
                     <h2 className="text-xl font-black text-white">Week 01 schedule</h2>
                     <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
                         {[
-                            ["Oct 20", "Challenge opens"],
-                            ["Oct 20–26", "Community entries"],
-                            ["Oct 26 · 23:59 TRT", "Entries close"],
-                            ["Oct 27", "Winner spotlight"],
-                            ["Oct 28", "What we learned"],
+                            ["Oct 21", "Challenge opens"],
+                            ["Oct 21–27", "Community entries"],
+                            ["Oct 27 · 23:59 TRT", "Entries close"],
+                            ["Oct 28", "Winner spotlight"],
+                            ["Oct 29", "What we learned"],
                         ].map(([day, activity]) => <div key={day} className="rounded-2xl border border-white/5 bg-white/[0.03] p-3"><p className="text-xs font-black text-[#00E36E]">{day}</p><p className="mt-1 text-sm font-semibold text-white/80">{activity}</p></div>)}
                     </div>
                 </section>
