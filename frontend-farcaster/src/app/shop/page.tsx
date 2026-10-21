@@ -610,7 +610,9 @@ export default function SmartShop() {
         const insight = huntInsight.trim().replace(/\s+/g, " ");
         const topCategory = receiptHuntSpending.categories[0];
         const pageUrl = window.location.origin + "/receipt-hunt";
-        const text = "Receipt Hunt #01\n\nTop spending category: " + (topCategory ? `${topCategory.category} (${formatSpendingAmount(topCategory.amount, receiptHuntSpending.currencyCode)}, ${(topCategory.share * 100).toFixed(1)}%)` : "not available") + "\nMy surprise: “" + insight + "”\n\nHealth: " + result.healthScore + "/100 · Nutrition: " + result.nutritionScore + "/100\n\nJoin the Hunt: " + pageUrl + "\n\n@replateapp #ReceiptHunt";
+        const text = "Where does your grocery money really go?\n\nMy top category: "
+            + (topCategory ? `${topCategory.category} (${(topCategory.share * 100).toFixed(1)}%)` : "not available")
+            + ".\n“" + insight + "”\n\n@replateapp #ReceiptHunt\n" + pageUrl;
         track("receipt_hunt_share_clicked", { channel: "farcaster", challenge: "receipt-hunt-01" });
         try {
             await sdk.actions.composeCast({ text, embeds: [pageUrl] });
