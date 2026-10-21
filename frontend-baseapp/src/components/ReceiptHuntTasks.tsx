@@ -2,11 +2,14 @@
 
 import { useSyncExternalStore, type ReactNode } from "react";
 import Link from "next/link";
+import { useAccount } from "wagmi";
 import { ArrowRight, Check, ExternalLink, Gift, LockKeyhole } from "lucide-react";
 import { getHuntAnnouncementUrl, getHuntSnapshot, isHuntUnlocked, readHuntProgress, subscribeHuntProgress, updateHuntTask, type HuntTask } from "@/lib/receipt-hunt";
 
 export default function ReceiptHuntTasks({ children }: { children?: ReactNode }) {
-    const snapshot = useSyncExternalStore(subscribeHuntProgress, getHuntSnapshot, () => "");
+    const { address, isConnected } = useAccount();
+    const walletAddress = isConnected ? address : undefined;
+    const snapshot = useSyncExternalStore(subscribeHuntProgress, () => getHuntSnapshot(walletAddress), () => "");
     const progress = readHuntProgress(snapshot);
     const unlocked = isHuntUnlocked(progress);
     const completed = Number(progress.follow.verified) + Number(progress.engagement.verified);
@@ -20,6 +23,7 @@ export default function ReceiptHuntTasks({ children }: { children?: ReactNode })
         <section id="hunt-tasks" aria-labelledby="hunt-tasks-title" className="scroll-mt-28 space-y-4 rounded-3xl border border-brand-primary/20 bg-brand-surface p-5 sm:p-6">
             <h2 id="hunt-tasks-title" className="text-xl font-black text-white">Unlock the Hunt task</h2>
             <p className="text-sm leading-6 text-brand-text-muted">Complete both tasks on X and press Verify here to confirm. Replate checks X activity before awarding the prize.</p>
+            {!walletAddress && <p className="text-sm text-brand-primary">Connect your wallet to verify tasks and save your progress.</p>}
             <p role="status" className="text-xs font-bold text-brand-primary">{completed}/2 tasks verified · {unlocked ? "Hunt task unlocked" : "Hunt task locked"}</p>
             <ol className="space-y-3">
                 {tasks.map((task, index) => (
@@ -30,8 +34,8 @@ export default function ReceiptHuntTasks({ children }: { children?: ReactNode })
                                 <h3 className="text-sm font-bold text-white">{task.title}</h3>
                                 <p className="mt-1 text-xs leading-5 text-brand-text-muted">{task.description}</p>
                                 <div className="mt-3 flex flex-wrap items-center gap-3">
-                                    <a href={task.href} target="_blank" rel="noopener noreferrer" onClick={() => updateHuntTask(task.id, "open")} className="inline-flex items-center gap-1.5 text-xs font-bold text-brand-primary underline underline-offset-4">{task.link}<ExternalLink size={13} aria-hidden="true" /><span className="sr-only"> (opens in a new tab)</span></a>
-                                    <button type="button" aria-label={`Verify ${task.id === "follow" ? "follow" : "like and repost"} task`} disabled={!progress[task.id].opened || progress[task.id].verified} onClick={() => updateHuntTask(task.id, "verify")} className="rounded-xl border border-brand-primary/30 px-4 py-2.5 text-xs font-bold text-brand-primary hover:bg-brand-primary/10 disabled:cursor-default disabled:opacity-50">{progress[task.id].verified ? "Verified" : "Verify"}</button>
+                                    <a href={task.href} target="_blank" rel="noopener noreferrer" onClick={() => updateHuntTask(walletAddress, task.id, "open")} className="inline-flex items-center gap-1.5 text-xs font-bold text-brand-primary underline underline-offset-4">{task.link}<ExternalLink size={13} aria-hidden="true" /><span className="sr-only"> (opens in a new tab)</span></a>
+                                    <button type="button" aria-label={`Verify ${task.id === "follow" ? "follow" : "like and repost"} task`} disabled={!walletAddress || !progress[task.id].opened || progress[task.id].verified} onClick={() => updateHuntTask(walletAddress, task.id, "verify")} className="rounded-xl border border-brand-primary/30 px-4 py-2.5 text-xs font-bold text-brand-primary hover:bg-brand-primary/10 disabled:cursor-default disabled:opacity-50">{progress[task.id].verified ? "Verified" : "Verify"}</button>
                                 </div>
                                 {task.id === "engagement" && !announcementUrl && <p className="mt-2 text-xs text-brand-text-muted">The direct announcement link will be added here.</p>}
                             </div>

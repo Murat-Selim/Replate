@@ -6,8 +6,8 @@ export interface HuntProgress {
 
 const STORAGE_KEY = "replate:receipt-hunt-01:2026-10-21:social";
 const CHANGE_EVENT = "replate:receipt-hunt-progress";
-let memorySnapshot = "";
-let useMemory = false;
+const memorySnapshots = new Map<string, string>();
+const memoryOnlyKeys = new Set<string>();
 
 export function readHuntProgress(snapshot: string): HuntProgress {
     try {
@@ -21,10 +21,12 @@ export function readHuntProgress(snapshot: string): HuntProgress {
     }
 }
 
-export function getHuntSnapshot(): string {
-    if (useMemory) return memorySnapshot;
-    try { return window.localStorage.getItem(STORAGE_KEY) || ""; }
-    catch { useMemory = true; return memorySnapshot; }
+export function getHuntSnapshot(address?: string): string {
+    if (!address) return "";
+    const key = `${STORAGE_KEY}:${address.toLowerCase()}`;
+    if (memoryOnlyKeys.has(key)) return memorySnapshots.get(key) || "";
+    try { return window.localStorage.getItem(key) || ""; }
+    catch { memoryOnlyKeys.add(key); return memorySnapshots.get(key) || ""; }
 }
 
 export function subscribeHuntProgress(listener: () => void): () => void {
@@ -36,15 +38,18 @@ export function subscribeHuntProgress(listener: () => void): () => void {
     };
 }
 
-export function updateHuntTask(task: HuntTask, action: "open" | "verify"): void {
-    const progress = readHuntProgress(getHuntSnapshot());
+export function updateHuntTask(address: string | undefined, task: HuntTask, action: "open" | "verify"): void {
+    if (!address) return;
+    const key = `${STORAGE_KEY}:${address.toLowerCase()}`;
+    const progress = readHuntProgress(getHuntSnapshot(address));
     const current = progress[task];
     progress[task] = {
         opened: current.opened || action === "open",
         verified: current.verified || (action === "verify" && current.opened),
     };
-    memorySnapshot = JSON.stringify(progress);
-    try { window.localStorage.setItem(STORAGE_KEY, memorySnapshot); } catch { useMemory = true; }
+    const snapshot = JSON.stringify(progress);
+    memorySnapshots.set(key, snapshot);
+    try { window.localStorage.setItem(key, snapshot); } catch { memoryOnlyKeys.add(key); }
     window.dispatchEvent(new Event(CHANGE_EVENT));
 }
 
