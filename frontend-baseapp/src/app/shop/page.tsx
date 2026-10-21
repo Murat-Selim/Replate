@@ -591,7 +591,7 @@ export default function SmartShop() {
         const pageUrl = window.location.origin + "/receipt-hunt";
         const shareText = "Where does your grocery money really go?\n\nMy top category: "
             + (topCategory ? `${topCategory.category} (${(topCategory.share * 100).toFixed(1)}%)` : "not available")
-            + ".\n“" + insight + "”\n\n@replateapp #ReceiptHunt\n" + pageUrl;
+            + ".\n“" + insight + "”\n\n@replateapp @base #ReceiptHunt\n" + pageUrl;
         track("receipt_hunt_share_clicked", { channel, challenge: "receipt-hunt-01" });
         const url = channel === "x"
             ? "https://twitter.com/intent/tweet?text="

@@ -612,7 +612,7 @@ export default function SmartShop() {
         const pageUrl = window.location.origin + "/receipt-hunt";
         const text = "Where does your grocery money really go?\n\nMy top category: "
             + (topCategory ? `${topCategory.category} (${(topCategory.share * 100).toFixed(1)}%)` : "not available")
-            + ".\n“" + insight + "”\n\n@replateapp #ReceiptHunt\n" + pageUrl;
+            + ".\n“" + insight + "”\n\n@replateapp @base #ReceiptHunt\n" + pageUrl;
         track("receipt_hunt_share_clicked", { channel: "farcaster", challenge: "receipt-hunt-01" });
         try {
             await sdk.actions.composeCast({ text, embeds: [pageUrl] });
