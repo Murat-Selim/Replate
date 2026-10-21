@@ -14,7 +14,7 @@ export function readHuntProgress(snapshot: string, address?: string): HuntProgre
         const saved = JSON.parse(snapshot);
         const walletMatches = Boolean(address) && saved?.walletAddress === address?.toLowerCase();
         const followOpened = walletMatches && saved?.follow?.opened === true;
-        const engagementOpened = walletMatches && saved?.engagement?.opened === true;
+        const engagementOpened = walletMatches && saved?.announcementUrl === getHuntAnnouncementUrl() && saved?.engagement?.opened === true;
         return {
             follow: { opened: followOpened, verified: followOpened && saved?.follow?.verified === true },
             engagement: { opened: engagementOpened, verified: engagementOpened && saved?.engagement?.verified === true },
@@ -50,7 +50,7 @@ export function updateHuntTask(address: string | undefined, task: HuntTask, acti
         opened: current.opened || action === "open",
         verified: current.verified || (action === "verify" && current.opened),
     };
-    const snapshot = JSON.stringify({ walletAddress: address.toLowerCase(), ...progress });
+    const snapshot = JSON.stringify({ walletAddress: address.toLowerCase(), announcementUrl: getHuntAnnouncementUrl(), ...progress });
     memorySnapshots.set(key, snapshot);
     try { window.localStorage.setItem(key, snapshot); } catch { memoryOnlyKeys.add(key); }
     window.dispatchEvent(new Event(CHANGE_EVENT));
@@ -61,6 +61,6 @@ export function isHuntUnlocked(progress: HuntProgress): boolean {
 }
 
 export function getHuntAnnouncementUrl(): string | null {
-    const url = process.env.NEXT_PUBLIC_RECEIPT_HUNT_ANNOUNCEMENT_URL?.trim() || "";
+    const url = process.env.NEXT_PUBLIC_RECEIPT_HUNT_ANNOUNCEMENT_URL?.trim() || "https://x.com/replateapp/status/2113002525443948724";
     return /^https:\/\/(?:www\.)?(?:x\.com|twitter\.com)\/[a-z0-9_]{1,15}\/status\/\d+(?:[/?#].*)?$/i.test(url) ? url : null;
 }

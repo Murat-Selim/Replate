@@ -141,10 +141,20 @@ for (const app of ["frontend-baseapp", "frontend-farcaster"]) {
     for (const task of ["follow", "engagement"]) { api.updateHuntTask(walletA, task, "open"); api.updateHuntTask(walletA, task, "verify"); }
     assert.equal(api.isHuntUnlocked(progress()), true, "Verification works when browser storage cannot be read");
     assert.equal(api.isHuntUnlocked(progress(walletB)), false);
-    assert.equal(api.getHuntAnnouncementUrl(), null);
+    assert.equal(api.getHuntAnnouncementUrl(), "https://x.com/replateapp/status/2113002525443948724");
+    const oldDemo = api.readHuntProgress(JSON.stringify({ walletAddress: walletA.toLowerCase(), follow: { opened: true, verified: true }, engagement: { opened: true, verified: true } }), walletA);
+    assert.equal(oldDemo.follow.verified, true, "Adding the real announcement must preserve the follow task");
+    assert.equal(oldDemo.engagement.verified, false, "Demo verification must not count as engagement with the real announcement");
     environment.env.NEXT_PUBLIC_RECEIPT_HUNT_ANNOUNCEMENT_URL = "javascript:alert(1)";
     assert.equal(api.getHuntAnnouncementUrl(), null);
     environment.env.NEXT_PUBLIC_RECEIPT_HUNT_ANNOUNCEMENT_URL = "https://x.com/replateapp/status/123456789";
     assert.equal(api.getHuntAnnouncementUrl(), environment.env.NEXT_PUBLIC_RECEIPT_HUNT_ANNOUNCEMENT_URL);
-    console.log(`${app}: wallet-client mismatch, task view switching, owner-bound records, separate browsers, persistence, and storage fallback OK`);
+    assert.equal(progress().follow.verified, true);
+    assert.equal(progress().engagement.verified, false, "Changing the announcement requires completing engagement with the new post");
+    api.updateHuntTask(walletA, "engagement", "verify");
+    assert.equal(progress().engagement.verified, false);
+    api.updateHuntTask(walletA, "engagement", "open");
+    api.updateHuntTask(walletA, "engagement", "verify");
+    assert.equal(api.isHuntUnlocked(progress()), true);
+    console.log(`${app}: announcement link, post-specific engagement, wallet isolation, persistence, and storage fallback OK`);
 }
