@@ -89,7 +89,7 @@ function drawReceiptHuntCard(canvas: HTMLCanvasElement, result: VerificationResu
     ctx.fillText("RECEIPT HUNT #01", 76, 166);
     ctx.fillStyle = "#FFFFFF";
     ctx.font = "900 56px Arial";
-    drawReceiptHuntText(ctx, "Which category did you spend more on than you expected?", 76, 252, 900, 68, 2);
+    drawReceiptHuntText(ctx, "Where does your grocery money really go?", 76, 252, 900, 68, 2);
 
     const topCategory = spending.categories[0];
     ctx.fillStyle = "#22D97A";
@@ -867,8 +867,8 @@ Join me in reducing food waste!`,
                                         <section className="space-y-4 rounded-[22px] border border-[#22D97A]/20 bg-[#22D97A]/5 p-4" aria-labelledby="receipt-hunt-entry-title">
                                             <div>
                                                 <p className="text-[10px] font-black uppercase tracking-wider text-[#22D97A]">Receipt Hunt #01</p>
-                                                <h4 id="receipt-hunt-entry-title" className="mt-1 text-base font-black text-white font-heading">Which category did you spend more on than you expected?</h4>
-                                                <p className="mt-1 text-[10px] leading-5 text-[#A6B0B5]">Name the category and share what surprised you. The card only shows these analysis results and your text.</p>
+                                                <h4 id="receipt-hunt-entry-title" className="mt-1 text-base font-black text-white font-heading">Where does your grocery money really go?</h4>
+                                                <p className="mt-1 text-[10px] leading-5 text-[#A6B0B5]">Run the Receipt Spending Breakdown (0.05 USDC) to find your top category. Add one surprising observation (e.g. “I spend more on snacks than vegetables”). Share your privacy-safe card on X and paste the post link to complete the quest.</p>
                                                 <p className="mt-2 text-[9px] leading-5 text-[#A6B0B5]/70">Every item price and the printed total are checked before verification. Automatic recovery runs when the first reading is incomplete.</p>
                                             </div>
                                             {!receiptHuntSpending ? (
@@ -888,7 +888,7 @@ Join me in reducing food waste!`,
                                                         </div>
                                                     )}
                                                     <label htmlFor="receipt-hunt-insight" className="block text-[10px] font-bold text-white">What surprised you?</label>
-                                                    <textarea id="receipt-hunt-insight" value={huntInsight} onChange={(event) => setHuntInsight(event.target.value.slice(0, 140))} maxLength={140} rows={3} placeholder={receiptHuntSpending.categories[0] ? `I didn't expect ${receiptHuntSpending.categories[0].category} to be my top category...` : "I was surprised by..."} className="w-full resize-y rounded-xl border border-[#22D97A]/20 bg-black/20 px-3 py-2 text-xs text-white outline-none placeholder:text-[#A6B0B5]/50 focus:border-[#22D97A]/60" />
+                                                    <textarea id="receipt-hunt-insight" value={huntInsight} onChange={(event) => setHuntInsight(event.target.value.slice(0, 140))} maxLength={140} rows={3} placeholder="e.g. I spend more on snacks than vegetables" className="w-full resize-y rounded-xl border border-[#22D97A]/20 bg-black/20 px-3 py-2 text-xs text-white outline-none placeholder:text-[#A6B0B5]/50 focus:border-[#22D97A]/60" />
                                                     <p className="text-right text-[9px] text-[#A6B0B5]/60">{huntInsight.length}/140</p>
                                                     <canvas ref={receiptHuntCanvasRef} width={1080} height={1350} role="img" aria-label="Preview of your privacy-safe Receipt Hunt share card" className="mx-auto h-auto w-full max-w-[320px] rounded-2xl border border-white/10" />
                                                     <div className="grid gap-2">

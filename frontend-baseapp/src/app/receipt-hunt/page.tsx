@@ -4,9 +4,10 @@ import Shell from "@/components/Shell";
 import ReceiptHuntTasks from "@/components/ReceiptHuntTasks";
 
 const steps = [
-    ["01", "Verify a grocery receipt", "Replate analyzes your basket and creates a private result."],
-    ["02", "Add one observation", "Tell us what surprised you about your shopping habits."],
-    ["03", "Share your card", "Post the generated card with #ReceiptHunt and tag @replateapp."],
+    ["01", "Submit your receipt on Replate."],
+    ["02", "Run the Receipt Spending Breakdown (0.05 USDC) to find your top category."],
+    ["03", "Add one surprising observation (e.g. “I spend more on snacks than vegetables”)."],
+    ["04", "Share your privacy-safe card on X and paste the post link to complete the quest."],
 ];
 
 export default function ReceiptHuntPage() {
@@ -26,8 +27,8 @@ export default function ReceiptHuntPage() {
                             <p className="text-xs font-black uppercase tracking-[0.18em] text-[#00E36E]">RECEIPT HUNT #01</p>
                             <span className="rounded-full border border-white/10 px-3 py-1 text-xs font-bold text-white/70"><time dateTime="2026-10-21">Oct 21</time>–<time dateTime="2026-10-27">27, 2026</time></span>
                         </div>
-                        <h2 className="mt-5 max-w-2xl text-2xl font-black leading-tight text-white sm:text-3xl">Which category did you spend more on than you expected?</h2>
-                        <p className="mt-3 max-w-2xl text-sm leading-7 text-[#8c9790]">Submit your receipt on Replate, then run the Receipt Spending Breakdown analysis (0.05 USDC) to find your top category. Add one surprising observation and share your privacy-safe card.</p>
+                        <h2 className="mt-5 max-w-2xl text-2xl font-black leading-tight text-white sm:text-3xl">Where does your grocery money really go?</h2>
+                        <p className="mt-3 max-w-2xl text-sm leading-7 text-[#8c9790]">Submit your receipt on Replate. Run the Receipt Spending Breakdown (0.05 USDC) to find your top category. Add one surprising observation (e.g. “I spend more on snacks than vegetables”). Share your privacy-safe card on X and paste the post link to complete the quest.</p>
                         <p className="mt-3 text-xs leading-6 text-[#8c9790]">Entries close <time dateTime="2026-10-27T23:59:00+03:00">October 27 at 23:59 TRT (UTC+3)</time>. Winner announced <time dateTime="2026-10-28">October 28</time>.</p>
                         <Link href="#hunt-tasks" className="mt-6 inline-flex items-center justify-center gap-2 rounded-2xl bg-[#00E36E] px-5 py-3.5 text-sm font-black text-[#050806] transition hover:bg-[#00FF66]">
                             <Camera size={18} />
@@ -51,12 +52,11 @@ export default function ReceiptHuntPage() {
                     <div className="rounded-3xl border border-white/10 bg-[#0c1310]/80 p-6">
                         <h2 className="text-xl font-black text-white">After unlocking: how to enter</h2>
                         <ol className="mt-5 space-y-4">
-                            {steps.map(([number, title, description]) => (
+                            {steps.map(([number, instruction]) => (
                                 <li key={number} className="flex gap-4">
                                     <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-[#00E36E]/10 text-xs font-black text-[#00E36E]">{number}</span>
                                     <div>
-                                        <h3 className="font-bold text-white">{title}</h3>
-                                        <p className="mt-1 text-sm leading-6 text-[#8c9790]">{description}</p>
+                                        <p className="text-sm leading-6 text-[#8c9790]">{instruction}</p>
                                     </div>
                                 </li>
                             ))}
