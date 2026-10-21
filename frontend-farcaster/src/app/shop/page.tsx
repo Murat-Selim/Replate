@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import Shell from "@/components/Shell";
+import ReceiptHuntTasks from "@/components/ReceiptHuntTasks";
 import { Minus, Plus, Sparkles, Camera, Check, Loader2, X, Leaf, Star, Trophy, Image, ChevronDown } from "lucide-react";
 import { sdk } from "@farcaster/miniapp-sdk";
 import { useFarcasterAccount } from "@/hooks/useFarcasterAccount";
@@ -862,6 +863,7 @@ Join me in reducing food waste!`,
                                         </div>
                                     </div>
                                     {receiptHuntEntry && (
+                                        <ReceiptHuntTasks>
                                         <section className="space-y-4 rounded-[22px] border border-[#22D97A]/20 bg-[#22D97A]/5 p-4" aria-labelledby="receipt-hunt-entry-title">
                                             <div>
                                                 <p className="text-[10px] font-black uppercase tracking-wider text-[#22D97A]">Receipt Hunt #01</p>
@@ -898,6 +900,7 @@ Join me in reducing food waste!`,
                                             )}
                                             {huntNotice && <p role="status" className="text-[10px] leading-5 text-[#22D97A]">{huntNotice}</p>}
                                         </section>
+                                        </ReceiptHuntTasks>
                                     )}
                                     <p className="text-[10px] text-[#A6B0B5] leading-relaxed">Based on an average target of around 300g of fruit and vegetables per person per day. We check if your basket provides enough for your household.</p>
 

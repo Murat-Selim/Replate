@@ -18,6 +18,7 @@ import questsRouter from "./routes/quests.js";
 import agentDiscoveryRouter from "./routes/agent-discovery.js";
 import productsRouter from "./routes/products.js";
 import mealRouter from "./routes/meal.js";
+import receiptHuntRouter from "./routes/receipt-hunt.js";
 import { runWeeklyFinalization } from "./cron/weekly.js";
 import { setupEventListeners, invalidateLeaderboardCache } from "./services/events.js";
 import { warmLeaderboardCache } from "./routes/leaderboard.js";
@@ -101,6 +102,7 @@ app.use("/api/user", userRouter);
 app.use("/api/check-in", checkInRouter);
 app.use("/api/meta", metaRouter);
 app.use("/api/quests", questsRouter);
+app.use("/api/receipt-hunt", receiptHuntRouter);
 
 let weeklyFinalizationRunning = false;
 

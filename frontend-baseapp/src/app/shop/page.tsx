@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useRef } from "react";
 import Shell from "@/components/Shell";
+import ReceiptHuntTasks from "@/components/ReceiptHuntTasks";
 import { Minus, Plus, Sparkles, Camera, Check, Loader2, X, Leaf, Star, Trophy, Image, ChevronDown } from "lucide-react";
 import { useAccount, useConnect, useWalletClient } from "wagmi";
 import { appChain } from "@/lib/network";
@@ -832,6 +833,7 @@ export default function SmartShop() {
                                     </div>
                                 </div>
                                 {receiptHuntEntry && (
+                                    <ReceiptHuntTasks>
                                     <section className="space-y-4 rounded-2xl border border-[#00E36E]/20 bg-[#00E36E]/5 p-4" aria-labelledby="receipt-hunt-entry-title">
                                         <div>
                                             <p className="text-xs font-black uppercase tracking-wider text-[#00E36E]">Receipt Hunt #01</p>
@@ -869,6 +871,7 @@ export default function SmartShop() {
                                             )}
                                         {huntNotice && <p role="status" className="text-xs leading-5 text-[#00E36E]">{huntNotice}</p>}
                                     </section>
+                                    </ReceiptHuntTasks>
                                 )}
                                 <div className="bg-[#00E36E]/5 border border-[#00E36E]/15 rounded-2xl p-4 space-y-3">
                                     <div>
