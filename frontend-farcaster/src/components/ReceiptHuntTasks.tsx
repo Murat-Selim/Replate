@@ -55,7 +55,7 @@ function WalletReceiptHuntTasks({ walletAddress, isConnected, children }: { wall
             </ol>
             <div className={`rounded-2xl border p-4 ${unlocked ? "border-brand-primary/30 bg-brand-primary/5" : "border-white/10 bg-black/20"}`}>
                 <h3 className="flex items-center gap-2 text-sm font-bold text-white">{unlocked ? <Gift size={17} /> : <LockKeyhole size={17} />}Hunt reward task</h3>
-                <p className="mt-2 text-xs leading-5 text-brand-text-muted">{unlocked ? "Complete the receipt challenge to enter. Week 01 offers $5 USDC worth of AAPLc to one selected winner." : "Verify both X tasks to unlock the receipt challenge."}</p>
+                <p className="mt-2 text-xs leading-5 text-brand-text-muted">{unlocked ? "Complete the receipt challenge to enter. One selected winner receives $5 in tokenized AAPL stock (Apple Inc.), delivered as AAPLc on Base, not cash." : "Verify both X tasks to unlock the receipt challenge."}</p>
                 {unlocked ? (children || <Link href="/verify-receipt?challenge=receipt-hunt-01" className="mt-3 inline-flex items-center gap-2 rounded-xl bg-brand-primary px-4 py-3 text-xs font-black text-black">Open receipt task<ArrowRight size={15} aria-hidden="true" /></Link>) : <button type="button" disabled className="mt-3 rounded-xl border border-white/10 px-4 py-3 text-xs font-bold text-white/50">Hunt task locked</button>}
                 <p className="mt-2 text-xs leading-5 text-brand-text-muted">Spending Breakdown analysis costs 0.05 USDC. Verifying tasks confirms your participation; the team checks the selected winner on X before sending the prize.</p>
             </div>

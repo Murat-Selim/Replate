@@ -42,7 +42,7 @@ export default function ReceiptHuntPage() {
                     <div className="mt-5 flex items-center gap-3 rounded-2xl border border-[#00E36E]/10 bg-[#00E36E]/5 p-4">
                         <Gift className="shrink-0 text-[#00E36E]" size={22} />
                         <div className="text-sm leading-6 text-white">
-                            <p><span className="font-black">Week 01 reward: $5 USDC worth of AAPLc</span><span className="text-[#8c9790]"> (tokenized Apple stock on Base), valued at payout time.</span></p>
+                            <p><span className="font-black">Week 01 prize: $5 in tokenized AAPL stock (Apple Inc.), not cash.</span><span className="text-[#8c9790]"> Delivered as AAPLc on Base, valued at payout time.</span></p>
                             <p className="mt-1 text-xs leading-5 text-[#8c9790]">The team selects one winner, confirms issuer eligibility and a Base wallet, then manually sends the reward and features their entry. AAPLc is offered only in eligible jurisdictions.</p>
                         </div>
                     </div>

@@ -142,7 +142,7 @@ export default function Home() {
                         <div><h2 className="text-xl font-black text-white font-heading">Receipt Hunt</h2><p className="mt-1 text-[11px] leading-5 text-[#A6B0B5]">Don’t share your receipt. Share what it revealed.</p></div>
                         <ArrowRight className="shrink-0 text-[#22D97A]" size={20} />
                     </div>
-                    <p className="mt-2 text-[10px] leading-5 text-[#A6B0B5]">Oct 21–27, 2026 · Week 01 reward: $5 USDC worth of AAPLc</p>
+                    <p className="mt-2 text-[10px] leading-5 text-[#A6B0B5]">Oct 21–27, 2026 · Week 01 prize: $5 in tokenized Apple stock (AAPLc), not cash.</p>
                 </Link>
 
                 {/* User Trust & Rewards Widget */}
