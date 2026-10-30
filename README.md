@@ -280,9 +280,6 @@ wallet. Never share `EVM_PRIVATE_KEY`; it belongs only to the agent wallet.
 
 ---
 
-## 📜 License
-
-This project is licensed under the [MIT License](LICENSE).
 
 ## Development checks
 
