@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, ShoppingCart, Trophy, Target, User, Wallet, Menu, Utensils, Sparkles } from "lucide-react";
+import { Home, ShoppingCart, Trophy, Target, User, Wallet, Menu, Utensils } from "lucide-react";
 import { useAccount, useConnect, useDisconnect } from "wagmi";
 import SideMenu from "@/components/SideMenu";
 
@@ -26,7 +26,6 @@ export default function Header() {
         { href: "/", label: "Home", icon: Home },
         { href: "/verify-receipt", label: "Verify Receipt", icon: ShoppingCart },
         { href: "/meal", label: "Analyze Meal", icon: Utensils },
-        { href: "/receipt-hunt", label: "Receipt Hunt", icon: Sparkles },
         { href: "/quests", label: "Quests", icon: Target },
         { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
         { href: "/profile", label: "Profile", icon: User },

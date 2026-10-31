@@ -120,14 +120,6 @@ export async function unlockAdvancedIntelligence(
     return response.report;
 }
 
-export function requestMealAnalysis(walletClient: WalletClient, imageBase64: string) {
-    return requestPaidJson<{ success: true; data: MealAnalysis }>(walletClient, "/api/analyze-meal", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageBase64 }),
-    }).then((response) => response.data);
-}
-
 export function fetchBehaviorIntelligence(walletClient: WalletClient) {
     return requestPaidJson<{ success: true } & BehaviorIntelligence>(walletClient, "/api/intelligence/behavior/me");
 }

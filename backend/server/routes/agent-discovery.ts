@@ -53,6 +53,8 @@ const capabilities: Capability[] = [
   ], output: ["report.receiptId", "report.healthScore", "report.nutritionScore", "report.verification.receiptHash", "report.verification.lineItems", "report.verification.lineItemDigest", "report.verification.sourceCommitment", "report.verification.hashAlgorithm", "report.verification.canonicalization"], authorization: "receipt owner and x402 payer must match" },
   { id: "mealAnalysis", name: "Meal Photo Analysis", method: "POST", path: "/api/analyze-meal", description: MEAL_DESCRIPTION, price: INTELLIGENCE_PRICING.mealAnalysis, status: "live", input: [
     { name: "imageBase64", in: "json", required: true, description: "Base64-encoded meal photo." },
+    { name: "txHash", in: "json", required: true, description: "Confirmed USDC transfer bound to this photo." },
+    { name: "payerAddress", in: "json", required: true, description: "Wallet sending the USDC transfer." },
   ], output: ["data.detectedLabels", "data.components", "data.balanceScore", "data.insight", "data.recommendation", "data.plate", "data.items", "data.missingGroups", "data.diversity"] },
   { id: "spendingBreakdown", name: "Spending Breakdown", method: "GET", path: "/api/intelligence/spending/me", description: "Return receipt totals, category amounts and 30-day category-share changes grouped by currency, including food and household totals, for the paying wallet.", price: INTELLIGENCE_PRICING.spendingBreakdown, status: "live", input: [], output: ["currencies"] },
   { id: "receiptSpendingBreakdown", name: "Receipt Spending Breakdown", method: "GET", path: "/api/intelligence/spending/receipt/{receiptId}", description: "Return priced-item spending totals and category shares for one verified receipt only, in the receipt currency.", price: INTELLIGENCE_PRICING.receiptSpendingBreakdown, status: "live", input: receiptPathInput("receiptId"), output: ["receiptId", "currencyCode", "pricedItemsTotal", "pricedItemCount", "categories"] },
@@ -63,7 +65,7 @@ const capabilities: Capability[] = [
   { id: "categorySignal", name: "Category Signal", method: "GET", path: "/api/signals/category/{category}", description: "Category signals are coming soon / Yakında.", price: INTELLIGENCE_PRICING.categorySignal, status: "soon", input: receiptPathInput("category"), output: ["priceMomentum30d", "demandMomentum30d", "observationCount", "confidence", "signalVersion", "calculationVersion"] },
   { id: "merchantSignal", name: "Merchant Signal", method: "GET", path: "/api/signals/merchant/{merchantId}", description: "Merchant signals are coming soon / Yakında.", price: INTELLIGENCE_PRICING.merchantSignal, status: "soon", input: receiptPathInput("merchantId"), output: ["average_basket_value", "price_competitiveness", "category_strength", "deal_frequency", "observation_count", "confidence"] },
 ];
-const publicCapabilities = capabilities.filter((capability) => capability.id === "mealAnalysis");
+const publicCapabilities = capabilities.filter((capability) => capability.id === "marketStatistics");
 
 for (const capability of capabilities) {
   const metadata = INTELLIGENCE_DISCOVERY[capability.id];
@@ -94,7 +96,7 @@ function endpointDescription(capability: Capability): Record<string, unknown> {
       },
   };
   if (capability.status === "soon") operation.security = [];
-  if (capability.status === "live" && capability.price) {
+  if (capability.status === "live" && capability.price && capability.id !== "mealAnalysis") {
     const payment = x402Metadata(capability.price);
     operation["x-payment-info"] = { price: { mode: "fixed", currency: "USDC", amount: capability.price.usd }, protocols: [{ x402: {} }] };
     operation.x402 = payment;
@@ -112,14 +114,21 @@ function endpointDescription(capability: Capability): Record<string, unknown> {
       required: true,
       content: { "application/json": { schema: MEAL_INPUT_SCHEMA, example: MEAL_INPUT_EXAMPLE } },
     };
+    operation["x-payment-method"] = "erc20-transfer";
+    operation["x-payment-info"] = { price: { mode: "fixed", currency: "USDC", amount: INTELLIGENCE_PRICING.mealAnalysis.usd },
+      network: runtimeConfig.x402Network, asset: runtimeConfig.x402Asset,
+      payTo: process.env.MEAL_PAYMENT_TO?.trim() || runtimeConfig.x402PayTo, quoteUrl: "/api/analyze-meal/payment" };
+    delete (operation.responses as Record<string, unknown>)["402"];
     const responses = operation.responses as Record<string, unknown>;
     responses["200"] = {
       description: "Estimated visual meal composition and balance; not an exact nutrition or calorie measurement.",
       content: { "application/json": { schema: MEAL_RESPONSE_SCHEMA, example: MEAL_RESPONSE_EXAMPLE } },
     };
-    responses["422"] = { description: "Invalid image or no visible meal; no USDC payment is settled." };
-    responses["502"] = { description: "Meal analysis could not finish; no USDC payment is settled." };
+    responses["422"] = { description: "Invalid image, no visible meal, or reverted payment. A completed transfer is not automatically refunded." };
+    responses["502"] = { description: "Meal analysis could not finish. Retry the same photo and txHash without paying again." };
     responses["503"] = { description: "Meal analysis payments are unavailable." };
+    responses["202"] = { description: "The same paid analysis is processing; poll with the same txHash." };
+    responses["409"] = { description: "The USDC transfer is not confirmed yet." };
   }
   const metadata = INTELLIGENCE_DISCOVERY[capability.id];
   if (metadata) {
@@ -138,13 +147,13 @@ function endpointDescription(capability: Capability): Record<string, unknown> {
 }
 
 function agentManifest(origin: string) {
-  const payment = x402Metadata(INTELLIGENCE_PRICING.mealAnalysis);
+  const payment = x402Metadata(publicCapabilities[0]?.price);
   return {
     name: "Replate Intelligence",
-    description: MEAL_DESCRIPTION,
+    description: "Replate Intelligence APIs on Base.",
     url: origin,
     version: "1.0.0",
-    capabilities: ["x402", "agent-native", "meal-analysis"],
+    capabilities: ["x402", "agent-native"],
     x402: { enabled: x402Configured, facilitator: payment.facilitator, network: payment.network, asset: "USDC", assetAddress: payment.asset, builderCode: payment.builderCode },
     agenticWallets: { compatible: true, skills: ["search-for-service", "pay-for-service"], installCommand: "npx skills add coinbase/agentic-wallet-skills" },
     endpoints: publicCapabilities.map((capability) => ({
@@ -157,7 +166,7 @@ function agentManifest(origin: string) {
       output: capability.output,
       authorization: capability.authorization,
     })),
-    tags: ["meal-analysis", "food", "nutrition", "vision", "x402", "agent-native"],
+    tags: ["food", "nutrition", "vision", "x402", "agent-native"],
     builderCode: payment.builderCode,
     openapiUrl: `${origin}/openapi.json`,
   };
@@ -190,7 +199,7 @@ function openApiDocument(origin: string) {
       title: "Replate Intelligence API",
       version: "1.0.0",
       description: "Paid receipt, personal, and aggregate commerce intelligence for autonomous agents.",
-      "x-guidance": "Public agent discovery advertises only Meal Analysis. Private receipt and wallet endpoints remain documented for their owners, with x-bazaar-discoverable=false. Live paid endpoints return a 402 challenge; pay the listed USDC amount on Base Mainnet and retry with PAYMENT-SIGNATURE.",
+      "x-guidance": "Meal Analysis uses a normal USDC transfer and is excluded from x402 discovery. Private receipt and wallet endpoints remain documented for their owners, with x-bazaar-discoverable=false. Other live paid endpoints return a 402 challenge; pay the listed USDC amount on Base Mainnet and retry with PAYMENT-SIGNATURE.",
     },
     servers: [{ url: origin }],
     paths: Object.fromEntries(capabilities.map((capability) => [capability.path, endpointDescription(capability)])),
@@ -202,10 +211,10 @@ router.get("/openapi.json", (req, res) => res.set("Cache-Control", "public, max-
 router.get("/.well-known/agent.json", (req, res) => res.set("Cache-Control", "public, max-age=300").json(agentManifest(baseUrl(req))));
 router.get("/.well-known/agent-card.json", (req: Request, res: Response) => {
   const origin = baseUrl(req);
-  const payment = x402Metadata(INTELLIGENCE_PRICING.mealAnalysis);
+  const payment = x402Metadata(publicCapabilities[0]?.price);
   res.set("Cache-Control", "public, max-age=300").json({
     name: "Replate Intelligence",
-    description: MEAL_DESCRIPTION,
+    description: "Replate Intelligence APIs on Base.",
     url: origin,
     version: "1.0.0",
     protocolVersion: "0.3.0",
@@ -217,7 +226,7 @@ router.get("/.well-known/agent-card.json", (req: Request, res: Response) => {
       id: capability.id,
       name: capability.name,
       description: capability.description,
-      tags: ["meal-analysis", "food", "nutrition", "vision", "x402"],
+      tags: ["food", "nutrition", "vision", "x402"],
       examples: [`Use ${capability.method} ${capability.path}.`],
       inputModes: ["application/json"],
       outputModes: ["application/json"],

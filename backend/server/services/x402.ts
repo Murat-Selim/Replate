@@ -4,20 +4,17 @@ import { RequestHandler } from "express";
 import { paymentMiddleware, x402ResourceServer } from "@x402/express";
 import { HTTPFacilitatorClient, type RouteConfig } from "@x402/core/server";
 import { ExactEvmScheme } from "@x402/evm/exact/server";
-import { bazaarResourceServerExtension, declareBuilderCodeExtension, declareDiscoveryExtension } from "@x402/extensions";
+import { bazaarResourceServerExtension, declareBuilderCodeExtension } from "@x402/extensions";
 import { createCdpFacilitatorClient, getCdpExtensionRegistrations } from "@coinbase/cdp-sdk/x402";
 import type { SettleContext, SettleFailureContext, SettleResultContext } from "@x402/core/types";
 import { INTELLIGENCE_PRICING, runtimeConfig } from "../config.js";
 import { getDatabasePool } from "../db.js";
-import { validateImageBase64 } from "./ocr.js";
 import { receiptPriceIssues } from "./receipt-analysis.js";
 import { buildAdvancedReceiptReport, findReceipt, hasAdvancedReceiptBinding, type AdvancedReceiptReport } from "./intelligence-data.js";
 import { buildCategorySignal, buildProductSignal, MIN_SIGNAL_SAMPLE_SIZE, saveCategorySignal, saveProductSignal } from "./signal-engine.js";
-import { MEAL_DESCRIPTION, MEAL_INPUT_EXAMPLE, MEAL_INPUT_SCHEMA, MEAL_RESPONSE_EXAMPLE, MEAL_RESPONSE_SCHEMA } from "./meal-discovery.js";
 import { INTELLIGENCE_DISCOVERY } from "./intelligence-discovery.js";
 
 export const X402_ROUTE = "POST /api/intelligence/advanced";
-export const MEAL_ANALYSIS_ROUTE = "POST /api/analyze-meal";
 export const x402Configured = Boolean(
   runtimeConfig.x402PayTo && ((runtimeConfig.cdpApiKeyId && runtimeConfig.cdpApiKeySecret) || runtimeConfig.x402FacilitatorUrl),
 );
@@ -25,13 +22,12 @@ export const x402Configured = Boolean(
 export type PaidResourceType =
   | "advanced_receipt" | "basket_intelligence" | "receipt_product_prices"
   | "behavior_intelligence"
-  | "product_signal" | "category_signal" | "merchant_signal" | "meal_analysis" | "spending_breakdown" | "receipt_spending_breakdown";
+  | "product_signal" | "category_signal" | "merchant_signal" | "spending_breakdown" | "receipt_spending_breakdown";
 
 interface PaymentRequestBody {
   receiptId?: string | number;
   receiptHash?: string;
   userAddress?: string;
-  imageBase64?: string;
 }
 
 interface PaidResourceRequest {
@@ -83,10 +79,6 @@ function requestResource(context: SettleContext): PaidResourceRequest | null {
   if (method === "POST" && path === "/api/intelligence/advanced") {
     return { resourceType: "advanced_receipt", resourceId: String(body.receiptId || ""), endpoint, receiptId: String(body.receiptId || ""), receiptHash: body.receiptHash, userAddress: body.userAddress };
   }
-  if (method === "POST" && path === "/api/analyze-meal") {
-    const imageBase64 = validateImageBase64(typeof body.imageBase64 === "string" ? body.imageBase64 : "");
-    return { resourceType: "meal_analysis", resourceId: createHash("sha256").update(imageBase64).digest("hex"), endpoint };
-  }
 
   const receiptPricesMatch = path.match(/^\/api\/intelligence\/price\/receipt\/(\d+)$/);
   if (method === "GET" && receiptPricesMatch) {
@@ -115,7 +107,6 @@ function isReceiptResource(resourceType: PaidResourceType): boolean {
 
 async function validateResource(client: any, resource: PaidResourceRequest, payer: string) {
   if (resource.resourceType === "merchant_signal") throw new Error("Merchant signals are not available until merchant normalization is populated");
-  if (resource.resourceType === "meal_analysis") return { userWallet: payer };
 
   if (isReceiptResource(resource.resourceType)) {
     if (!/^\d+$/.test(resource.receiptId || "")) throw new Error("A verified receipt ID is required");
@@ -348,19 +339,8 @@ export function createX402Middleware(): RequestHandler | null {
 
   const intelligenceRoute = (price: { usd: string; atomic: string }, id: string): RouteConfig =>
     routeConfig(price, INTELLIGENCE_DISCOVERY[id].description);
-  const meal = routeConfig(INTELLIGENCE_PRICING.mealAnalysis, MEAL_DESCRIPTION);
-  meal.serviceName = "Replate Intelligence";
-  meal.tags = ["meal-analysis", "food", "nutrition", "vision"];
-  meal.extensions = {
-    ...meal.extensions,
-    ...declareDiscoveryExtension({
-      bodyType: "json", input: MEAL_INPUT_EXAMPLE, inputSchema: MEAL_INPUT_SCHEMA,
-      output: { example: MEAL_RESPONSE_EXAMPLE, schema: MEAL_RESPONSE_SCHEMA },
-    }),
-  };
   const routes = {
     [X402_ROUTE]: intelligenceRoute(INTELLIGENCE_PRICING.advancedReceipt, "advancedReceipt"),
-    [MEAL_ANALYSIS_ROUTE]: meal,
     "GET /api/intelligence/basket/:receiptId": intelligenceRoute(INTELLIGENCE_PRICING.basket, "basket"),
     "GET /api/intelligence/price/receipt/:receiptId": intelligenceRoute(INTELLIGENCE_PRICING.productPrice, "productPrice"),
     "GET /api/intelligence/spending/receipt/:receiptId": intelligenceRoute(INTELLIGENCE_PRICING.receiptSpendingBreakdown, "receiptSpendingBreakdown"),

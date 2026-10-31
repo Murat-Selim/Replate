@@ -122,8 +122,10 @@ try {
     ["POST", "/api/intelligence/advanced", "100000"], ["GET", "/api/intelligence/basket/1", "40000"],
     ["GET", "/api/intelligence/price/receipt/1", "30000"], ["GET", "/api/intelligence/spending/receipt/1", "50000"],
     ["GET", "/api/intelligence/behavior/me", "50000"], ["GET", "/api/intelligence/spending/me", "50000"],
-    ["POST", "/api/analyze-meal", "10000"],
   ];
+  const unpaidMeal = await fetch(origin + "/api/analyze-meal", { method: "POST" });
+  assert.equal(unpaidMeal.status, 404, "Meal must bypass the x402 middleware");
+  assert.equal(unpaidMeal.headers.get("payment-required"), null);
   const advancedBody = { receiptId: "1", receiptHash: hash, userAddress: owner };
   const request = async (method: string, path: string, payer?: string, body?: unknown) => {
     const initial = await fetch(origin + path, { method, headers: { "x-forwarded-proto": "https" } });
@@ -222,10 +224,12 @@ try {
   assert(!JSON.stringify(await failedAdvanced.response.json()).includes("Private example apple"));
   const manifest = await (await fetch(origin + "/.well-known/agent.json")).json();
   const card = await (await fetch(origin + "/.well-known/agent-card.json")).json();
-  assert.deepEqual(manifest.endpoints.map((endpoint: { path: string }) => endpoint.path), ["/api/analyze-meal"]);
-  assert.deepEqual(card.skills.map((skill: { id: string }) => skill.id), ["mealAnalysis"]);
-  assert.equal(card.x402.amountAtomic, "10000");
-  assert.equal(spec.paths["/api/analyze-meal"].post["x-bazaar-discoverable"], true);
+  assert.deepEqual(manifest.endpoints.map((endpoint: { path: string }) => endpoint.path), []);
+  assert.deepEqual(card.skills.map((skill: { id: string }) => skill.id), []);
+  assert.equal(card.x402.amountAtomic, manifest.endpoints[0]?.payment.amountAtomic || "100000");
+  assert.equal(spec.paths["/api/analyze-meal"].post["x-bazaar-discoverable"], false);
+  assert.equal(spec.paths["/api/analyze-meal"].post["x-payment-method"], "erc20-transfer");
+  assert.equal(spec.paths["/api/analyze-meal"].post.x402, undefined);
   for (const [method, path] of routes.filter(([, path]) => path !== "/api/analyze-meal")) {
     assert.equal(spec.paths[path.replace(/\/1$/, "/{receiptId}")][method.toLowerCase()]["x-bazaar-discoverable"], false);
   }

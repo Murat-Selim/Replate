@@ -136,14 +136,6 @@ export default function Home() {
                     <Link href="/meal" className="w-full bg-[#22D97A] text-[#0B1114] py-5 px-6 rounded-full font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-95 shadow-[0_0_30px_rgba(34,217,122,0.45)] hover:shadow-[0_0_40px_rgba(34,217,122,0.7)]"><Utensils size={18} />Analyze Meal<ArrowRight size={18} strokeWidth={3} /></Link>
                 </div>
 
-                <Link href="/receipt-hunt" className="w-full max-w-md rounded-[24px] border border-[#22D97A]/20 bg-[#22D97A]/5 p-5 text-left transition hover:border-[#22D97A]/45">
-                    <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#22D97A] font-heading">Weekly community challenge · Week 01</p>
-                    <div className="mt-2 flex items-center justify-between gap-3">
-                        <div><h2 className="text-xl font-black text-white font-heading">Receipt Hunt</h2><p className="mt-1 text-[11px] leading-5 text-[#A6B0B5]">Don’t share your receipt. Share what it revealed.</p></div>
-                        <ArrowRight className="shrink-0 text-[#22D97A]" size={20} />
-                    </div>
-                    <p className="mt-2 text-[10px] leading-5 text-[#A6B0B5]">Oct 21–27, 2026 · Week 01 prize: $5 in tokenized Apple stock (AAPLc), not cash.</p>
-                </Link>
 
                 {/* User Trust & Rewards Widget */}
                 <div className="w-full glass-card p-4 rounded-[28px] flex items-center justify-between border border-[#22D97A]/10 max-w-sm">

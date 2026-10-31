@@ -1,5 +1,7 @@
 # Replate Intelligence on Coinbase Bazaar / Agentic Market
 
+> Meal Analysis now uses a normal 0.01 USDC transfer on Base and is excluded from x402/Bazaar discovery. See [Meal payments](MEAL_PAYMENTS.md).
+
 Discovery uses the installed `@x402/extensions` 2.22 SDK and the existing x402 v2
 CDP Facilitator on Base mainnet. No API route, price, payment asset or facilitator
 is replaced. All examples in the public discovery metadata are synthetic.
@@ -8,10 +10,8 @@ is replaced. All examples in the public discovery metadata are synthetic.
 
 | Method | Existing route | USDC / successful call | Authorization |
 | --- | --- | --- | --- |
-| POST | `/api/analyze-meal` | 0.01 | Payer supplies their own meal photo |
 
-Only Meal Analysis declares `extensions.bazaar` and appears in the public agent
-manifest and agent card. Its description, input/output schemas and synthetic
+Meal Analysis is no longer published in the x402 public agent manifest or agent card. Its description, input/output schemas and synthetic
 examples use `declareDiscoveryExtension`. Barcode is excluded from this scope;
 its existing application route is unchanged. Product, Category and Merchant
 Signals remain coming soon / 501 and are not advertised as working services.
@@ -20,20 +20,14 @@ Advanced Receipt, Basket, Receipt Prices, Receipt Spending and personal Behavior
 and Spending keep their existing routes, x402 prices, payment verification,
 owner restrictions and private cache headers. They do not declare Bazaar
 metadata. `/openapi.json` retains their owner-facing documentation with
-`x-bazaar-discoverable: false`; the public Meal operation is marked true.
+`x-bazaar-discoverable: false`; Meal is marked false and uses normal USDC transfers.
 Recommendations remain part of existing reports, with no separate endpoint.
 
-## Public Meal Analysis
+## Meal Analysis
 
-- Resource: `https://replate-backend61.vercel.app/api/analyze-meal`
-- Method: `POST`, JSON body: `{ "imageBase64": "<base64 meal photo>" }`
-- Price: **0.01 USDC per successful call**, Base mainnet (`eip155:8453`).
-- No receipt ID, receipt verification or Replate registration is required.
-- Returns estimated food groups, visible foods, plate shares, plant diversity,
-  balance score and a practical suggestion. No exact calories or medical assessment.
-- Input/output schemas and examples: `/openapi.json`.
+For the current normal-transfer flow, quote endpoint, photo commitment and retries, see [MEAL_PAYMENTS.md](MEAL_PAYMENTS.md). No x402 payment signature is accepted.
 
-## Listing process
+## Legacy Meal listing process (historical)
 
 1. Deploy the changes. On Vercel, system environment variables must be enabled
    (`VERCEL=1`) so Express trusts the platform proxy and advertises HTTPS.
@@ -111,7 +105,7 @@ Sources:
   block 52688839, successful receipt and matching 0.01 USDC transfer to the
   configured recipient. No new mainnet payment was made for this audit.
 
-Only Meal is in the current listing scope. No activation payments for private
+Meal is no longer in the x402 listing scope. The Meal audit notes above describe its historical integration. No activation payments for private
 receipt or wallet APIs are needed. If public aggregate Signals are implemented
 later, their data quality, privacy and successful CDP settlement must be verified
 before claiming a listing. Validation alone does not perform a payment.

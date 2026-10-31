@@ -3,16 +3,19 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useWalletClient } from "wagmi";
+import { useConnection, useWalletClient } from "wagmi";
 import { ArrowRight, CheckCircle2, ImagePlus, Loader2, Sparkles } from "lucide-react";
 import Shell from "@/components/Shell";
 import MealPlateBreakdown, { MEAL_GROUP_META } from "@/components/MealPlateBreakdown";
 import { appChain } from "@/lib/network";
-import { requestMealAnalysis, type MealAnalysis } from "@/lib/intelligence";
+import type { MealAnalysis } from "@/lib/intelligence";
+import { requestMealAnalysis } from "@/lib/meal-payment";
 import { compressImage } from "@/lib/image";
 import { track } from "@vercel/analytics";
 
 export default function MealPage() {
+    const { connector } = useConnection();
+    const [paymentTxHash, setPaymentTxHash] = useState<string | null>(null);
     const { data: walletClient } = useWalletClient({ chainId: appChain.id });
     const [image, setImage] = useState<string | null>(null);
     const [result, setResult] = useState<MealAnalysis | null>(null);
@@ -24,12 +27,12 @@ export default function MealPage() {
         if (!file) return;
         setError(null);
         setResult(null);
+        setPaymentTxHash(null);
         try {
             setImage(await compressImage(file, 1280, 1280, 0.82, 700000));
-        } catch {
-            const reader = new FileReader();
-            reader.onload = () => setImage(String(reader.result));
-            reader.readAsDataURL(file);
+        } catch (error) {
+            setImage(null);
+            setError(error instanceof Error ? error.message : "Meal photo could not be prepared. Choose a JPEG, PNG or WebP photo.");
         }
     };
 
@@ -40,7 +43,7 @@ export default function MealPage() {
         setLoading(true);
         setError(null);
         try {
-            const data = await requestMealAnalysis(walletClient, image.split(",")[1] || image);
+            const data = await requestMealAnalysis(walletClient, image.split(",")[1] || image, { smartWallet: connector?.id === "baseAccount", onPayment: setPaymentTxHash });
             setResult(data);
             track("meal_analysis_completed", { balance_score: Number(data.balanceScore) });
         } catch (err) {
@@ -74,9 +77,10 @@ export default function MealPage() {
                         <label htmlFor="meal-photo" className="relative flex aspect-square cursor-pointer flex-col items-center justify-center overflow-hidden rounded-3xl border-2 border-dashed border-[#00E36E]/25 bg-[#00E36E]/5 transition hover:border-[#00E36E]/50">
                             {image ? <Image src={image} alt="Meal preview" fill unoptimized className="object-cover" /> : <><ImagePlus size={42} className="text-[#00E36E]" /><span className="mt-4 font-black text-white">Take or choose a meal photo</span><span className="mt-1 text-sm text-[#8c9790]">Your photo is used for this analysis only.</span></>}
                         </label>
-                        <input id="meal-photo" type="file" accept="image/*" capture="environment" onChange={handleFile} className="sr-only" />
-                <button onClick={analyze} disabled={!image || loading} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#00E36E] px-5 py-4 font-black text-[#050806] transition hover:bg-[#00FF66] disabled:cursor-not-allowed disabled:opacity-40">{loading ? <Loader2 size={19} className="animate-spin" /> : <Sparkles size={19} />} {loading ? "Payment & analysis pending..." : "Pay 0.01 USDC · Analyze Meal"}</button>
-                        <p className="mt-3 text-center text-xs text-[#8c9790]">One-time x402 payment on Base. Connect a Base wallet to continue.</p>
+                        <input id="meal-photo" type="file" accept="image/*" capture="environment" onChange={handleFile} disabled={loading} className="sr-only" />
+                <button onClick={analyze} disabled={!image || loading || Boolean(result)} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#00E36E] px-5 py-4 font-black text-[#050806] transition hover:bg-[#00FF66] disabled:cursor-not-allowed disabled:opacity-40">{loading ? <Loader2 size={19} className="animate-spin" /> : <Sparkles size={19} />} {loading ? "Payment & analysis pending..." : result ? "Analysis complete" : paymentTxHash ? "Retry analysis · payment saved" : "Pay 0.01 USDC · Analyze Meal"}</button>
+                        <p className="mt-3 text-center text-xs text-[#8c9790]">USDC is transferred on Base before analysis; network fees may apply. Confirmed payments are not automatically refunded. Retries for the same photo reuse the payment.</p>
+                        {paymentTxHash && <a href={`https://basescan.org/tx/${paymentTxHash}`} target="_blank" rel="noopener noreferrer" className="mt-2 block text-center text-xs text-brand-primary underline">View payment transaction</a>}
                         {error && <p role="alert" className="mt-4 rounded-xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm font-bold text-red-200">{error}</p>}
                     </div>
 

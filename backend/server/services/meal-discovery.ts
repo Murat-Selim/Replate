@@ -1,11 +1,13 @@
 import { MEAL_GROUPS, scoreMeal } from "./meal-analysis.js";
 
-export const MEAL_DESCRIPTION = "Analyze a meal photo for visible foods, estimated food-group shares, missing groups, plant diversity and a balance score. Returns JSON with one practical suggestion. No receipt, Replate account or receipt verification is required. Visual estimates only; no exact calories or medical assessment.";
+export const MEAL_DESCRIPTION = "Analyze a meal photo for visible foods, estimated food-group shares, missing groups, plant diversity and a balance score. A normal 0.01 USDC transfer on Base, bound to the photo, is required. Submit its txHash and payerAddress with the image. No x402 signature, receipt or Replate registration is required. Visual estimates only; no exact calories or medical assessment.";
 
 export const MEAL_INPUT_SCHEMA = {
   type: "object",
-  required: ["imageBase64"],
+  required: ["imageBase64", "txHash", "payerAddress"],
   properties: {
+    txHash: { type: "string", pattern: "^0x[0-9a-fA-F]{64}$", description: "Confirmed Base USDC transfer. Append the SHA-256 hash of the image bytes to the ERC-20 transfer calldata." },
+    payerAddress: { type: "string", pattern: "^0x[0-9a-fA-F]{40}$", description: "Wallet sending the USDC transfer." },
     imageBase64: {
       type: "string", minLength: 1,
       description: "JPEG, PNG or WebP meal photo as base64, optionally with a data URL prefix. The base64 image payload is limited to 700000 characters.",
@@ -54,6 +56,8 @@ export const MEAL_RESPONSE_SCHEMA = {
 
 // A tiny PNG is only a transport example; paid callers supply their own meal photo.
 export const MEAL_INPUT_EXAMPLE = {
+  txHash: `0x${"1".repeat(64)}`,
+  payerAddress: `0x${"1".repeat(40)}`,
   imageBase64: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a6x0AAAAASUVORK5CYII=",
 };
 export const MEAL_RESPONSE_EXAMPLE = {
