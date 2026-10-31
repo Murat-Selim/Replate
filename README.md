@@ -72,7 +72,7 @@ The core logic resides on-chain to ensure transparency and trust.
 
 ### Prerequisites
 
-- Node.js (v20+)
+- Node.js 20.19+ (Next.js 16 and the backend's cross-env 10 require a modern Node.js 20 runtime)
 - Google Cloud Vision API Credentials
 - Base mainnet RPC and Base USDC (`0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`); Base Sepolia is optional for test deployments.
 
@@ -92,6 +92,8 @@ The core logic resides on-chain to ensure transparency and trust.
     ```
 
 3.  **Environment Setup**:
+
+    Start from `backend/.env.example` for backend configuration. Copy it to `backend/.env` and fill only the services you intend to use. The frontend apps can each use a local `.env.local` with `NEXT_PUBLIC_API_URL=http://localhost:3001`. Never place private credentials in variables prefixed with `NEXT_PUBLIC_`.
 
     Frontend apps use `NEXT_PUBLIC_API_URL` to talk to the backend.
     For local development, set it to `http://localhost:3001`.
@@ -278,6 +280,19 @@ wallet. Never share `EVM_PRIVATE_KEY`; it belongs only to the agent wallet.
 
 ---
 
-## 📜 License
 
-This project is licensed under the MIT License.
+## Development checks
+
+The following commands are declared in the committed manifests:
+
+```sh
+cd backend
+npm run compile
+npm run test:contracts
+```
+
+For the Base frontend, run `npm run lint` and `npm run build` from `frontend-baseapp/`. Run `npm run build` from `frontend-farcaster/`; its current `lint` script still invokes `next lint`, which is not available in Next.js 16, so that script requires migration before use.
+
+Tests and scripts can depend on environment configuration. Read receipt/meal evaluation scripts before running them against external services. The documentation update does not establish that these checks pass or that deployed contracts have been audited.
+
+Hosted client: [Replate](https://replate-webapp.vercel.app). This is the configured project website; hosted availability and onchain state must be checked separately from local builds.
